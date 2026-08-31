@@ -688,6 +688,7 @@ grep -n "<那条正则/那张常量表>" scripts/*.mjs # 除 lib/ 外应当零�
 | M(n+1) | `verify-fresh` | 盘上产物 = 生成器现在的产出（§4.7.1：没有 `--check` 的一步毁整条链的绿） | — |
 | M(n+1) | `verify-standalone` | src/ 拷出仓外真装真跑（契约在仓内不可测） | — |
 | 全程 | `verify-zerodep` | 门不 import 生产者（§2.1.2），scripts/ 零依赖 | — |
+| M(n-1)（C1） | `verify-flight` | flight 树逐节点深比较；规范化只收「证明不携带行为」的构建哈希命名空间；**模块 id 全局双射**（符号门在 C1 的同构物）。⭐ flight 比 DOM 更细：键序=JSX prop 序、`{cond&&x}` 的 false/undefined 化石全下发全要对。⛔ 自带解析器，不 import flight-decode（§2.1.2） | `--normalize-props`（ISR 纪元字段）/ `--normalize-class`（库渲染子树），均须挂偏差表编号 |
 
 ⭐ 三条豁免通道（`--allow-missing` / `--allow` / `--allow-absent`）消费的是**同一份** `mirror/external.txt` 或同一类"登记过的偏差"——豁免住在仓库里（§2.1.0），且**只豁免它写的那个东西**（前缀豁免吞子树的事故见 scripts/README.md `verify-mirror` 行）。
 

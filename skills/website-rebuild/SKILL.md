@@ -3,7 +3,7 @@ name: website-rebuild
 description: 1:1 rebuild of award-winning creative websites (WebGL / scroll-animation / portfolio sites). Evidence-driven pipeline - mirror-first forensics, line-number-traceable reverse engineering of minified bundles, verbatim porting, quantitative verification gates. Use when user asks to "复刻网站", "重建网站", "1:1 rebuild", "clone this site", or provides a URL of a creative/award site to reproduce.
 compatibility: Requires Node 22+ (bundled scripts use built-in WebSocket to talk to CDP), npx, and a local Chrome/Chromium for headless comparison. POSIX shell optional - the Step 0 probe protocol has a zero-dependency Node equivalent (scripts/fingerprint.mjs) for shells without curl/cmp/tr/perl (e.g. Windows PowerShell). Agent-agnostic - works in any Agent Skills-compatible runtime.
 metadata:
-  version: "0.2.8"
+  version: "0.3.0"
 ---
 
 # Website Rebuild（获奖创意站 1:1 复刻）
@@ -34,7 +34,7 @@ metadata:
 **有条件支持（B 类）**：管线成立但需要额外场景处理（Shopify 平台层剥离、第三方存储桶资产、运行时 API 快照、SSG payload 展开）。当前版本的指南覆盖大部分 B 类场景，遇到未覆盖的要向用户明示风险。
 
 **明确拒绝（C/D 类）**：
-- **C1（仍然拒绝）**：组件源**根本不下发**——React RSC 服务端组件只下发 flight 序列化结果，客户端没有可转写的目标物。
+- **C1（v0.3 起可做：重构式逆向）**：服务端组件源确实不下发，但**它的完整输出（flight 流）内联在每页 HTML 里，是可对拍的规格书**。路线：flight-decode 建坐标系 → 重构一个可构建的 Next 工程（客户端一方组件按 C2 逐字译，服务端组件从 flight 树反推为显式登记的推断物）→ verify-flight 语义门收口（模块 id 全局双射）。实测 rauchg.com（Next 16/Turbopack）：18/18 路由语义一致，盲逆向对答案结构 ≈95%/行为 ≈98%。⚠ C1 的 L2/L3 合并——第一份产物就是「人写的源码 + 门证明的等价」。全流程见 [references/rsc-reconstruction.md](references/rsc-reconstruction.md)。
 - **C2（可做，按 A 类跑）**：⭐ 写法是声明式但**源码下发**（R3F / Theatre / Vue SFC 编译产物）。实测一个 R3F 站：`useFrame` 回调里就是 `MathUtils.damp(x, y, 7, t)` 这样的普通命令式代码，逐字切片 18 个模块换进页面后 **CLEAN、8 个 canvas 齐全、跨侧 99.5%**。**切片器不关心范式——它切的是字节。** 渲染器当平台层从镜像伺服。⛔ 判别器不是库名，是「客户端是否持有行为源」（`scope-and-fingerprint.md` §4.0.1）。
 - **D**：行为主体在服务端（CMS 内容站、电商 cart/库存、A/B 实验分桶、个性化注水）——客户端没有可移植的目标物，且确定性验收无基准。
 
@@ -113,6 +113,7 @@ Step 1 侦察结果决定加载哪些场景指南（按需，不要全量加载�
 
 | 侦察发现 | 加载 |
 |---|---|
+| Next.js App Router / RSC(`self.__next_f` flight 流)——C1 重构式逆向 | [references/rsc-reconstruction.md](references/rsc-reconstruction.md) |
 | WebGL / Canvas 场景（three.js、自研引擎、GLSL） | [references/webgl-scenes.md](references/webgl-scenes.md) |
 | GSAP / 烘焙动画数据 / CSS 变量动画 / 自研输入状态机 | [references/animation-recovery.md](references/animation-recovery.md) |
 | 私有二进制格式（.buf / .sog / VAT / GLB 时间线 / .riv） | [references/binary-formats.md](references/binary-formats.md) |
@@ -155,6 +156,9 @@ Step 0 → M(n) 全程不装任何东西；**复刻项目要到 M(n+1) 才获得
 | `scripts/netcapture.mjs` | 真实浏览器 CDP 抓包对账补录运行时资源（**CDN 站必须传 `--hosts`**，否则只观测同源流量、会报假 GAP=0） | M0 第二遍 |
 | `scripts/verify-mirror.mjs` | **镜像自己的门**，跑在断网门之前。五项断言：映射单射性 / 账本与磁盘 sha256 / **真实性（挑战页正文 + 声明类型对魔数——一个 200 不是"你拿到了那个资源"的证据）** / 闭包 / 可选抽样回源。下游所有门问的都是"渲染得出来吗"，**错的镜像能让它们全绿** | M0 关账前，每次重抓镜像后 |
 | `scripts/gapfill-video.mjs` | HLS/DASH 流媒体阶梯补录（master → rendition → 分片），静态爬虫的结构性盲区 | M0（有流媒体时） |
+| `scripts/reconcile-gaps.mjs` | **运行时缺口对账器**：把 netcapture 记下的 GAP 行与字节推导的全集清单（如 next/image 的 srcset 阶梯穷举——实测 1,078 vs 浏览器碰到 217）逐条补进镜像。⭐ **请求头梯子**（标准 profile 4xx → 裸 profile 重试：同一个 403 有两种相反的药，landonorris 要 Referer、video.twimg 恨 Referer）+ 逐 URL 容错 + 分批记账（一次崩溃不留账外文件） | M0（运行时资源多的站） |
+| `scripts/flight-decode.mjs` | **C1 的坐标系**：把每页 `self.__next_f.push` 流解成模块引用表（I 行导出名=白送的 tier-1 命名证据）、HL 预载、已解引用的元素树 + JSX 式 outline。T 行按声明字节数走；`:HL` 空 id 行不许断链 | M1（C1） |
+| `scripts/verify-flight.mjs` | **C1 语义门**：构建产物 flight 树 ≟ 镜像 flight 树。自带解析器（⛔ 不 import flight-decode——检查者不能是生产者）；规范化只收「证明不携带行为」的构建哈希命名空间（chunk 名/css-module 类/媒体哈希/可提升资源挂载点/编码自由度），**模块 id 做全局双射**（一对多即红）；站点登记项走 `--normalize-props`（ISR 纪元字段）与 `--normalize-class`（库渲染子树）；其余一切差异照红 | M(n-1)（C1） |
 | `scripts/serve.mjs` | 零依赖静态服务器（MIME/Range/服务层改写/重定向回放），兼任源站参照服。`--rewrite FROM::TO` 是**登记式字面量替换**，为的是一类本地化触及不到的东西——**源程序按自己的域名分支**（`location.hostname=="x.com" && (CDN=...)`，镜像不在那个域名上于是整个子系统走空路径）；**首次命中打印**，因为沉默与生效此前无法区分。`--fallback-root` 让复刻侧只放产出、资产全部从只读镜像读（`asset-management.md` 的不复制策略）；**未知旗标响亮失败**——被静默忽略的旗标是一次没人知道的降级 | M0.5 起全程 |
 | `scripts/build-site.mjs` | **策略 A 构建层**：按 `shell-config.mjs` 的登记变换表从镜像生成 `site/`，逐条命中下限 + `--check` 可复现性 + 目的断言（下限说明变换还活着，目的断言说明它达成了目的） | M2+（策略 A） |
 | `scripts/verify-shell.mjs` | **外壳字节门**：逐文档 patience diff，每个差异块必须能被变换表**重放**解释。⛔ 不 import `build-site.mjs`——门不许生产它所审计之物（`verification-gates.md` §2.1.2） | M2+（策略 A） |
@@ -240,6 +244,7 @@ Step 0 → M(n) 全程不装任何东西；**复刻项目要到 M(n+1) 才获得
 - [environment-traps.md](references/environment-traps.md) — 环境陷阱手册
 - [legal-and-deploy.md](references/legal-and-deploy.md) — 版权取证与部署决断（取证归 skill，决定归用户）
 - [readable-source.md](references/readable-source.md) — M(n+1) 源码化：port/ → src/ 的可读工程（拆模块、去混淆、注释纪律、自包含契约）
+- [rsc-reconstruction.md](references/rsc-reconstruction.md) — C1（RSC）重构式逆向：flight 坐标系、MDX 反推、语义门、平台层工件
 - [assets/templates/rebuild-plan.md](assets/templates/rebuild-plan.md)、[assets/templates/engine-notes.md](assets/templates/engine-notes.md) — 文档模板
 
 ## Notes

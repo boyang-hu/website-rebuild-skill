@@ -57,7 +57,7 @@ async function findChrome() {
 
 const args = process.argv.slice(2);
 const flag = (n, d) => { const i = args.indexOf("--" + n); return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : d; };
-const KNOWN = new Set(["base", "routes", "pages", "wait", "interact", "interact-wait", "eval", "allow-external", "allow-errors", "out", "cdp-port", "width", "height"]);
+const KNOWN = new Set(["base", "routes", "pages", "wait", "interact", "interact-wait", "eval", "allow-external", "allow-errors", "allow-failures", "out", "cdp-port", "width", "height"]);
 for (const a of args) if (a.startsWith("--") && !KNOWN.has(a.slice(2))) {
   console.error(`FATAL — unknown flag ${a}. Known: ${[...KNOWN].map((f) => "--" + f).join(" ")}`);
   process.exit(2);
@@ -76,6 +76,12 @@ const ALLOW_EXTERNAL = new Set((flag("allow-external", "") || "").split(",").map
 // NavigationDuplicated on locale routes) — same contract as --allow-external:
 // what is registered stays visible, what is not stays red.
 const ALLOW_ERRORS = flag("allow-errors", null) ? new RegExp(flag("allow-errors", null)) : null;
+// --allow-failures <regex>: same contract, for NETWORK failures. Exists for
+// REGISTERED holes whose 404 is itself faithful — a dead avatar the live
+// origin also 404s (external.txt row), a favicon the origin never had. The
+// row stays visible in the report; only the verdict stops bleeding for what
+// is registered. What is not registered stays red.
+const ALLOW_FAILURES = flag("allow-failures", null) ? new RegExp(flag("allow-failures", null)) : null;
 const OUT = flag("out", null);
 const W = Number(flag("width", "1280")), H = Number(flag("height", "800"));
 
@@ -175,7 +181,10 @@ ws.onmessage = (ev) => {
       break;
     case "Log.entryAdded": {
       const e = m.params.entry;
-      if (e.level === "error") pageErrors.push(`[${e.source}] ${e.text}`.slice(0, 300));
+      // e.url names the failing resource; without it a network-echoed console
+      // error ("Failed to load resource: ... 404") is unmatchable by any
+      // registered --allow-errors pattern — the URL is the registration key.
+      if (e.level === "error") pageErrors.push(`[${e.source}] ${e.text}${e.url ? ` <${e.url}>` : ""}`.slice(0, 300));
       break;
     }
     case "Network.requestWillBeSent": {
@@ -265,6 +274,12 @@ for (const route of routes) {
     allowedErrors = pageErrors.length - keep.length;
     pageErrors = keep;
   }
+  let allowedFailRows = 0;
+  if (ALLOW_FAILURES) {
+    const keep = failures.filter((f) => !ALLOW_FAILURES.test(f));
+    allowedFailRows = failures.length - keep.length;
+    failures = keep;
+  }
   const extStr = [...external].map(([h, n]) => `${h}(x${n})`).join(",");
   const allowedStr = [...allowedExternal].map(([h, n]) => `${h}(x${n})`).join(",");
   const bad = pageErrors.length + failures.length + external.size + lifecycle.length;
@@ -286,7 +301,7 @@ for (const route of routes) {
     for (const e of pageErrors.slice(0, 3)) console.log(`         ${e.slice(0, 140)}`);
     for (const f of failures.slice(0, 5)) console.log(`         ${f.slice(0, 140)}`);
   } else {
-    console.log(`  ok   ${route}${allowedStr ? `  (allowed: ${allowedStr}${allowedFailures.length ? `, ${allowedFailures.length} failing off-origin` : ""})` : ""}${allowedErrors ? `  (${allowedErrors} allowed error(s))` : ""}${evalResult ? `  ${evalResult.slice(0, 80)}` : ""}`);
+    console.log(`  ok   ${route}${allowedStr ? `  (allowed: ${allowedStr}${allowedFailures.length ? `, ${allowedFailures.length} failing off-origin` : ""})` : ""}${allowedErrors ? `  (${allowedErrors} allowed error(s))` : ""}${allowedFailRows ? `  (${allowedFailRows} allowed failure(s))` : ""}${evalResult ? `  ${evalResult.slice(0, 80)}` : ""}`);
   }
 }
 

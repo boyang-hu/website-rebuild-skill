@@ -165,25 +165,50 @@ async function save(url, buf, contentType) {
   };
 }
 
+// ⚠ HEADER LADDER — the same 403 has two OPPOSITE cures. One CDN family
+// refuses requests WITHOUT a same-origin Referer (landonorris), another
+// refuses requests WITH browser-shaped headers (video.twimg.com served a
+// bare curl and 403'd the polite profile — measured on rauchg). So a 4xx on
+// the standard profile gets ONE retry on a minimal profile before the URL is
+// declared failed. Redirects are handled before any retry: they are source
+// behavior, not a header allergy.
+const HEADER_PROFILES = [
+  { name: 'std', headers: { 'user-agent': null /* filled below */, accept: '*/*', referer: null } },
+  { name: 'bare', headers: { 'user-agent': 'curl/8.6.0', accept: '*/*' } },
+];
+
 async function get(url) {
-  const res = await fetch(url, {
-    // Some asset CDNs require a same-origin Referer and return 403 without one
-    // (landonorris lesson); supply it so legitimate requests are served.
-    headers: { 'user-agent': UA, accept: '*/*', referer: ORIGIN + '/' },
-    // RED LINE (references/mirroring.md §2): never follow. A followed 301
-    // writes the target's body at the source path and fabricates a file the
-    // origin never served at that URL. Record it and re-queue the target so it
-    // lands at its own place in URL space instead.
-    redirect: 'manual',
-  });
-  if (res.status >= 300 && res.status < 400) {
-    const to = res.headers.get('location') || '';
-    redirects.push({ from: url, status: res.status, to });
-    return { redirectTo: to ? new URL(to, url).href : null };
+  let lastStatus = 0;
+  for (const profile of HEADER_PROFILES) {
+    const headers =
+      profile.name === 'std'
+        ? // Some asset CDNs require a same-origin Referer and return 403
+          // without one (landonorris lesson); supply it so legitimate
+          // requests are served.
+          { 'user-agent': UA, accept: '*/*', referer: ORIGIN + '/' }
+        : profile.headers;
+    const res = await fetch(url, {
+      headers,
+      // RED LINE (references/mirroring.md §2): never follow. A followed 301
+      // writes the target's body at the source path and fabricates a file the
+      // origin never served at that URL. Record it and re-queue the target so
+      // it lands at its own place in URL space instead.
+      redirect: 'manual',
+    });
+    if (res.status >= 300 && res.status < 400) {
+      const to = res.headers.get('location') || '';
+      redirects.push({ from: url, status: res.status, to });
+      return { redirectTo: to ? new URL(to, url).href : null };
+    }
+    if (res.ok) {
+      const buf = Buffer.from(await res.arrayBuffer());
+      return { buf, type: res.headers.get('content-type') || '' };
+    }
+    lastStatus = res.status;
+    // Only auth-ish refusals suggest a header allergy; a 404 is a 404.
+    if (res.status !== 401 && res.status !== 403) break;
   }
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const buf = Buffer.from(await res.arrayBuffer());
-  return { buf, type: res.headers.get('content-type') || '' };
+  throw new Error(`HTTP ${lastStatus}`);
 }
 
 // Absolute / protocol-relative / root-relative / srcset-candidate / css-url()

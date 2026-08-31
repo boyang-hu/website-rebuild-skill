@@ -1,5 +1,41 @@
 # 更新记录
 
+## v0.3.0 — C1 攻克：RSC 重构式逆向（rauchg.com 远征）
+
+**判级修订**：C1 从「拒绝」改为「可做：重构式逆向」。服务端组件源确实不下发,
+但它的完整输出(flight 流)内联在每页 HTML 里——那就是规格书。重构一个可构建的
+Next 工程,语义门收口。实测 rauchg.com(Next 16.1.1/Turbopack/React 19 canary):
+**18/18 路由 flight 语义一致、模块 id 双射 19 对、运行时 sweep 18/18**;盲逆向对
+答案(rauchg/blog)判卷:结构 ≈95%、行为 ≈98%、字面 ≈90%,7 个依赖版本从字节
+证据精确命中,`withHeadingId` 连函数名都对上;盲区 3 处全是无入链路由。
+
+**新工具**:`scripts/flight-decode.mjs`(C1 坐标系:flight 流 → 已解引用元素树,
+I 行导出名=白送的 tier-1 命名证据)、`scripts/verify-flight.mjs`(语义门:自带
+解析器,规范化只收构建哈希命名空间,模块 id 全局双射;站点登记项走
+`--normalize-props`/`--normalize-class`)、`scripts/reconcile-gaps.mjs`(运行时
+缺口对账器:请求头梯子 + 逐 URL 容错 + 分批记账)、`tools/flight-to-mdx.mjs`
+(正文反推器:markdown 构词回 markdown、组件形状回 JSX、其余字面 JSX 兜底)。
+
+**新指南**:`references/rsc-reconstruction.md`——flight 保真神谕(键序=JSX prop
+序、false/undefined/尾空格化石、作者不一致本身是保真面)、MDX 反推四陷阱、
+语义门规范化族的论证、平台层工件(Vercel / → /index 重写正是线上 React #418
+水合错误的根源)、原理性不可恢复面、盲逆向纪律。
+
+**既有工具回填**:`mirror-site` 请求头梯子(同一个 403 两种相反的药:landonorris
+要 Referer,video.twimg 恨 Referer);`netcapture --fetch` 逐 URL 容错 + 分批记账
+(一次异常曾让 725 个已落盘文件全部账外);`verify-mirror` 魔数表认 fMP4 盒族
+(.m4s 无 ftyp,45 个真分片曾被判损坏);`extract-refs` 根相对引用按**文档宿主**
+解析(m3u8 里的 /path 属于 video.twimg.com,不属于站点);`sweep-routes` 增
+`--allow-failures`(契约同 --allow-errors:登记可见不判死)+ 控制台记录带 URL
+(否则网络回声错误无法按注册键匹配)。
+
+**镜像盲区 checklist 新增三行**:App Router 运行时面(`?_rsc=` 载荷、next/image
+变体从 srcset 穷举——1,078 vs 浏览器碰到 217)、爬虫专供 OG 路由、无入链
+well-known 路由(/atom /rss /feed /sitemap.xml——对答案暴露的盲区)。
+
+selftest 22 → 27:合成 flight 流夹具(T 行长度、空 id HL 行、I 行导出名)+
+语义门绿/红双面(哈希命名空间归一 = 绿;一个文本字节 = 红)。
+
 ## 目录分组与 chunk 图谱(v0.2.8)
 
 - **v0.2.8**:拼接式分解的下一档落地——新增 `group-parts`:平铺部件按**字面证据**(共享标识符 token)折进域目录;前导规则只认大写类族(Camera*/Wave* → camera/ wave/),小写动词族拒分(字面但糊的桶比平铺更藏东西),压缩名 chunk 证据不足即整体保持平铺;**先按新布局重拼验 sha 再动盘**。`census-bundles` 新增 `--md`:chunk 依赖图直接生成逆向笔记坐标页(import 别名样本随行——一级命名证据)。实测 hashgraphvc:场景 chunk 151 件 → scene/camera/wave/sun/cascade/sky 等 24 个域目录,33 chunk / 2,043 件重拼仍逐字节一致;overworld 的压缩名入口正确地整体拒分。v0.2 路线图至此全部落地。

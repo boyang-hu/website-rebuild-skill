@@ -1,7 +1,7 @@
 # website-rebuild-skill
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.2.8-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](CHANGELOG.md)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-brightgreen.svg)](https://agentskills.io/)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522-339933.svg)](#快速开始)
 
@@ -34,8 +34,9 @@
 - **行号可溯源的逆向**——复刻里的每一行都能指回源站 bundle 的哪一行；bug 与怪写法照抄不修
 - **量化验收**——控制台 / 网络 / DOM / 几何 / **逐像素**五层自动比对，差异要么修掉、要么登记，不许糊过去
 - **源码化交付**——逐字移植的产物重写成人能读的工程（拆模块、按证据命名、补溯源头注），**复制到任何地方断网可跑**
-- **零依赖工具链**——52 个 Node 脚本（41 个工序脚本与验收门 + 7 个共用库 + 4 个源码化重构器），源码化之前整条流水线不装任何 npm 包
+- **零依赖工具链**——59 个 Node 脚本（47 个工序脚本与验收门 + 7 个共用库 + 5 个源码化/反推重构器），源码化之前整条流水线不装任何 npm 包
 - **死站也能救**——Wayback 存档抢救：锚点+时间窗选一个连贯时刻、原始字节落成标准镜像、永久洞如实登记；三个死站实测复活
+- **连 RSC 站也能重构**——服务端组件源不下发（React Server Components / Next.js App Router），但它的完整输出（flight 流）内联在每页 HTML 里就是规格书：从中重构一个可构建的 Next 工程，用 flight 语义门收口。实测一个 Next 16/Turbopack 博客站 18/18 路由语义一致；盲逆向对公开源码判卷，结构 ≈95%、行为 ≈98%
 - **法务决定权归用户**——skill 只取证与呈交，产出默认私有 + noindex + 不部署
 
 ## 快速开始
@@ -119,11 +120,11 @@ cp -R skills/website-rebuild ~/.claude/skills/website-rebuild
 | **X 类：失效站存档抢救** | Wayback CDX 枚举 → 锚点+时间窗选连贯捕获 → `id_` 原始字节 → 标准镜像；永久洞如实登记，别名回填单列，停车页验尸挡 200 型夺舍 | 三个死站、三种死法实测复活：域名易主（8/15 路由）、平台回收（9/9 全清）、原地停车替换（0 洞 0/0/0） |
 | **C2 类：声明式组织的现代全栈站** | Next.js App Router（webpack / Turbopack）、Nuxt 3 + Vite、R3F、Theatre.js——RSC flight 与 devalue 载荷、服务端图片端点、会话态预取都有对应处理 | 六个 C2 目标：115 路由全站（115/115 跨侧一致）、Three r182 WebGPU/TSL 站、Theatre.js WebGL 长镜头站、产品页（4 检查点像素全零）等 |
 
-### 做不了的场景
+### 有条件或做不了的场景
 
 | 类 | 类型 | 原因 |
 |---|---|---|
-| **C1** | 服务端组件站 | 行为源在 React RSC **服务端**组件流里，客户端只拿到渲染结果——没有可逐行转写的对象 |
+| **C1** | 服务端组件站（RSC / Next.js App Router） | 服务端组件源不下发，但它的完整输出（flight 流）内联在每页 HTML 里就是规格书。⭐ **v0.3 起可做：重构式逆向**——重构一个可构建的 Next 工程，flight 语义门收口（实测 rauchg.com 18/18 路由一致）。没有逐字 port，产物是"人写的源码 + 门证明的等价" |
 | **D** | 服务端行为站 | 行为主体在服务端（CMS、电商库存、A/B 分桶、个性化），**客户端没有可移植的目标**，也没有确定性的验收基准 |
 | **X（无存档）** | 已消失且 Wayback 无覆盖的站 | 彻底没有可镜像的对象。⭐ **有存档的 X 站可以抢救**（见上表）；历年获奖站实测消失率约 **29%**——这也是"第一时间镜像"成为第一条纪律的原因 |
 
@@ -177,6 +178,7 @@ cp -R skills/website-rebuild ~/.claude/skills/website-rebuild
 | Milk Network | [milknetwork.com](https://milknetwork.com/) | 沙特品牌代理官网（webpack + GSAP + swup PJAX + **Strapi CMS 桶**），首个**双语 RTL** 站（en/ar 122 路由成对）；main 的 15 模块全量源码化并以 **chunk 形交付**（原 runtime/vendor 原件不动）；滚动对拍 cross 与 band 逐档数值全同，动画完结态精确零 |
 | Hashgraph VC | [hashgraphvc.com](https://hashgraphvc.com/) | 风投官网（Nuxt 3 + Three r182 **WebGPU/TSL** + Theatre + Sanity CMS），⭐ **首个由非 Claude runtime（Codex）全程执行**的复刻——验证了 Agent Skills 跨运行时可移植性；166/166 响应字节一致、6 路由载荷 10,458 叶一致、多检查点像素差 0，交付以逐文件 sha256 钉死、构建时逐字节复核；也是 **v0.2.0 拼接式分解**的诞生地——44.9 万行 / 33 chunk 切成 **2,043 个语义命名部件，逐字节重拼一致** |
 | Overworld Audio | [overworldaudio.com](https://overworldaudio.com/) | 游戏音频工作室官网（Nuxt 3 + THREE/Theatre + **Howler**），⭐ **声音第一次成为验收面**——入场后 **98/98 音效池全量 loaded、零音频 404**（运行时拼 URL 的音频族对静态提取整类不可见，"池子即账本"采集法的诞生地）；拼接式分解通过压缩形态考验（20 chunk / 435 部件重拼一致），交付物 379/379 字节自证；robots 为 Content-Signal 形态，已呈交用户裁决 |
+| Guillermo Rauch's blog | [rauchg.com](https://rauchg.com/) | ⭐ **首个 C1（RSC）重构式逆向**——服务端组件源不下发，从 flight 流重构一个可构建的 Next 16.1.1/Turbopack 工程：**18/18 路由 flight 语义门一致、模块 id 双射 19 对、运行时 sweep 18/18**。这也是**盲逆向对答案**的诞生地（目标源码 MIT 公开，全程不看、收口后判卷）：结构 ≈95%/行为 ≈98%/字面 ≈90%，7 个依赖版本从字节证据精确命中，`withHeadingId` 连函数名都对上；顺带定位线上 React #418 水合错误的根因是 Vercel 边缘的 `/`→`/index` 重写。催生 flight-decode / verify-flight / flight-to-mdx 三件工具与 `rsc-reconstruction.md` |
 
 ### 边界样本与死站抢救
 
@@ -184,8 +186,8 @@ cp -R skills/website-rebuild ~/.claude/skills/website-rebuild
 
 | 站名 | 网址 | 判级 | 一句话 |
 |---|---|---|---|
-| Linear | [linear.app](https://linear.app/) | **C1** | 行为源在服务端组件流里，客户端不下发 |
-| Duolingo | [duolingo.com](https://www.duolingo.com/) | **C1** | RSC 流不下发可转写的行为源码 |
+| Linear | [linear.app](https://linear.app/) | **C1** | 服务端组件源不下发；v0.3 起属可做的重构式逆向（flight 流即规格书） |
+| Duolingo | [duolingo.com](https://www.duolingo.com/) | **C1** | 同上——RSC 流不下发源码，但内联的 flight 输出可对拍重构 |
 | TechCrunch | [techcrunch.com](https://techcrunch.com/) | **D** | WordPress 内容站，行为主体在服务端 |
 | Airbnb | [airbnb.com](https://www.airbnb.com/) | **D** | 个性化注水 + 服务端数据，没有确定性的验收基准 |
 | darknetflix.io | — | **X→已抢救** | 域名易主;⭐ 已从 Wayback 救回(锚点 2020-07,8/15 路由复活,92 永久洞如实登记) |
@@ -220,15 +222,16 @@ README.md                  # 本文件
 
 ## 路线图
 
+- **v0.3 已落地**:C1（RSC）重构式逆向——flight 坐标系（flight-decode）、语义门（verify-flight，模块 id 全局双射）、正文反推器（flight-to-mdx）、运行时缺口对账器（reconcile-gaps）、指南 `rsc-reconstruction.md`;实测 rauchg.com 18/18 路由语义一致,盲逆向对答案判卷。
 - **v0.2 已全部落地**:拼接式分解(v0.2.0)及其目录分组与 chunk 图谱(v0.2.8)、三级终点与交接边界(v0.2.1)、声音验收面(v0.2.2)、渲染广度门(v0.2.3)、存档抢救(v0.2.4–0.2.6)、冒烟自检 CI(v0.2.7)。
 - **源码化的两块空白**：命名的还原率取决于代码本身留下多少线索——实测一个扁平站有 63% 的局部变量没有任何可依据的证据，一个模块化站有 27/46 个模块只能保留哈希 id。这不是欠账，**错名比哈希更糟，因为哈希会让人去看**。另一块是模块头目前只写事实与溯源，**"这个模块是干什么的"仍然需要人来写**——工具写不出，而写错比留白更糟。
-- **远期**：C1 类（RSC 服务端组件）的"重构式逆向"方法论——C2（声明式组织、源码随包下发）已在 v0.1.54 起落地并跑通多个目标，剩下的是行为源真正不下发的那一半。
+- **远期**：C1 的更难形态——服务端**逻辑**（不只是渲染结果）的推断深度、隐藏路由空间的枚举、动态图片/OG 生成器的重建;以及 D 类（个性化注水、无确定性验收基准）是否存在可对拍的子集。
 
 ## 更新记录
 
 版本随真实复刻项目递进：每个版本发布的功能与修复，都先在至少一个完整项目上验证过。
 
-完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.2.8**:目录分组(字面证据折域目录,重拼门护航)+ census chunk 图谱直出逆向笔记——v0.2 路线图全部落地。
+完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.0**:C1（RSC）攻克——从 flight 流重构可构建的 Next 工程,语义门收口;实测 rauchg.com 18/18 路由语义一致,盲逆向对公开源码判卷结构 ≈95%/行为 ≈98%。
 
 ## 贡献
 

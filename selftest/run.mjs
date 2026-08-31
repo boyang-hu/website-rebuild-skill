@@ -140,6 +140,65 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
   truthy("verify-mirror — one corrupted byte goes red (v0.1.14)", !run());
 }
 
+// ------------------------------- 5b. flight decode + semantic gate (v0.3.0)
+{
+  // Synthetic RSC wire covering the measured trip-points: a T row (length-
+  // prefixed, no terminator), an EMPTY-ID :HL row (the first walker broke its
+  // chain here), an I row (module ref), and a row-0 router payload.
+  const mkStream = (opts) => {
+    const { moduleId = 123, chunk = "abc12345", text = "hello" } = opts || {};
+    const tHex = Buffer.byteLength(text).toString(16);
+    const row0 = {
+      P: null, b: "BUILDX", c: ["", ""], q: "", i: false,
+      f: [[
+        ["", { children: ["__PAGE__", {}] }, "$undefined", "$undefined", true],
+        ["$", "$1", "c", { children: ["$", "html", null, { children: ["$", "body", null, { children: [["$", "$L2", null, {}], ["$", "p", null, { children: "$3" }]] }] }] }],
+        ["$", "$1", "h", { children: ["$", "meta", null, { charSet: "utf-8" }] }],
+        false,
+      ]],
+      m: "$undefined", G: null, S: true,
+    };
+    return [
+      `1:"$Sreact.fragment"`,
+      `2:I[${moduleId},["/_next/static/chunks/${chunk}.js"],"Logo"]`,
+      `:HL["/_next/static/chunks/deadbeef.css","style"]`,
+      `3:T${tHex},${text}`,
+      `0:${JSON.stringify(row0)}`,
+    ].join("\n") + "\n";
+  };
+  const wrap = (stream) => `<html><body><script>self.__next_f.push([1,${JSON.stringify(stream)}])</script></body></html>`;
+
+  const MIR = path.join(TMP, "flight-mirror");
+  const BUILT = path.join(TMP, "flight-built");
+  mkdirSync(MIR, { recursive: true });
+  mkdirSync(BUILT, { recursive: true });
+  writeFileSync(path.join(MIR, "index.html"), wrap(mkStream({})));
+  // Built side: DIFFERENT module id and chunk hash (the N1/N4 namespaces the
+  // gate must normalize), same behavior-bearing content.
+  writeFileSync(path.join(BUILT, "index.html"), wrap(mkStream({ moduleId: 456, chunk: "fedcba98" })));
+
+  // decode: T text resolved, empty-id HL survives, module export named
+  const DEC = path.join(TMP, "flight-docs");
+  try {
+    execFileSync(process.execPath, [path.join(SKILL, "scripts/flight-decode.mjs"), "--mirror", MIR, "--out", DEC], { stdio: "pipe" });
+    const doc = JSON.parse(readFileSync(path.join(DEC, "index.json"), "utf8"));
+    truthy("flight-decode — T row resolved into tree (v0.3.0)", JSON.stringify(doc.tree).includes('"hello"'));
+    truthy("flight-decode — empty-id :HL row does not break the walk (v0.3.0)", doc.hints.length === 1);
+    truthy("flight-decode — I row export name surfaces (v0.3.0)", JSON.stringify(doc.modules).includes('"Logo"'));
+  } catch (e) { bad("flight-decode — mini stream", String(e.stderr || e.message).split("\n")[0]); }
+
+  // gate: hash namespaces normalized away = PASS; a one-character text change = red
+  const gate = () => {
+    // cwd in TMP so the gate's docs/flight-gate-report.txt lands there and is
+    // swept with the rest of the fixtures, not left at the repo root.
+    try { execFileSync(process.execPath, [path.join(SKILL, "scripts/verify-flight.mjs"), "--mirror", MIR, "--built", BUILT], { stdio: "pipe", cwd: TMP }); return true; }
+    catch { return false; }
+  };
+  truthy("verify-flight — hash namespaces normalized, ids bijective (v0.3.0)", gate());
+  writeFileSync(path.join(BUILT, "index.html"), wrap(mkStream({ moduleId: 456, chunk: "fedcba98", text: "hellp" })));
+  truthy("verify-flight — one text byte goes red (v0.3.0)", !gate());
+}
+
 // -------------------------------------------------------- 6. doc integrity
 {
   let dangling = 0;

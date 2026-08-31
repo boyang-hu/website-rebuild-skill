@@ -417,9 +417,21 @@ if (DO_FETCH && missing.length) {
   console.log("\nfetching gaps... (bytes AND ledger rows)");
   for (const m of missing) {
     // m.path is an absolute URL (records are keyed by host + path).
-    const res = await fetch(m.path, {
-      headers: { "user-agent": "Mozilla/5.0 local static mirror", accept: "*/*", referer: ORIGIN + "/" },
-    });
+    // ⛔ PER-URL TOLERANCE + PERIODIC LEDGERING. The first version had neither:
+    // one thrown fetch (DNS, TLS, reset) aborted the WHOLE loop before
+    // appendLedger ever ran, stranding every file already written as
+    // off-the-books state — the exact condition appendLedger's own comment
+    // promises to prevent, one failure mode over. Measured on rauchg: 725
+    // /_next/image variants on disk, zero in the manifest.
+    let res;
+    try {
+      res = await fetch(m.path, {
+        headers: { "user-agent": "Mozilla/5.0 local static mirror", accept: "*/*", referer: ORIGIN + "/" },
+      });
+    } catch (e) {
+      console.log(`  FAIL ${e.message} ${m.path}`);
+      continue;
+    }
     if (!res.ok) {
       console.log(`  FAIL ${res.status} ${m.path}`);
       continue;
@@ -436,6 +448,7 @@ if (DO_FETCH && missing.length) {
     fetched.push({ rel, url: m.path, bytes: body.length, sha: createHash("sha256").update(body).digest("hex"),
       type: (res.headers.get("content-type") || "").split(";")[0] || undefined });
     console.log(`  OK ${m.path}`);
+    if (fetched.length % 100 === 0) await appendLedger(fetched.splice(0, fetched.length));
   }
   await appendLedger(fetched);
 }

@@ -635,7 +635,15 @@ if (!SKIP.has("authenticity")) {
     // a real font. Measured on hubtown: commit-mono-bold.ttf is OTTO/CFF, and
     // rejecting it told the operator to re-fetch a file that was already right.
     ttf: (b) => startsWith(b, [0x00, 0x01, 0x00, 0x00]) || startsWith(b, [0x74, 0x72, 0x75, 0x65]) || startsWith(b, [0x4f, 0x54, 0x54, 0x4f]),
-    mp4: (b) => startsWith(b, [0x66, 0x74, 0x79, 0x70], 4),
+    // ⚠ MP4 is a BOX format, not one magic. A whole file opens with `ftyp` at
+    // offset 4, but fragmented-MP4 HLS segments (.m4s) open with `styp`, a bare
+    // `moof`/`sidx`/`prft`, or an `emsg` box — same family, no `ftyp` anywhere.
+    // Measured on rauchg: 45 real twimg .m4s segments declared video/mp4 were
+    // flagged "not mp4" and the gate demanded a refetch of already-right bytes.
+    mp4: (b) => {
+      const box = Buffer.from(b.subarray(4, 8)).toString("latin1");
+      return ["ftyp", "styp", "moof", "sidx", "prft", "emsg", "free", "skip", "mdat", "moov"].includes(box);
+    },
     webm: (b) => startsWith(b, [0x1a, 0x45, 0xdf, 0xa3]),
     ogg: (b) => startsWith(b, [0x4f, 0x67, 0x67, 0x53]),
     wav: (b) => startsWith(b, [0x52, 0x49, 0x46, 0x46]) && startsWith(b, [0x57, 0x41, 0x56, 0x45], 8),

@@ -1,0 +1,120 @@
+// reconcile-gaps.mjs — fetch every runtime-discovered gap into the mirror,
+// with per-URL error tolerance and a HEADER LADDER.  [v0.3 R&D, skill backfill]
+//
+// WHY (two lessons this run paid for):
+//  1. netcapture --fetch aborts its whole loop on the first thrown fetch
+//     (no per-URL try/catch): everything it already wrote stays OFF-BOOKS —
+//     the exact state its appendLedger comment promises to prevent. This
+//     reconciler is idempotent and ledgers per batch.
+//  2. Header allergies point BOTH ways (landonorris needs Referer;
+//     video.twimg.com 403s on it). So: try the mirror's standard profile,
+//     then fall back to a bare profile before declaring failure.
+//
+// Inputs: --urls <file(s), comma-sep>  (netcapture.tsv rows or plain URL lines)
+// Usage:  node scripts/reconcile-gaps.mjs --out mirror --urls docs/netcapture.tsv,docs/next-image-urls.txt
+import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { join, dirname } from "node:path";
+import { createHash } from "node:crypto";
+import { localRelPath, loadPolicy } from "./lib/urlpath.mjs";
+
+const args = process.argv.slice(2);
+const opt = (k, d) => {
+  const i = args.indexOf(k);
+  return i >= 0 ? args[i + 1] : d;
+};
+const OUT = opt("--out", "mirror");
+const LISTS = (opt("--urls") || "").split(",").filter(Boolean);
+if (!LISTS.length) {
+  console.error("usage: reconcile-gaps.mjs --out mirror --urls <file,file,...>");
+  process.exit(2);
+}
+
+const manifestFile = join(OUT, "mirror-manifest.json");
+const doc = JSON.parse(await readFile(manifestFile, "utf8"));
+const manifest = doc.files;
+const ORIGIN = doc.origin;
+const ORIGIN_HOST = new URL(ORIGIN).host;
+const POLICY = await loadPolicy(OUT);
+const UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36";
+
+const urls = new Set();
+for (const f of LISTS) {
+  const text = await readFile(f, "utf8");
+  for (const line of text.split("\n")) {
+    const cols = line.split("\t");
+    // netcapture.tsv: STATUS CODE BYTES URL TYPE — take GAP rows; plain lists: the line
+    const u = cols.length >= 4 ? (cols[0] === "GAP" ? cols[3] : null) : line.trim();
+    if (u && /^https?:\/\//.test(u)) urls.add(u);
+  }
+}
+console.log(`candidate urls: ${urls.size}`);
+
+const PROFILES = [
+  { name: "std", headers: { "user-agent": UA, accept: "*/*", referer: ORIGIN + "/" } },
+  { name: "bare", headers: { "user-agent": "curl/8.6.0", accept: "*/*" } },
+];
+
+async function flush() {
+  await writeFile(manifestFile, JSON.stringify(doc, null, 2));
+  await writeFile(
+    join(OUT, "inventory.tsv"),
+    ["SHA256", "BYTES", "PATH", "URL"].join("\t") +
+      "\n" +
+      Object.entries(manifest)
+        .filter(([, f]) => f.path && f.sha256)
+        .sort((a, b) => a[1].path.localeCompare(b[1].path))
+        .map(([url, f]) => [f.sha256, f.bytes, f.path, url].join("\t"))
+        .join("\n") +
+      "\n"
+  );
+}
+
+let saved = 0, had = 0, failed = 0, n = 0;
+const failures = [];
+for (const url of [...urls].sort()) {
+  n++;
+  if (manifest[url]) {
+    had++;
+    continue;
+  }
+  let res = null, lastErr = "";
+  for (const p of PROFILES) {
+    try {
+      const r = await fetch(url, { headers: p.headers, redirect: "manual" });
+      if (r.ok) {
+        res = r;
+        break;
+      }
+      lastErr = `HTTP ${r.status} (${p.name})`;
+      if (r.status >= 300 && r.status < 400) break; // redirects are source behavior; record as failure here
+    } catch (e) {
+      lastErr = `${e.message} (${p.name})`;
+    }
+  }
+  if (!res) {
+    failures.push(`${url}\t${lastErr}`);
+    failed++;
+    continue;
+  }
+  const buf = Buffer.from(await res.arrayBuffer());
+  const rel = localRelPath(url, ORIGIN_HOST, POLICY);
+  const p = join(OUT, rel);
+  await mkdir(dirname(p), { recursive: true });
+  await writeFile(p, buf);
+  manifest[url] = {
+    path: rel,
+    bytes: buf.length,
+    sha256: createHash("sha256").update(buf).digest("hex"),
+    type: (res.headers.get("content-type") || "").split(";")[0] || "",
+  };
+  saved++;
+  if (saved % 100 === 0) {
+    await flush(); // ledger per batch: a crash cannot strand what's on disk
+    console.log(`  ...${saved} saved (${n}/${urls.size})`);
+  }
+  await new Promise((r) => setTimeout(r, 120));
+}
+await flush();
+if (failures.length) await writeFile("docs/reconcile-failures.txt", failures.join("\n") + "\n");
+console.log(`saved ${saved}, already-had ${had}, failed ${failed} (docs/reconcile-failures.txt)`);

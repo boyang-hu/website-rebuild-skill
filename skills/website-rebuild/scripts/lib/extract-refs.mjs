@@ -341,6 +341,16 @@ export function createRefExtractor({ origin, originHost, assetHosts, onOffHost }
   // then decoded (see header — escaped spellings compose with every shape, so
   // the shapes are re-run rather than duplicated).
   const scan = (text, baseUrl, urls) => {
+    // ⚠ Root-relative means relative to the DOCUMENT'S host, not the site's.
+    // A playlist mirrored from video.twimg.com that says "/ext_tw_video/…"
+    // means video.twimg.com/ext_tw_video/… — the browser resolves it against
+    // the document it came from. Joining ORIGIN unconditionally re-homed 42
+    // real HLS refs onto the origin and the closure gate demanded files from
+    // a host that never served them (measured on rauchg, cross-host fMP4 HLS).
+    let DOC_ORIGIN = ORIGIN;
+    if (baseUrl) {
+      try { DOC_ORIGIN = new URL(baseUrl).origin; } catch {}
+    }
     // 1. absolute URLs
     for (const m of text.matchAll(/https?:\/\/[a-z0-9.-]+\/[^\s"'`\\<>{}|^\][]+/gi)) {
       // ⚠ Parens are handled by BALANCE, not by presence. A URL really can end
@@ -382,7 +392,7 @@ export function createRefExtractor({ origin, originHost, assetHosts, onOffHost }
     for (const m of text.matchAll(
       /(?:src|href|poster|content|data-src|data-poster|data-bg)=["'](\/(?!\/)[^"']+?\.[a-z0-9]{2,5}(?:\?[^"']*)?)["']/gi,
     )) {
-      addIfAsset(ORIGIN + decodeEntities(m[1]), urls);
+      addIfAsset(DOC_ORIGIN + decodeEntities(m[1]), urls);
     }
     // 3b. root-relative paths as PLAIN STRING LITERALS, not in an attribute.
     // Shape 3 requires src=/href=/poster=…, which is right for markup and blind
@@ -402,7 +412,7 @@ export function createRefExtractor({ origin, originHost, assetHosts, onOffHost }
     // string ("/about", "/works/x") becomes a phantom asset. Route strings are
     // the page queue's business, not the asset extractor's.
     for (const m of text.matchAll(/["'](\/(?!\/)[A-Za-z0-9_\-./@]+\.[a-z0-9]{2,5})(\?[^"']*)?["']/gi)) {
-      addIfAsset(ORIGIN + decodeEntities(m[1] + (m[2] || "")), urls);
+      addIfAsset(DOC_ORIGIN + decodeEntities(m[1] + (m[2] || "")), urls);
     }
     // 4. srcset / imagesrcset candidate lists — one entry per candidate, not
     // one per attribute (see header).
@@ -412,7 +422,7 @@ export function createRefExtractor({ origin, originHost, assetHosts, onOffHost }
         if (!ref) continue;
         if (ref.startsWith("//")) addIfAsset("https:" + ref, urls);
         else if (/^https?:\/\//i.test(ref)) addIfAsset(ref, urls);
-        else if (ref.startsWith("/")) addIfAsset(ORIGIN + ref, urls);
+        else if (ref.startsWith("/")) addIfAsset(DOC_ORIGIN + ref, urls);
       }
     }
     // 4b. A REFERENCE NESTED IN ANOTHER URL'S QUERY. An image-optimisation
@@ -441,7 +451,7 @@ export function createRefExtractor({ origin, originHost, assetHosts, onOffHost }
       let inner = raw;
       try { inner = decodeURIComponent(inner); } catch {}
       if (/^https?:\/\//i.test(inner)) addIfAsset(inner, urls);
-      else if (inner.startsWith("/") && /\.[a-z0-9]{2,5}$/i.test(inner.split("?")[0])) addIfAsset(ORIGIN + inner, urls);
+      else if (inner.startsWith("/") && /\.[a-z0-9]{2,5}$/i.test(inner.split("?")[0])) addIfAsset(DOC_ORIGIN + inner, urls);
     }
 
     // 4c. RELATIVE MODULE SPECIFIERS in JS. Vite writes its chunk manifest as

@@ -448,9 +448,16 @@ M0.5 之后，`serve.mjs` 终身兼任后续所有对拍的"源站参照服"（�
 - [ ] **`srcset` 的非首个候选**：`srcset` 是逗号分隔的候选表，多数爬虫正则要求候选前有引号，于是**每组只命中第一条**——objectandarchive 68 组 × 约 5 条，约 270 个变体对第一遍完全隐形；浏览器按 DPR/视口只请求其中一条，**第二遍抓包也补不全**。做法：`srcset` / `imagesrcset` 属性单独按逗号拆开逐条入队【objectarchive】
 - [ ] **不带尾斜杠的裸主机基址常量**：代码常写 `const B="https://cdn.example.com"`、`window.shopUrl='https://site.com'` 再拼路径；只匹配"带尾斜杠"形式的提取/改写规则对它天然失明——objectandarchive 实测因此漏了 4 个遥测外联 + **2 个到线上源站的主题资产请求（那份资产一直在盘上）**。同类还有 JSON 转义的协议相对写法 `\/\/host\/`。做法：提取与改写规则覆盖**裸主机 / 带尾斜杠 / 协议相对 / JSON 转义**四种形态，且**探针要报完整 URL 而不只是 host 直方图**，否则看不出漏的到底是哪一条【objectarchive】
 
+- [ ] **App Router 的运行时面**：客户端导航预取的 `?_rsc=` 载荷（每个可见链接一条，query 值是路由状态哈希）与 `next/image` 优化器变体（`/_next/image?url=…&w=…`）。⭐ 变体阶梯**从 SSR HTML 的 srcset 穷举**成闭包全集，不靠浏览器碰运气——rauchg 实测 srcset 推出 1,078 条 vs 两个标准视口只碰到 217 条。用 `scripts/reconcile-gaps.mjs` 逐条容错补录【rauchg】
+- [ ] **爬虫专供路由**：`og:image` / `twitter:image` 指向的动态 OG 图（`/opengraph-image`、`/og/<slug>`）只有社交爬虫访问，BFS 与 CDP 补录都看不见——从每页 head 的 meta 内容里收 URL 逐个补抓【rauchg】
+- [ ] **无入链的 well-known 路由**：`/atom` `/rss` `/feed` `/sitemap.xml` 页面上没有任何链接就永远不进队列——M0 收尾逐个 GET 一次，200 即入镜。rauchg 盲逆向对答案暴露的三个盲区里两个是这类（/atom 订阅、隐藏短链系统）;后者原理不可枚举，如实登记为盲区【rauchg】
+
 销账方式：每项要么"已补录（见 manifest 行）"，要么"确认源站不存在此类"，不许留空。
 
 ## 9. 常见坑
+
+- ⭐ **同一个 403 有两种相反的药**：一族 CDN 缺 same-origin Referer 就 403（landonorris——于是爬虫带上了 Referer），另一族**带浏览器式请求头才 403、裸 curl 反而 200**（video.twimg.com,rauchg 实测）。单一请求头配置对其中一族永远是错的——`mirror-site.mjs` 的 get() 现在带**请求头梯子**：标准 profile 撞 401/403 时用最小 profile 重试一次;404 不重试（404 就是 404）【rauchg】
+- ⛔ **补录循环的账外文件**：`netcapture --fetch` 曾没有逐 URL 容错——一次 DNS/TLS 异常中止整个循环,`appendLedger` 永远没跑到,**已落盘的文件全部成为账外状态**（正是它自己注释里承诺防住的状态,只是又高了一层）。实测 rauchg:725 个 `/_next/image` 变体在盘上、账本里零条。现已逐条 try/catch + 每百条分批记账;教训通用:**任何"先写盘后记账"的循环,记账必须分批,不许全押在收尾一笔**【rauchg】
 
 - **redirect follow 造假文件**：默认跟随重定向会把 301 误当成 200，凭空造出假文件——`redirect: "manual"` 红线【kimi】。
 - **服务端行为零留痕**：redirects/状态码必须逐 URL 实测，读产物读不出来；308 vs 301 这种差异只有断言状态码本身才能抓住【kimi】。
