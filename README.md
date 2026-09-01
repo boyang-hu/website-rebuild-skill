@@ -1,7 +1,7 @@
 # website-rebuild-skill
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.8-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.9-blue.svg)](CHANGELOG.md)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-brightgreen.svg)](https://agentskills.io/)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522-339933.svg)](#快速开始)
 
@@ -37,7 +37,7 @@
 - **行号可溯源的逆向**——复刻里的每一行都能指回源站 bundle 的哪一行；bug 与怪写法照抄不修
 - **量化验收**——控制台 / 网络 / DOM / 几何 / **逐像素**五层自动比对，差异要么修掉、要么登记，不许糊过去
 - **源码化交付**——逐字移植的产物重写成人能读的工程（拆模块、按证据命名、补溯源头注），**复制到任何地方断网可跑**
-- **零依赖工具链**——59 个 Node 脚本（47 个工序脚本与验收门 + 7 个共用库 + 5 个源码化/反推重构器），源码化之前整条流水线不装任何 npm 包
+- **零依赖工具链**——61 个 Node 脚本（48 个工序脚本与验收门 + 8 个共用库 + 5 个源码化/反推重构器），源码化之前整条流水线不装任何 npm 包
 - **死站也能救**——Wayback 存档抢救：锚点+时间窗选一个连贯时刻、原始字节落成标准镜像、永久洞如实登记；五次死站抢救实测（四个复活、其一走完 L3；一个画面层确证全失,失败形态入册）
 - **连 RSC 站也能重构**——服务端组件源不下发（React Server Components / Next.js App Router），但它的完整输出（flight 流）内联在每页 HTML 里就是规格书：从中重构一个可构建的 Next 工程，用 flight 语义门收口。实测一个 Next 16/Turbopack 博客站 18/18 路由语义一致，一个 144 路由重站 PASS 144/144；盲逆向对公开源码判卷，结构 ≈95%、行为 ≈98%
 - **法务决定权归用户**——skill 只取证与呈交，产出默认私有 + noindex + 不部署
@@ -260,7 +260,7 @@ README.en.md               # 英文版 README
 
 版本随真实复刻项目递进：每个版本发布的功能与修复，都先在至少一个完整项目上验证过。
 
-完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.8**：门看不见的债——CSS 对账与 worker 供片链（basement 用户实测四连修回哺）。语义门只看 flight 树、看不见 CSS：逐字图交付下 DOM 外壳的类名活在 verbatim 编译串里，tailwind 漏扫 = 类全不生成，塌法极具迷惑性（白 logo 黑底黑字"消失"、幕布盖死全页）；token 台账是**相对扫描面的**，扫描面扩大即作废。配套 carry-css 方法论（镜像编译 CSS 机器搬运、需求面必须覆盖备用模式路由家族）、worker runtime **烤死前缀**的静默死签名（全注册、零监听、零报错）、Worker 空字段 error 事件先查脚本 URL、npm 生命周期钩子不跟 `npx` 直调走——分别入 `rsc-reconstruction.md` §3.2、`porting-discipline.md` §2.5.1、`environment-traps.md` §9.5。
+完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.9**：标尺只有一把——镜像开始发浏览器的图片 Accept（basement D5 定案回哺）。`auto=format` 类 CDN 按 Accept 协商返回格式，`accept: */*` 拿到的是回退字节：双 Accept 采样 6/6 全分叉（1.13MB png→61KB webp，体积差 18×），**分叉面是全部栅格变体**而门全绿。新共用库 `lib/negotiate.mjs`（`IMG_ACCEPT` 逐字照抄 Chrome、next/image 代理先解码再判、CDP TYPE 列优先）接入 mirror-site / reconcile-gaps；账本新记 `profile`+`vary` 补上"协商响应不可区分"的账本盲区；fingerprint.mjs Step 0 采 Sanity 证据（projectId/dataset/API 主机，三种拼写归一）。selftest 36→45。
 
 ## 贡献
 

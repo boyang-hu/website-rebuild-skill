@@ -3,7 +3,7 @@ name: website-rebuild
 description: 1:1 rebuild of award-winning creative websites (WebGL / scroll-animation / portfolio sites). Evidence-driven pipeline - mirror-first forensics, line-number-traceable reverse engineering of minified bundles, verbatim porting, quantitative verification gates. Use when user asks to "复刻网站", "重建网站", "1:1 rebuild", "clone this site", or provides a URL of a creative/award site to reproduce.
 compatibility: Requires Node 22+ (bundled scripts use built-in WebSocket to talk to CDP), npx, and a local Chrome/Chromium for headless comparison. POSIX shell optional - the Step 0 probe protocol has a zero-dependency Node equivalent (scripts/fingerprint.mjs) for shells without curl/cmp/tr/perl (e.g. Windows PowerShell). Agent-agnostic - works in any Agent Skills-compatible runtime.
 metadata:
-  version: "0.3.6"
+  version: "0.3.9"
 ---
 
 # Website Rebuild（获奖创意站 1:1 复刻）
@@ -152,12 +152,12 @@ Step 0 → M(n) 全程不装任何东西；**复刻项目要到 M(n+1) 才获得
 
 | 脚本 | 用途 | 使用阶段 |
 |---|---|---|
-| `scripts/fingerprint.mjs` | Step 0 六步探测协议的跨平台等价实现（GET 存活 + 重定向链与终点域同一性、双抓 diff、物种/年代、HTML 技术指纹、bundle 初检；出现次数计数与 <1KB Referer 重试内置）。**只采证据不出判级**——判级仍走 scope-and-fingerprint.md §3 判定树 | Step 0（无 POSIX 工具链时） |
+| `scripts/fingerprint.mjs` | Step 0 六步探测协议的跨平台等价实现（GET 存活 + 重定向链与终点域同一性、双抓 diff、物种/年代、HTML 技术指纹、bundle 初检；出现次数计数与 <1KB Referer 重试内置；Sanity CMS 证据采集——projectId/dataset/API 主机/auto=format/_key，三种拼写归一，命中即指路 sanity-platform.md）。**只采证据不出判级**——判级仍走 scope-and-fingerprint.md §3 判定树 | Step 0（无 POSIX 工具链时） |
 | `scripts/mirror-site.mjs` | BFS 爬虫镜像（资产白名单 + 迭代到不动点；`redirect:manual` + 三本账，含逐文件 sha256）。`--scope <前缀>` 把**页面**队列限制在目标路径下（微站挂在企业 CMS 域下时必用；⛔ 只限页面不限资产）。**账本累积**（`--seeds` 补漏不再截短上一轮的行）+ **off-host 普查**（不跟的主机逐个计数并告警——静默丢弃曾让 827 条媒体引用消失而报告写着"57 files saved"） | M0 第一遍 |
 | `scripts/netcapture.mjs` | 真实浏览器 CDP 抓包对账补录运行时资源（**CDN 站必须传 `--hosts`**，否则只观测同源流量、会报假 GAP=0） | M0 第二遍 |
 | `scripts/verify-mirror.mjs` | **镜像自己的门**，跑在断网门之前。五项断言：映射单射性 / 账本与磁盘 sha256 / **真实性（挑战页正文 + 声明类型对魔数——一个 200 不是"你拿到了那个资源"的证据）** / 闭包 / 可选抽样回源。下游所有门问的都是"渲染得出来吗"，**错的镜像能让它们全绿** | M0 关账前，每次重抓镜像后 |
 | `scripts/gapfill-video.mjs` | HLS/DASH 流媒体阶梯补录（master → rendition → 分片），静态爬虫的结构性盲区 | M0（有流媒体时） |
-| `scripts/reconcile-gaps.mjs` | **运行时缺口对账器**：把 netcapture 记下的 GAP 行与字节推导的全集清单（如 next/image 的 srcset 阶梯穷举——实测 1,078 vs 浏览器碰到 217）逐条补进镜像。⭐ **请求头梯子**（标准 profile 4xx → 裸 profile 重试：同一个 403 有两种相反的药，landonorris 要 Referer、video.twimg 恨 Referer）+ 逐 URL 容错 + 分批记账（一次崩溃不留账外文件） | M0（运行时资源多的站） |
+| `scripts/reconcile-gaps.mjs` | **运行时缺口对账器**：把 netcapture 记下的 GAP 行与字节推导的全集清单（如 next/image 的 srcset 阶梯穷举——实测 1,078 vs 浏览器碰到 217）逐条补进镜像。⭐ **请求头梯子**（标准 profile 4xx → 裸 profile 重试：同一个 403 有两种相反的药，landonorris 要 Referer、video.twimg 恨 Referer）+ 逐 URL 容错 + 分批记账（一次崩溃不留账外文件）。⛔ 图片 URL 的标准 profile 发**浏览器同款图片 Accept**（`lib/negotiate.mjs`）——`auto=format` 类 CDN 按 Accept 协商格式，`*/*` 拿到的是回退字节（basement D5：391 变体全回退而门全绿）；账本记 `profile`+`vary` | M0（运行时资源多的站） |
 | `scripts/flight-decode.mjs` | **C1 的坐标系**：把每页 `self.__next_f.push` 流解成模块引用表（I 行导出名=白送的 tier-1 命名证据）、HL 预载、已解引用的元素树 + JSX 式 outline。T 行按声明字节数走；`:HL` 空 id 行不许断链 | M1（C1） |
 | `scripts/verify-flight.mjs` | **C1 语义门**：构建产物 flight 树 ≟ 镜像 flight 树。自带解析器（⛔ 不 import flight-decode——检查者不能是生产者）；规范化只收「证明不携带行为」的构建哈希命名空间（chunk 名/css-module 类/媒体哈希/可提升资源挂载点/编码自由度），**模块 id 做全局双射**（一对多即红）；站点登记项走 `--normalize-props`（ISR 纪元字段）与 `--normalize-class`（库渲染子树）；其余一切差异照红 | M(n-1)（C1） |
 | `scripts/serve.mjs` | 零依赖静态服务器（MIME/Range/服务层改写/重定向回放），兼任源站参照服。`--rewrite FROM::TO` 是**登记式字面量替换**，为的是一类本地化触及不到的东西——**源程序按自己的域名分支**（`location.hostname=="x.com" && (CDN=...)`，镜像不在那个域名上于是整个子系统走空路径）；**首次命中打印**，因为沉默与生效此前无法区分。`--fallback-root` 让复刻侧只放产出、资产全部从只读镜像读（`asset-management.md` 的不复制策略）；**未知旗标响亮失败**——被静默忽略的旗标是一次没人知道的降级 | M0.5 起全程 |
@@ -195,6 +195,7 @@ Step 0 → M(n) 全程不装任何东西；**复刻项目要到 M(n+1) 才获得
 | `scripts/verify-standalone.mjs` | **自包含门**：把 `src/` 复制到临时目录 → 断网 → 安装 → 构建 → 跑 CLEAN 与零外联。⛔ **必须复制出去跑**——原地跑会命中项目根的 `node_modules`/`mirror/`/根 `package.json`，而这三样恰好是自包含要证伪的东西 | M(n+1) |
 | `scripts/verify-zerodep.mjs` | **依赖分界门**：`scripts/` 下不许出现 node: 之外的 import，且没有任何门 import `tools/`。⚠ 存在的理由是这条纪律**被违反了八个版本**都没人发现——它的原文就写在被违反的文件上方三行。**只写在文档里、没有东西去查的规矩会安静失效** | 每次新增脚本 |
 | `scripts/lib/png.mjs` | 零依赖 PNG 编解码 | 对拍脚本依赖 |
+| `scripts/lib/negotiate.mjs` | 内容协商 Accept 策略（`IMG_ACCEPT` 逐字照抄 Chrome 图片请求头——标尺只有一把；`imageAcceptFor` 认 CDP TYPE 提示/扩展名/next/image 代理解码；`isNegotiated` 读 Vary）+ Sanity 证据提取（`sanityEvidence`，裸写/`\/` 转义/%2F 编码三种拼写归一）。出身 basement D5；合同由 selftest 钉住 | mirror-site / reconcile-gaps / fingerprint 依赖 |
 | `scripts/lib/chrome.mjs` | 无头浏览器生命周期（**进程组**收割 + 全退出路径 + 启动前孤儿自检；漏子进程会抬高参照侧自比带宽，把像素门调松）与 CDP 载荷硬顶常量。`node scripts/lib/chrome.mjs --all/--reap` 可查/回收残留 | 所有 CDP 脚本依赖 |
 
 ## 复刻工程目录结构

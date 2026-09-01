@@ -1,5 +1,31 @@
 # 更新记录
 
+## v0.3.9 — 标尺只有一把：镜像开始发浏览器的图片 Accept（basement D5 定案回哺）
+
+v0.3.6 入册的 `auto=format` 协商陷阱，本版从"文档警告"落成"工具行为"。定案数据
+（basement 镜像，全部盘上实测 + 双 Accept 采样）:魔数普查 391 个变体 59 个扩展名↔魔数
+分叉,但**双 Accept 采样 6/6 全分叉**——jpg/png 源在浏览器 Accept 下同样返回 webp
+(1.13MB png→61KB webp,体积差 18×),**分叉面是全部栅格变体**,魔数普查只看得见协商
+跨过扩展名边界的尖角。配套事实:响应 `Vary: origin, accept` 自声明协商;裸 Accept
+重抓 6/6 sha256 与镜像一致 = profile 级分叉,非时间漂移。偏差以 D5 登记进 basement
+项目(census 脚本与采样证据入库)。
+
+**工具落地(新共用库 `lib/negotiate.mjs`,合同 selftest 钉住,36→45)**:
+
+1. `mirror-site.mjs` / `reconcile-gaps.mjs`:图片 URL 的标准 profile 改发**浏览器同款
+   图片 Accept**(`IMG_ACCEPT` 逐字照抄 Chrome——标尺只有一把,不自创格式偏好);
+   判"是图片"优先信 CDP TYPE 列(reconcile-gaps 现在读 netcapture TSV 第 5 列),
+   其次 URL 拼写,next/image 代理**先解码 `url=` 再判**;裸 profile 保持 `*/*`
+   (它的职责是头过敏兜底,极简即本分)。
+2. **账本盲区补上**:manifest 每条新记 `profile` 与 `vary`——没有这两个字段,协商
+   响应与普通响应在账本里不可区分,分叉对一切审计不可见。
+3. `fingerprint.mjs` Step 0 采 Sanity 证据:projectId/dataset/API 主机/auto=format/
+   `_key` 计数,裸写/`\/` 转义/`%2F` 编码三种拼写归一(与 D1a 四形态同课),命中即
+   指路 sanity-platform.md——只采证据,判级仍看内容烘焙时点。
+
+sanity-platform.md §1.2 同步改写(处置第一条"已内置");SKILL.md version 与脚本表
+同步(0.3.7/0.3.8 期间 metadata 停在 0.3.6,本版归位)。
+
 ## v0.3.8 — 门看不见的债：CSS 对账与 worker 供片链（basement 用户实测四连修回哺)
 
 basement 功能面收口后,用户在真浏览器里连报四障:顶栏无 logo 且换行、machine

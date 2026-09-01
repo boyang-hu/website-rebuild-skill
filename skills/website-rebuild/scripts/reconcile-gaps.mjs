@@ -16,6 +16,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { createHash } from "node:crypto";
 import { localRelPath, loadPolicy } from "./lib/urlpath.mjs";
+import { imageAcceptFor } from "./lib/negotiate.mjs";
 
 const args = process.argv.slice(2);
 const opt = (k, d) => {
@@ -39,19 +40,35 @@ const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36";
 
 const urls = new Set();
+const typeHints = new Map(); // url -> CDP resource type (netcapture TSV col 5)
 for (const f of LISTS) {
   const text = await readFile(f, "utf8");
   for (const line of text.split("\n")) {
     const cols = line.split("\t");
     // netcapture.tsv: STATUS CODE BYTES URL TYPE — take GAP rows; plain lists: the line
     const u = cols.length >= 4 ? (cols[0] === "GAP" ? cols[3] : null) : line.trim();
-    if (u && /^https?:\/\//.test(u)) urls.add(u);
+    if (u && /^https?:\/\//.test(u)) {
+      urls.add(u);
+      if (cols.length >= 5 && cols[4]) typeHints.set(u, cols[4]);
+    }
   }
 }
 console.log(`candidate urls: ${urls.size}`);
 
-const PROFILES = [
-  { name: "std", headers: { "user-agent": UA, accept: "*/*", referer: ORIGIN + "/" } },
+// Image URLs get the browser's own image Accept on the std rung: `auto=format`
+// CDNs negotiate the format on it, and `accept: */*` lands the FALLBACK bytes
+// (basement D5 — 391 variants all fallback, sampled 6/6 divergent from what a
+// browser receives, every gate green). The bare rung keeps `*/*`: it exists
+// for header allergies, and staying minimal is its job.
+const profilesFor = (url) => [
+  {
+    name: "std",
+    headers: {
+      "user-agent": UA,
+      accept: imageAcceptFor(url, typeHints.get(url) || ""),
+      referer: ORIGIN + "/",
+    },
+  },
   { name: "bare", headers: { "user-agent": "curl/8.6.0", accept: "*/*" } },
 ];
 
@@ -78,12 +95,13 @@ for (const url of [...urls].sort()) {
     had++;
     continue;
   }
-  let res = null, lastErr = "";
-  for (const p of PROFILES) {
+  let res = null, lastErr = "", usedProfile = "";
+  for (const p of profilesFor(url)) {
     try {
       const r = await fetch(url, { headers: p.headers, redirect: "manual" });
       if (r.ok) {
         res = r;
+        usedProfile = p.name;
         break;
       }
       lastErr = `HTTP ${r.status} (${p.name})`;
@@ -102,11 +120,16 @@ for (const url of [...urls].sort()) {
   const p = join(OUT, rel);
   await mkdir(dirname(p), { recursive: true });
   await writeFile(p, buf);
+  const vary = res.headers.get("vary") || "";
   manifest[url] = {
     path: rel,
     bytes: buf.length,
     sha256: createHash("sha256").update(buf).digest("hex"),
     type: (res.headers.get("content-type") || "").split(";")[0] || "",
+    // Profile + Vary on record: a negotiated response (Vary: accept) is
+    // otherwise indistinguishable from a plain one in the ledger (basement D5).
+    ...(usedProfile ? { profile: usedProfile } : {}),
+    ...(vary ? { vary } : {}),
   };
   saved++;
   if (saved % 100 === 0) {

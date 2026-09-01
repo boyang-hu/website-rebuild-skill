@@ -50,29 +50,43 @@ netcapture / mirror-site 的外部主机清单必含（按站取舍）：`cdn.sa
 
 ### 1.2 ⛔ `auto=format` 是内容协商：裸 fetch 与浏览器拿到的是两种字节
 
-带 `auto=format` 的 URL，CDN 按请求的 `Accept` 头选返回格式。本 skill 的
-`mirror-site.mjs` / `reconcile-gaps.mjs` 全部 profile 都是 `accept: */*`——**从不声明
-图片格式支持**，于是 Sanity 一律回退 JPEG/PNG；而真浏览器（`Accept: image/avif,image/webp,…`）
-同一 URL 拿到 avif/webp。**同一 URL、两种字节，镜像与浏览器运行时就此分叉。**
+带 `auto=format` 的 URL，CDN 按请求的 `Accept` 头选返回格式。v0.3.9 之前本 skill 的
+抓取 profile 全是 `accept: */*`——**从不声明图片格式支持**，于是 Sanity 一律回退
+JPEG/PNG；而真浏览器（`Accept: image/avif,image/webp,…`）同一 URL 拿到 webp。
+**同一 URL、两种字节，镜像与浏览器运行时就此分叉。**
 
-实证【basement】：镜像里 `…-1920x833@@auto=format&w=1200.webp` 扩展名 `.webp`、
-**魔数是 JPEG**——源资产本身是 webp，裸 Accept 下被 CDN 转码回 JPEG；该镜像 391 个
-`@@auto=format` 变体全以 `*/*` profile 落盘。后果三连：
+实证【basement，D5 全量定案】：魔数普查 391 个 `@@auto=format` 变体，59 个扩展名↔魔数
+分叉（56 `webp→jpeg`、3 `webp→png`——webp 源被转码回退，如 `…-1920x833@@auto=format
+&w=1200.webp` 魔数 JPEG）；**双 Accept 采样 6/6 全分叉**——jpg/png 源在浏览器 Accept
+下同样返回 webp（645KB png→54KB、**1.13MB png→61KB**）。即**分叉面是全部栅格变体，
+不止扩展名穿帮的那 59 个**：魔数普查只看得见协商跨过扩展名边界的尖角，量化全貌必须
+双 Accept 采样。三个配套事实：
 
-1. 镜像伺服的字节 ≠ 浏览器在源站拿到的字节（jpeg 压痕 vs webp/avif），**对源站保真
-   这一维度上是静默偏差**；
+- **响应自己声明了协商**：`Vary: origin, accept`——凡 Vary 含 `accept` 的条目，字节都
+  随请求 profile 变（`lib/negotiate.mjs` 的 `isNegotiated()`）；
+- **裸 Accept 重抓 6/6 sha256 与镜像精确一致**——分叉是 profile 级不是时间漂移，镜像
+  在 `*/*` 标尺下内部自洽；
+- **实测浏览器协商结果是 webp**（Chrome Accept 含 avif 但未观察到 avif 返回，样本 6）。
+
+后果三连：
+
+1. 镜像伺服的字节 ≠ 浏览器在源站拿到的字节（jpeg 压痕 vs webp，体积差实测可达 18×），
+   **对源站保真这一维度上是静默偏差**；
 2. 两侧都从镜像读时，跨侧门、像素门**照绿**——这是"错的镜像能让下游门全绿"的又一实例；
 3. `serve.mjs` 按扩展名猜 MIME 会报 `image/webp` 而实发 JPEG 字节（浏览器嗅探兜住了
    渲染，兜不住保真）。
 
-**查法**（对存量镜像，一条命令级）：枚举含 `auto=format` 的镜像文件，魔数 vs URL 扩展名
-vs 账本 content-type 三方对照，不一致逐条列出。**处置**：
+**处置**（第一条 v0.3.9 起已内置）：
 
-- 新镜像：`auto=format` 资产用**浏览器同款 Accept** 抓（照抄 netcapture 实际 UA/Accept，
-  不要自创第三种 profile——保真目标是"浏览器会拿到的字节"，标尺只有一把）；或整批交给
-  netcapture 真浏览器通道。fetch profile 逐条进账本。
+- 新镜像：`mirror-site.mjs` / `reconcile-gaps.mjs` 对图片 URL 自动发**浏览器同款图片
+  Accept**（`lib/negotiate.mjs` 的 `IMG_ACCEPT`，逐字照抄 Chrome——标尺只有一把，不
+  自创格式偏好；判"是图片"优先信 CDP TYPE 提示，其次 URL 拼写，next/image 代理先解码
+  `url=`）；账本每条新记 `profile` 与 `vary`，协商条目从此可审计。
+- 查存量镜像（一条命令级）：枚举含 `auto=format` 的镜像文件，魔数 vs URL 扩展名 vs
+  账本 content-type 三方对照（参照 basement 项目侧 `scripts/census-negotiated.mjs`）；
+  老账本没记 `vary`/`profile` 的，这本身就是账本盲区，一并登记。
 - 存量镜像：**镜像神圣，不许原地改字节**——分叉登记为偏差（源站怎么发 / 镜像存了什么 /
-  为什么 / 何时重抓），重抓走新一轮 M0 记账。
+  为什么 / 何时重抓），全量重抓走新一轮 M0 记账、**是否重抓交用户**。
 
 ### 1.3 变体阶梯：字节推导全集，两层展开
 

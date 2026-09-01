@@ -112,6 +112,36 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
   truthy("textref — png bytes not text", !isTextRefSource({ url: "https://x.com/i.png", contentType: "image/png", head: Buffer.from([0x89, 0x50, 0x4e, 0x47]) }));
 }
 
+// ---------------------------------------------- 4b. lib/negotiate fixtures
+{
+  // v0.3.9 / basement D5: `auto=format` negotiates on Accept; `accept: */*`
+  // landed 391 fallback-format variants (webp transcoded back to JPEG) while
+  // every gate stayed green. These pin the one-yardstick contract.
+  const { IMG_ACCEPT, imageAcceptFor, isNegotiated, sanityEvidence } =
+    await import(path.join(SKILL, "scripts/lib/negotiate.mjs"));
+  eq("negotiate — sanity image gets browser Accept (v0.3.9)",
+    imageAcceptFor("https://cdn.sanity.io/images/9syto90m/production/ab-1920x833.webp?auto=format&w=1200"), IMG_ACCEPT);
+  eq("negotiate — next/image proxy gets browser Accept (v0.3.9)",
+    imageAcceptFor("https://x.com/_next/image?url=https%3A%2F%2Fcdn.sanity.io%2Fimages%2Fp%2Fd%2Fa.jpg&w=1200&q=75"), IMG_ACCEPT);
+  eq("negotiate — CDP type hint outranks extensionless URL (v0.3.9)",
+    imageAcceptFor("https://cdn.x.com/asset/4711", "Image"), IMG_ACCEPT);
+  eq("negotiate — non-image keeps */* (allergy rung untouched)",
+    imageAcceptFor("https://x.com/chunk.js"), "*/*");
+  truthy("negotiate — Vary: origin, accept detected (v0.3.9)", isNegotiated("origin, accept"));
+  truthy("negotiate — Vary without accept not flagged", !isNegotiated("origin, accept-encoding"));
+  // sanityEvidence: all three spellings normalize (plain / \/ escaped / %2F encoded)
+  const ev = sanityEvidence(
+    `src="https://cdn.sanity.io/images/9syto90m/production/a-1x1.jpg?auto=format"` +
+    ` {"u":"https:\\/\\/cdn.sanity.io\\/files\\/9syto90m\\/production\\/b.mp4"}` +
+    ` /_next/image?url=https%3A%2F%2Fcdn.sanity.io%2Fimages%2Fdiak0tmr%2Fproduction%2Fc-2x2.png` +
+    ` fetch("https://diak0tmr.apicdn.sanity.io/v2024-01-01/data/query/production?query=x")` +
+    ` {"_key":"abc","_key":"def"}`);
+  eq("negotiate — sanityEvidence projects across spellings (v0.3.9)",
+    ev.projects.map((p) => `${p.projectId}:${p.n}`).sort(), ["9syto90m:2", "diak0tmr:1"]);
+  eq("negotiate — sanityEvidence apicdn host seen", ev.apiHosts.map((h) => h.host), ["diak0tmr.apicdn.sanity.io"]);
+  eq("negotiate — sanityEvidence counts", [ev.autoFormat, ev.keyFields], [1, 2]);
+}
+
 // ------------------------------------- 5. verify-mirror end-to-end fixture
 {
   // A miniature mirror: ledger-consistent, closure-complete. PASS expected;

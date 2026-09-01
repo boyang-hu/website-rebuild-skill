@@ -33,6 +33,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
+import { sanityEvidence } from "./lib/negotiate.mjs";
 
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
@@ -236,6 +237,20 @@ async function main() {
   say(
     `- Shopify 平台指纹：cdn/shop/=${count(aText, /cdn\/shop\//g)}  Shopify.theme=${count(aText, /Shopify\.theme/g)}  cdn.shopify.com=${count(aText, /cdn\.shopify\.com/g)}  myshopify.com=${count(aText, /myshopify\.com/g)}（命中 → B 类路由候选，见 references/shopify-platform.md）`,
   );
+  // Sanity 证据采集（lib/negotiate.mjs；三种拼写归一后计数——裸写/\/ 转义/%2F 编码）
+  const sanity = sanityEvidence(aText);
+  if (sanity.projects.length || sanity.apiHosts.length) {
+    say(`- Sanity CMS 指纹（命中 → 加载 references/sanity-platform.md；判级看内容烘焙时点 §0，不看库名）：`);
+    for (const p of sanity.projects)
+      say(`  - projectId=${p.projectId} dataset=${p.dataset}（引用 ×${p.n}）`);
+    for (const h of sanity.apiHosts)
+      say(`  - API 主机 ${h.host} ×${h.n} —— ⚠ HTML 里出现 API 主机 ≠ 运行时装配；是否 D 因素看断网首屏有无 GROQ 流量（§0 三形态）`);
+    say(`  - auto=format ×${sanity.autoFormat}${sanity.autoFormat ? " —— ⛔ 内容协商：镜像必须发浏览器图片 Accept，否则拿到回退格式字节（sanity-platform.md §1.2；mirror-site/reconcile-gaps 已内置）" : ""}`);
+    say(`  - "_key" 字段 ×${sanity.keyFields}（Sanity 数组项化石——C1 照抄，不进 normalize 名单）`);
+    say(`  - M0 提醒：--hosts 需含 cdn.sanity.io 与上列 API 主机；next/image 代理 URL 先解码 url= 再判主机`);
+  } else {
+    say(`- Sanity CMS 指纹：无`);
+  }
   say(
     `- 人工核对项：技术栈年代 vs 获奖年份是否矛盾；generator/license 年份晚于获奖期 + 获奖期技术栈残留为零 → 隐性下线判 X（§2 步骤 3）。`,
   );
