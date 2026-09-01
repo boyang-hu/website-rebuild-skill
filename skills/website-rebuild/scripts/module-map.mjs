@@ -322,25 +322,54 @@ for (const { id, fi } of entries) {
   // in a require call proves nothing.)
   const externalRequires = new Set();
   const exportNames = new Set();
+  const subIds = new Set(); // scope-hoisted merged sub-modules registered via ctx.s(…, subId)
   let exportsAssigned = 0;
   for (let k = b; k < end; k++) {
     // --- Turbopack: ctx.i(id) / ctx.r(id) require; ctx.s([[name, …]], own) ---
     if (ctxName && lab(k) === "name" && val(k) === ctxName && lab(k + 1) === "." && lab(k + 2) === "name") {
       const method = val(k + 2);
-      if ((method === "i" || method === "r") && lab(k + 3) === "(" && lab(k + 4) === "num") {
+      // ⭐ ctx.A(<id>) is Turbopack's ASYNC loader — `import()` compiles to it.
+      // It is still a dependency edge: dropping it leaves the closure blind to
+      // everything behind a dynamic import (basement.studio loads its entire
+      // 3D scene as `e.A(724681).then(e => e.Scene)` — the whole office scene
+      // graph was invisible until this shape was collected).
+      if ((method === "i" || method === "r" || method === "A") && lab(k + 3) === "(" && lab(k + 4) === "num") {
         requires.add(String(val(k + 4)));
         continue;
       }
-      if (method === "s" && lab(k + 3) === "(") {
-        // ⭐ Export names, given by the packer. Every string literal at any depth
-        // inside the call, up to its matching ")", is an exported name.
+      // ⭐ ctx.v(cb) defines an ASYNC MODULE: a loader stub whose body loads
+      // sibling chunks (ctx.l("path")) and then resolves `cb(<moduleId>)`. The
+      // id handed to the resolve callback is the stub's real payload — collect
+      // every numeric literal in the call (the only numbers a stub body holds
+      // are resolve targets; chunk paths are strings).
+      if (method === "v" && lab(k + 3) === "(") {
         let d2 = 0;
         for (let j = k + 3; j < end; j++) {
           const l = lab(j);
           if (OPEN.has(l)) d2++;
           else if (CLOSE.has(l)) { d2--; if (d2 === 0) { k = j; break; } }
-          else if (d2 >= 1 && l === "string") exportNames.add(String(val(j)));
+          else if (d2 >= 1 && l === "num" && String(val(j)).length >= 3) requires.add(String(val(j)));
         }
+        continue;
+      }
+      if (method === "s" && lab(k + 3) === "(") {
+        // ⭐ Export names, given by the packer. Every string literal at any depth
+        // inside the call, up to its matching ")", is an exported name.
+        // ⛔ And the call's LAST numeric argument (depth 1) is the id the exports
+        // register under. Scope hoisting merges several source modules into ONE
+        // factory, each declaring its exports via `ctx.s([…], <subId>)` — those
+        // sub-ids are require-able from other chunks (`ctx.i(subId)`), so a map
+        // that only knows factory ids leaves the closure unclosed: 87 required
+        // ids "missing" on basement.studio, every one an in-factory merge.
+        let d2 = 0, lastNum = null;
+        for (let j = k + 3; j < end; j++) {
+          const l = lab(j);
+          if (OPEN.has(l)) d2++;
+          else if (CLOSE.has(l)) { d2--; if (d2 === 0) { k = j; break; } }
+          else if (d2 >= 1 && l === "string") exportNames.add(String(val(j)));
+          else if (d2 === 1 && l === "num") lastNum = String(val(j));
+        }
+        if (lastNum !== null && lastNum !== String(id)) subIds.add(lastNum);
         exportsAssigned++;
         continue;
       }
@@ -378,7 +407,7 @@ for (const { id, fi } of entries) {
       else if (lab(k + 3) === "." && isProp(k + 4) && lab(k + 5) === "=") exportNames.add(propName(k + 4));
     }
   }
-  mods.push({ id, aliases: (entries.find((e) => String(e.id) === String(id)) || {}).aliases || [], startLine, endLine, startChar, endChar, lines: endLine - startLine + 1, requires: [...requires], externalRequires: [...externalRequires], exportsAssigned, exportNames: [...exportNames].slice(0, 12) });
+  mods.push({ id, aliases: [...new Set([...((entries.find((e) => String(e.id) === String(id)) || {}).aliases || []), ...subIds])], startLine, endLine, startChar, endChar, lines: endLine - startLine + 1, requires: [...requires], externalRequires: [...externalRequires], exportsAssigned, exportNames: [...exportNames].slice(0, 12) });
 }
 
 // ⛔ A container can define the same id more than once, and this one does: 597

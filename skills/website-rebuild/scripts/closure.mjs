@@ -30,6 +30,10 @@ const map = JSON.parse(await readFile(MAP, "utf8"));
 // or `id.startsWith` throws on the first numeric id it meets.
 const idOf = (m) => String(m.id);
 const byId = new Map(map.modules.map((m) => [idOf(m), m]));
+// ⛔ Aliases resolve too: a factory can answer to several ids (dedup runs) and to
+// scope-hoisted sub-module ids (ctx.s(…, subId)). A require of ANY of them must
+// land on the owning module, or the closure reports phantom missing ids.
+for (const m of map.modules) for (const a of m.aliases || []) if (!byId.has(String(a))) byId.set(String(a), m);
 
 const unknownSeeds = seed.filter((id) => !byId.has(id));
 if (unknownSeeds.length) {
@@ -52,13 +56,20 @@ while (q.length) {
   for (const r of m.requires) { const rid = String(r); if (!seen.has(rid)) q.push(rid); }
 }
 const missing = [...seen].filter((id) => !byId.has(id));
-const mods = [...seen].filter((id) => byId.has(id));
-const lines = mods.reduce((t, id) => t + byId.get(id).lines, 0);
+// ⛔ Dedup through aliases before counting. Several requested ids can resolve to
+// ONE owning module (dedup runs, scope-hoisted sub-ids); counting per requested
+// id triples both the module count and the line total, and the slicer would cut
+// the same body once per alias. The closure's output is OWNING ids only.
+const owning = new Map(); // primary id -> module
+for (const id of seen) { const m = byId.get(id); if (m) owning.set(idOf(m), m); }
+const mods = [...owning.keys()];
+const aliasHits = [...seen].filter((id) => byId.has(id)).length - mods.length;
+const lines = [...owning.values()].reduce((t, m) => t + m.lines, 0);
 const total = map.modules.reduce((t, m) => t + m.lines, 0);
 
 console.log(`=== closure ===`);
 console.log(`  seeds: ${seed.join(", ")}`);
-console.log(`  ${mods.length} module(s) / ${lines} lines  (${(lines / total * 100).toFixed(1)}% of the bundle's ${total})`);
+console.log(`  ${mods.length} module(s) / ${lines} lines  (${(lines / total * 100).toFixed(1)}% of the bundle's ${total})${aliasHits ? `; ${aliasHits} alias id(s) folded in` : ""}`);
 if (missing.length) {
   console.log(`\n  FAIL ${missing.length} required id(s) are not in the map — the closure is NOT closed:`);
   for (const id of missing.slice(0, 10)) console.log(`         ${id}`);

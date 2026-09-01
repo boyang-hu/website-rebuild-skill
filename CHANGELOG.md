@@ -1,5 +1,26 @@
 # 更新记录
 
+## v0.3.3 — turbopack 的三个暗形态：闭包不再对场景失明（basement C2 坐标系）
+
+basement 的 3D 场景在静态 require 图里**完全不存在**——CanvasLayer 经
+`e.A(724681)` 异步加载一个 loader stub,stub 拉 10 个 chunk 再 resolve 真场景
+模块。closure 从种子算出 173 模块"已闭合",而 office 场景、街机小游戏、KTX2
+管线一行都不在里面。三个未识别的 turbopack 形态,全部入图(module-map.mjs):
+
+1. **scope hoisting 合并子模块**:一个 factory 内 `e.s([exports], subId)` 把多个
+   源模块的导出注册在各自 id 下,这些 subId 可被其它 chunk require——87 个
+   "幽灵缺失 id"全是这种,现作为 aliases 入图;
+2. **`e.A(id)` 异步加载边**:`import()` 编译产物,和 `e.i` 一样是依赖边;
+3. **`e.v(cb)` loader stub**:异步模块定义,resolve 目标 `cb(<id>)` 是 stub 的
+   真实载荷。
+
+配套:closure.mjs 按别名索引并**按所有权去重**(此前一个模块按别名被计多次,
+行数虚报 3 倍且切片会重复切);别名解析失败不再报幽灵缺失。修完重算:闭包
+173 → **308 模块 / 109,355 行**,场景图整个浮出水面——顺带钉出 **31 个懒加载
+chunk 从未进镜像**(L1 静态爬虫的结构性盲区:异步 loader 家族)。
+
+自检 30 → 33:三形态 + 别名去重各有断言。
+
 ## v0.3.2 — 语义门在重站上的成人礼（basement.studio C1 层收口）
 
 rauchg 18 路由的门,拿到 basement.studio(144 路由、Vercel 动态流、React 19 流式

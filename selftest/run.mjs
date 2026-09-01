@@ -227,6 +227,49 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
   truthy("verify-flight — one origin module split in two goes red (v0.3.2)", (() => { const g = gateOut(); return !g.ok && g.out.includes("123"); })());
 }
 
+// --------------- 5c. module graph: turbopack merged/async shapes (v0.3.3)
+{
+  // The three shapes basement.studio bled for: scope hoisting registers a merged
+  // sub-module via e.s([exports], subId); e.A(id) is the async-loader edge; and
+  // an e.v(cb) loader stub resolves cb(<id>) after pulling sibling chunks. Miss
+  // any of them and the closure is silently blind — the site's entire 3D scene
+  // sat two hops behind an e.A / e.v pair.
+  const CH = path.join(TMP, "graph-chunk.js");
+  writeFileSync(CH, `(globalThis.TURBOPACK = globalThis.TURBOPACK || []).push([
+  "object" == typeof document ? document.currentScript : void 0,
+  111, (e, t, r) => {
+    "use strict";
+    var a = e.i(222);
+    e.A(444);
+    e.s(["Foo", () => 1], 111);
+    e.s(["Bar", () => 2], 333);
+  },
+  222, (e, t, r) => {
+    "use strict";
+    t.exports = {};
+  },
+  444, e => {
+    e.v(s => Promise.all(["static/chunks/x.js"].map(c => e.l(c))).then(() => s(555)));
+  },
+  555, (e, t, r) => {
+    "use strict";
+    var a = e.i(333);
+  }
+]);\n`);
+  const MMOUT = path.join(TMP, "graph-map.json");
+  try {
+    execFileSync(process.execPath, [path.join(SKILL, "scripts/module-map.mjs"), "--in", CH, "--out", MMOUT], { stdio: "pipe" });
+    const mm = JSON.parse(readFileSync(MMOUT, "utf8"));
+    const m111 = mm.modules.find((m) => String(m.id) === "111");
+    const m444 = mm.modules.find((m) => String(m.id) === "444");
+    truthy("module-map — scope-hoisted e.s(…, subId) lands in aliases (v0.3.3)", !!m111 && (m111.aliases || []).map(String).includes("333"));
+    truthy("module-map — e.A async edge + e.v stub resolve target are requires (v0.3.3)",
+      !!m111 && m111.requires.map(String).includes("444") && !!m444 && m444.requires.map(String).includes("555"));
+    const out = execFileSync(process.execPath, [path.join(SKILL, "scripts/closure.mjs"), "--seed", "111", "--map", MMOUT, "--out", path.join(TMP, "graph-closure.json")], { stdio: "pipe" }).toString();
+    truthy("closure — alias require resolves and dedups to the owning module (v0.3.3)", /4 module\(s\)/.test(out) && /1 alias id\(s\) folded in/.test(out));
+  } catch (e) { bad("module graph — turbopack shapes", String(e.stderr || e.stdout || e.message).split("\n")[0]); }
+}
+
 // -------------------------------------------------------- 6. doc integrity
 {
   let dangling = 0;
