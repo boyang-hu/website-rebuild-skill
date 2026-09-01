@@ -39,6 +39,11 @@ sanity-platform.md §1.2 同步改写(处置第一条"已内置");SKILL.md versi
   (App Router vs pages router × Sanity 三种接法)、--hosts 预设、协商面三族、
   运行时资源族清单(darkroom 实测 well-known 五件套含 openapi.json)、
   verify-flight 常用旗标。四站实测素材(basement/hashgraphvc/darkroom/14islands)。
+- **存量镜像的协商变体重抓落地形态——独立记账树**(basement D5 处置,用户裁定"重抓但
+  保留旧变体"):`mirror-negotiated/` 自有账本、同一套 urlpath 映射、记 profile/vary/
+  baseline;旧树零改动(git status 空),新树五项全绿。391/391,311 webp/79 avif,
+  217MB→39.5MB——**avif 份额随站与资产尺寸变**(14islands 4/616 vs basement 79/391),
+  协商结果只能写成分布。
 - **verify-mirror 弱标记误伤 404 模板**(darkroom M0 实撞):weak "refusal wording"
   匹配到的是 flight 错误边界槽位名 `"forbidden":"$undefined"`——404 模板是全站
   最小 HTML,唯独它躲不过 WEAK_MAX。修法有边界:**模板对弱标记豁免、强标记保留**

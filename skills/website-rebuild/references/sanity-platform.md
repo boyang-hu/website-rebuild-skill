@@ -68,9 +68,10 @@ JPEG/PNG；而真浏览器（`Accept: image/avif,image/webp,…`）同一 URL �
   随请求 profile 变（`lib/negotiate.mjs` 的 `isNegotiated()`）；
 - **裸 Accept 重抓 6/6 sha256 与镜像精确一致**——分叉是 profile 级不是时间漂移，镜像
   在 `*/*` 标尺下内部自洽；
-- **实测浏览器协商结果以 webp 为主、偶见 avif**：14islands 首轮 616 个 `auto=format`
-  变体魔数清点 604 webp / 4 avif（`ftypavif`）/ 8 png——basement 采样 6 全 webp 曾让
-  "未见 avif"成为论断，样本放大即修正【14islands】。
+- **浏览器协商结果是一个分布，不是一种格式**：14islands 616 变体 604 webp / 4 avif / 8 png；
+  basement 全量重抓 391 变体 **311 webp / 79 avif** / 1 svg（3840×2160 大图多，avif 份额
+  随站与资产尺寸变）——basement 采样 6 全 webp 曾让"未见 avif"成为论断，样本放大即修正
+  【14islands】【basement】。
 
 后果三连：
 
@@ -90,7 +91,11 @@ JPEG/PNG；而真浏览器（`Accept: image/avif,image/webp,…`）同一 URL �
   账本 content-type 三方对照（参照 basement 项目侧 `scripts/census-negotiated.mjs`）；
   老账本没记 `vary`/`profile` 的，这本身就是账本盲区，一并登记。
 - 存量镜像：**镜像神圣，不许原地改字节**——分叉登记为偏差（源站怎么发 / 镜像存了什么 /
-  为什么 / 何时重抓），全量重抓走新一轮 M0 记账、**是否重抓交用户**。
+  为什么 / 何时重抓），**是否重抓交用户**。重抓的落地形态（basement D5 实证）：**独立
+  记账树** `mirror-negotiated/`——自有 manifest/inventory、同一套 `lib/urlpath` 映射、
+  账本记 `profile`/`vary`/`baseline`（旧 sha）；旧树零改动、两树同 URL 键逐条可对照、
+  覆盖门无需改语义；以浏览器字节为参照的门用 `serve --fallback-root` 链 negotiated→mirror。
+  实测 391/391、217MB→39.5MB、新树五项全绿（项目侧 `scripts/regrab-negotiated.mjs` 可参照）。
 
 ### 1.3 变体阶梯：字节推导全集，两层展开
 
