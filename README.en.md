@@ -1,7 +1,7 @@
 # website-rebuild-skill
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.7-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.8-blue.svg)](CHANGELOG.md)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-brightgreen.svg)](https://agentskills.io/)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522-339933.svg)](#quick-start)
 
@@ -260,7 +260,7 @@ Before anything goes public, per-asset copyright **forensics** must be completed
 
 Versions advance with real rebuild projects: every feature and fix shipped was first validated on at least one complete project.
 
-Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.7** — the fourth delivery form: verbatim graphs + a transcribed micro-runtime (fed back from the basement closeout). When the port must live **inside another application's shell** (a rebuilt Next project embedding the source site's compiled components), none of the three existing delivery forms applies. The core discipline: **each runtime helper letter's semantics must be transcribed verbatim from the source site's runtime chunk** (`A` is "resolve, then call with require"; `n` is exportNamespace — semantics guessed from call sites explode far away in unrelated shapes), plus three traps: read every chunk scope before substituting a registry id, your own build's id collisions, and `.i`/`.r`/`.A` as equal-weight closure edges. All in `porting-discipline.md` §2.5.1.
+Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.8** — debts the gate cannot see: CSS reconciliation and the worker supply chain (fed back from four user-reported breakages on basement, all fixed). The semantics gate reads the flight tree and is blind to CSS: under verbatim-graph delivery the DOM shell's class names live inside compiled verbatim strings — a missed Tailwind scan surface means classes are simply never generated, and the failures disguise themselves (a white logo "vanishing" black-on-black, a reveal curtain covering the whole page); the token ledger is **relative to the scan surface** and expires when the surface grows. Ships the carry-css method (machine-carrying rules from the mirror's compiled CSS; the demand set must cover every route family including alternate-mode ones), the silent-death signature of the worker runtime's **baked chunk prefix** (all registered, zero listeners, zero errors), field-less Worker error events pointing first at the script URL, and npm lifecycle hooks that don't fire under direct `npx` calls — in `rsc-reconstruction.md` §3.2, `porting-discipline.md` §2.5.1, and `environment-traps.md` §9.5 respectively.
 
 ## Contributing
 

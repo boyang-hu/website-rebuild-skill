@@ -1,5 +1,32 @@
 # 更新记录
 
+## v0.3.8 — 门看不见的债：CSS 对账与 worker 供片链（basement 用户实测四连修回哺)
+
+basement 功能面收口后,用户在真浏览器里连报四障:顶栏无 logo 且换行、machine
+模式黑屏、Contact 电话浮层点了没反应、对讲机屏字体错。四障三根,全部入册:
+
+**CSS 面对账(rsc-reconstruction §3.2)——语义门只看 flight 树,看不见 CSS**:
+- ⛔ 逐字图交付下 DOM 外壳的类名活在 verbatim JS 编译串里,tailwind content
+  漏扫 = JIT 全不生成,塌法极具迷惑性(白 logo 黑底黑字"消失"、grid 塌、
+  reveal 幕布盖死全页);
+- ⛔ token 台账是**相对扫描面的**——"JIT 只编译用到的,这就是全集"在扫描面
+  扩大时作废;字体链三层全在、独缺 token 一层照样回退系统字体(flauta);
+- ⭐ carry-css 方法论:代表路由 SSR DOM 类名并集为需求面(**必须覆盖每个
+  路由家族,含备用模式家族**),镜像编译 CSS 机器搬运 tailwind 生成不了的
+  规则(@media 保留、keyframes 连带、body 基础规则单独一道),幂等可重跑;
+  源站自身死类照抄不修;数字开头类名的 CSS 转义分词陷阱(`\33 xl\:` 尾随空格)。
+
+**worker 供片链(porting-discipline §2.5.1 增补三条)**:
+- ⛔ worker runtime 的 registerChunk 以**烤死前缀**转等待键——换前缀供片 =
+  entry 静默不执行(全注册、零监听、零报错,死状签名要背下来);
+- ⭐ Worker 对象上**空字段 error 事件的第一嫌疑是脚本 URL 本身**(加载失败
+  的事件没有 message/filename,长得和跨域脱敏一模一样——先 curl 再理论);
+- worker 静默死的解剖:CDP 平铺 auto-attach + 恢复执行前注入三层消息账本。
+
+**环境陷阱 §9.5**:npm 生命周期钩子不跟人走——`npx next build` 直调不触发
+postbuild,钩子负责的产物(软链)悄悄消失,间歇性 404 伪装成"上轮修好又坏"。
+对策:关键产物挂多生命周期点双保险;自查清单加一条。
+
 ## v0.3.7 — 第四交付形态：逐字图 + 转写微运行时（basement 收官回哺）
 
 basement 战役收官:34 个 DOM 外壳、ScreenUI(16.5k 行 preact-signals 引擎)、

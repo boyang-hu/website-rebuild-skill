@@ -212,6 +212,23 @@ addEventListener('resize', () => { if (cols() !== columnCount) buildColumns(); }
 4. **恢复之后不要指望进程自愈**：按进程组收掉（`kill -TERM -<pgid>`，见 `determinism.md` 的进程收割纪律），确认 headless 残留为 0 再重跑。
 5. ⛔ **挂死期间产生的任何数据都不可信**：本例网络恢复前后，同一道门的跨侧对拍出现了一条 §4.10 型的假红——**慢，会把两侧的采样时刻拉开到足以跨过某个状态边界**。挂死不只是浪费时间，它是一台**残差制造机**。
 
+## 9.5 陷阱:npm 生命周期钩子不跟人走——`npx next build` 不触发 postbuild【basement】
+
+**症状**:构建后某类资源间歇性 404,"上一轮明明修好了"。同一台机、同一份代码,
+有时好有时坏,坏的那几轮全是直接 `npx next build` 构建的。
+
+**机理**:`pre*`/`post*` 钩子只在 `npm run <script>` 时执行;`npx next build`
+直调 CLI,钩子静默跳过。凡钩子负责重建的产物(basement:`.next/static/` 里的
+镜像 immutable 软链——`next build` 每次清空该目录)就悄悄消失,而构建本身
+零警告全绿。下游症状还会变形:worker 脚本 404 产生**空字段 error 事件**,
+被误判成跨域脱敏错误(porting-discipline §2.5.1 第 6 条)。
+
+**对策**:
+- 关键产物的重建挂**多个**生命周期点(`postbuild` + `prestart` 双保险),
+  或干脆并进 build 命令本体(`"build": "next build && node …"`);
+- 无人值守脚本与文档里统一写 `npm run build`,不写 `npx next build`;
+- 自查:坏境复现前先 `ls` 一遍钩子负责的产物在不在。
+
 ## 10. 判定 bug 前的自查清单
 
 把问题归因到源码之前，逐项打勾：
@@ -228,6 +245,7 @@ addEventListener('resize', () => { if (cols() !== columnCount) buildColumns(); }
 - [ ] 驱动步骤的**时刻**对齐了吗？（外部轮询驱动 vs 注入页面的时间表，§7.1）【shopifydesign】
 - [ ] 抓图带了 `clip` 吗？页面有 fixed/sticky 元素吗？（`clip` 是**文档坐标**，滚动位姿会拍成全白，§4）【shopifydesign】
 - [ ] 无头 flag（`--use-gl=swiftshader` / `--disable-gpu`）有没有把被测程序切到另一条画质/能力分支？（`determinism.md` §2.9）【shopifydesign】
+- [ ] 生命周期钩子负责的产物还在吗？这轮构建走的是 `npm run` 还是直调 CLI？（§9.5）【basement】
 - [ ] **移动视口档**：用 document-start 探针量过 `innerWidth` 吗？（`<meta viewport>` 落地前它是 **980**，页面可能已经按桌面排好了版，§8）【objectarchive】
 - [ ] 准备改仪器了——**有没有先用一个探针把候选机制砍到一种**？（凭症状猜修法实测把 2/8 红变成 5/8 红，`verification-gates.md` §6.1.0）【objectarchive】
 - [ ] 只在部署环境出现？先用延迟注入复现再归因【samsy】

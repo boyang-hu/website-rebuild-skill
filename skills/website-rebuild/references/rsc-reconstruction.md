@@ -87,6 +87,34 @@ C1(服务端组件源不下发)从"拒绝"改为**可做:重构式逆向**。定
    单层 code 或内含元素/`{" "}` 串 = 作者手写字面 JSX,逐字发射(围栏路径的
    textOf 会把内嵌链接压扁——先判形再选路)。
 
+### §3.2 CSS 面:tailwind 扫描面与 token 必须对着镜像编译 CSS 对账【basement】
+
+语义门只看 flight 树,**看不见 CSS**——重建工程的样式面是独立债务,且塌法极具
+迷惑性:白色 SVG logo 因 `text-*` 未生成变黑底黑字"消失"、grid 塌成换行、
+自定义字体回退系统 sans、reveal 幕布类缺失导致整页盖黑(machine 模式黑屏
+= `.machine-reveal` 只有 keyframes 没有类规则)。四轮用户实测报障同一根因:
+
+1. ⛔ **扫描面**:逐字图交付(porting-discipline §2.5 第四形态)下,DOM 外壳的
+   类名活在 verbatim JS 的编译串里——tailwind `content` 不含 `verbatim/**/*.js`
+   = JIT 全部不生成。凡类名所在的每种文件形态都要进 glob。
+2. ⛔ **token 台账是相对扫描面的**:"JIT 只编译站上用到的,这就是全集"这句话
+   在扫描面扩大时作废——f-* 字号桌面档(藏在 `.lg\:text-f-*` 媒体查询里)、
+   z-navbar、备用模式配色族(machine-*)、自定义字体(fontFamily.sans/mono
+   被源站覆写到 next/font 变量 + 站点私有字体如 flauta)都要从镜像编译规则
+   重新取证。字体链尤险:ttf/localFont/CSS 变量三层全在,独缺 token 一层,
+   照样回退系统字体。
+3. ⭐ **carry-css 方法论**(tailwind 生成不了的规则,机器搬运不手抄):
+   需求面 = 代表路由 SSR DOM 类名并集——**必须覆盖每个路由家族,含备用
+   模式家族**(basement 的 /ai 机器可读镜像有独立配色与幕布,漏采样 = 该
+   家族类全缺);减去构建产物已有的类;剩余到镜像 CSS 逐条找规则原文搬运:
+   @media 上下文保留、@keyframes 随 animation-name 连带、元素级 base 规则
+   (`body{background:#000;font-family:…}`,缺它 = 水合前白闪)单独一道;
+   工具要幂等(上一轮产物已编进构建 CSS,重跑前先从 have 集剔除自身贡献)。
+4. **镜像里也无规则的类 = 源站自身死类**(`bg-brank-k` 拼写错、`text-caption`
+   等 16 个实测)——照抄不修(§1.3),报告里点名即可。
+5. ⛔ 选择器分词陷阱:数字开头类名的 CSS 转义带尾随空格(`.\33 xl\:…` =
+   `3xl:…`),naive 的 `\\.` 分词在空格处截断——`2xl/3xl` 断点变体整族漏判。
+
 ## §4 语义门(scripts/verify-flight.mjs)
 
 字节门到不了 C1 收口:chunk 名/模块 id/css-module 类/媒体哈希是**构建哈希

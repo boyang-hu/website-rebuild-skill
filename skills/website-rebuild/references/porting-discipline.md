@@ -213,6 +213,22 @@ rogier 在实现里嵌入 68 处 mode 字符串，把"当前遵循哪条源码�
 4. 闭包走查的 require 形态是 `.i(`/`.r(`/`.A(` 三者同权(module-map.mjs 已收);
    手写临时 grep 只匹配 `.i(` 会在运行时以"依赖未映射"补课。`t` 不是模块边
    (源站原文:node require 直通,浏览器侧 throw)。
+5. ⛔ **worker chunk 的供片前缀是烤死的**:worker 侧 runtime 的 `registerChunk`
+   以硬编码前缀(basement 实测 `r="/_next/"`)把 `otherChunks` 路径转"等待键",
+   与已注册 chunk 的真实 src 比对——从任何其它前缀供片(如自建的
+   `/origin-runtime/`),键永不相遇,**entry 静默不执行**:chunk 全加载、
+   URLS 被 pop 清空、零监听、零报错。修法 = 按源站前缀供片(镜像 immutable
+   目录软链进 `.next/static/`,与自家构建产物子目录不冲突)。死状签名值得
+   背下来:「全部注册完成 + 无人监听 + 无异常」= 先查前缀,不是查代码。
+6. ⭐ **Worker 对象上空字段的 error 事件,第一嫌疑是脚本 URL 本身**:worker
+   脚本加载失败产生的 error 事件没有 message/filename/lineno,长得和"跨域
+   脱敏"一模一样——先 curl 一下 worker 脚本 URL 再谈别的(basement 实测:
+   构建重建吞掉软链 → 间歇 404 → 被误判为 draco 跨域错误登记了一轮)。
+7. **worker 静默死的解剖工具**:CDP `Target.setAutoAttach`(flatten +
+   waitForDebuggerOnStart)平铺附加进每个 worker,恢复执行**前**注入
+   进/出消息账本与监听计数,页面侧再包一层 Worker 构造器记录双向 `{type}`
+   ——三层账本对齐后,"哪一环没发生"一目了然(worker-probe 形态,零依赖,
+   基建复用 probe 家族的 chrome 生命周期库)。
 
 ### 2.6 chunk 形交付的入口文件规范
 

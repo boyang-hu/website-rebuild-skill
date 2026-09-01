@@ -1,7 +1,7 @@
 # website-rebuild-skill
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.7-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.8-blue.svg)](CHANGELOG.md)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-brightgreen.svg)](https://agentskills.io/)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522-339933.svg)](#快速开始)
 
@@ -260,7 +260,7 @@ README.en.md               # 英文版 README
 
 版本随真实复刻项目递进：每个版本发布的功能与修复，都先在至少一个完整项目上验证过。
 
-完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.7**：第四交付形态「逐字图 + 转写微运行时」（basement 收官回哺）——当端口必须活在**另一个应用的外壳里**（重建的 Next 工程内嵌源站编译组件），三种既有交付形态都接不上；核心纪律是 **runtime 助手字母的语义只能从源站 runtime chunk 逐字转写**（`A` 是"resolve 后以 require 为参调用"、`n` 是 exportNamespace——从调用点反推的错语义会在远处以无关形状爆炸），配套 registry 顶替前读每个 chunk 作用域、自家构建 id 碰撞、闭包 `.i/.r/.A` 三形态同权三条陷阱，全部见 `porting-discipline.md` §2.5.1。
+完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.8**：门看不见的债——CSS 对账与 worker 供片链（basement 用户实测四连修回哺）。语义门只看 flight 树、看不见 CSS：逐字图交付下 DOM 外壳的类名活在 verbatim 编译串里，tailwind 漏扫 = 类全不生成，塌法极具迷惑性（白 logo 黑底黑字"消失"、幕布盖死全页）；token 台账是**相对扫描面的**，扫描面扩大即作废。配套 carry-css 方法论（镜像编译 CSS 机器搬运、需求面必须覆盖备用模式路由家族）、worker runtime **烤死前缀**的静默死签名（全注册、零监听、零报错）、Worker 空字段 error 事件先查脚本 URL、npm 生命周期钩子不跟 `npx` 直调走——分别入 `rsc-reconstruction.md` §3.2、`porting-discipline.md` §2.5.1、`environment-traps.md` §9.5。
 
 ## 贡献
 
