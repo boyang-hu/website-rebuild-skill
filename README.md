@@ -279,3 +279,13 @@ README.en.md               # 英文版 README
 - [linux.do](https://linux.do/u/80yan9/)
 - [v2ex](https://www.v2ex.com/member/Boyang)
 - [NodeSeek](https://www.nodeseek.com/space/69434#/)
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=boyang-hu%2Fwebsite-rebuild-skill&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=boyang-hu/website-rebuild-skill&type=date&theme=dark&legend=top-left&sealed_token=w8uJfrl9ZDcglvDnQkhhJ4OX7nQdNyB6LUwItnfs7w95mFca7AHZJk9xezWFgdUmncju8b9kmMylPt6gqS_EQCoBwHN5yAnxoWBVk6-hyIFBxyqJZorLzhIM0rDd0iTIUxI6HVVHm6j4OiNpQZkAM0VVhKQMF5qJWkPO6CrSz66Bp96c_SFX0IHfdcQL" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=boyang-hu/website-rebuild-skill&type=date&legend=top-left&sealed_token=w8uJfrl9ZDcglvDnQkhhJ4OX7nQdNyB6LUwItnfs7w95mFca7AHZJk9xezWFgdUmncju8b9kmMylPt6gqS_EQCoBwHN5yAnxoWBVk6-hyIFBxyqJZorLzhIM0rDd0iTIUxI6HVVHm6j4OiNpQZkAM0VVhKQMF5qJWkPO6CrSz66Bp96c_SFX0IHfdcQL" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=boyang-hu/website-rebuild-skill&type=date&legend=top-left&sealed_token=w8uJfrl9ZDcglvDnQkhhJ4OX7nQdNyB6LUwItnfs7w95mFca7AHZJk9xezWFgdUmncju8b9kmMylPt6gqS_EQCoBwHN5yAnxoWBVk6-hyIFBxyqJZorLzhIM0rDd0iTIUxI6HVVHm6j4OiNpQZkAM0VVhKQMF5qJWkPO6CrSz66Bp96c_SFX0IHfdcQL" />
+ </picture>
+</a>
