@@ -1,5 +1,33 @@
 # 更新记录
 
+## v0.3.6 — Sanity 场景入册：同一个 URL、两种字节（hashgraphvc / basement 回哺）
+
+Next/Nuxt 创意站的主流内容层 Sanity CMS 此前在 skill 里只有一行脚本注释。本版从两个
+已复刻项目（hashgraphvc L2 收口、basement 战役中）+ 一次 Step 0 探测（franshalsmuseum）
+回填出 `references/sanity-platform.md`，进分支路由表。
+
+**核心新知——`auto=format` 是内容协商，镜像与浏览器就此分叉**：带 `auto=format` 的
+Sanity 图片 URL 按请求 Accept 头选格式，而 mirror-site / reconcile-gaps 的全部 profile
+都是 `accept: */*`，从不声明图片格式支持——CDN 一律回退 JPEG，真浏览器同一 URL 拿
+avif/webp。实证（basement 镜像盘上现捞）：`…-1920x833@@auto=format&w=1200.webp`
+扩展名 `.webp`、魔数 JPEG——**源资产本身是 webp，被协商转码回 JPEG 落盘**，391 个
+`@@auto=format` 变体无一幸免。两侧都从镜像读，跨侧门与像素门照绿；这是"错的镜像能让
+下游门全绿"的又一实例，查法（魔数 vs 扩展名 vs 账本三方对照）与处置（浏览器同款
+Accept 补抓 / 存量登记偏差）入 §1.2。
+
+**判级纪律**：Sanity 本身不定级，**内容烘焙时点才定级**——构建期烘焙（不改判级）/
+局部 fallback 查询（B 类 API 快照，query-keyed 应答）/ 运行时装配 + 内容漂移（D 因素，
+对象改述为"某时点快照"）三形态，franshalsmuseum 的 C/D 判定就是第三形态。
+
+**其余入册**：变体阶梯两层展开（直连 + next/image 代理，代理 URL 要先解码 `url=` 再判
+主机，否则 off-host 普查整批失明）；运行时拼接 API base 普通 host 改写命不中（hashgraphvc
+偏差 6.2 的服务层模板改写 + 404 壳重试行为照抄）；`_key` 是化石不进 normalize 名单；
+`<sha1>-<W>x<H>` 文件名自带源尺寸与内容地址，变体归并按 hash 段做（13,870 引用收敛
+722 源资产）；`cdn.sanity.io/robots.txt` 按 project 路径逐条判定。
+
+待落地（下一个 Sanity 站实战时）：reconcile-gaps 请求头梯子加图片 Accept profile、
+fingerprint.mjs 认 Sanity 指纹并报 projectId、Next+Vercel+Sanity 栈开工速查卡。
+
 ## v0.3.5 — X 类的另一半真相：镜像可完整而站不可复活（mustachelab）
 
 v0.3.4 证明抢救镜像能走完 L3;本版记录**它的对偶失败形态**并命名入册。

@@ -260,7 +260,7 @@ Before anything goes public, per-asset copyright **forensics** must be completed
 
 Versions advance with real rebuild projects: every feature and fix shipped was first validated on at least one complete project.
 
-Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.5** — the other half of the class-X truth: mustachelab proves a mirror can be complete while the site cannot be revived (art layer 157/160 never captured by any archive — IA does not execute JS); "no CDX coverage = truly undoable" now reads per asset layer, Step 0 gains a layered-coverage recon; the hole ledger gains a derive-the-full-set discipline (157 holes registered with source line numbers = a ready seeds list if the assets ever return); the offline gate proves, on a total-loss site, that the loss is fully accounted for.
+Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.6** — Sanity CMS enters the reference set (fed back from hashgraphvc / basement): `auto=format` is content negotiation — a bare fetch (`accept: */*`) and a real browser get different bytes for the same URL, proven on-disk in the basement mirror where a webp source came back transcoded as JPEG while every downstream gate stayed green; classification reads the content-baking moment, not the library name (build-time baked / fallback query / runtime assembly); two-layer variant-ladder enumeration, service-layer rewriting of runtime-assembled API bases, and the `_key`-is-a-fossil rule all land in `references/sanity-platform.md`.
 
 ## Contributing
 

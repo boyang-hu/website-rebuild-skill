@@ -260,7 +260,7 @@ README.en.md               # 英文版 README
 
 版本随真实复刻项目递进：每个版本发布的功能与修复，都先在至少一个完整项目上验证过。
 
-完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.5**：X 类的另一半真相——mustachelab 证明"镜像可完整而站不可复活"（画面层 157/160 任何档案零捕获，IA 不执行 JS）；"CDX 无覆盖才是真不可做"改为按资产层读，Step 0 新增分层覆盖侦察；洞账补全集纪律（推导器 → 157 洞逐行号登记 = 资产回归时的 seeds 清单）；断网门在全损站上证明"损失被完整登记"。
+完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.6**：Sanity 场景入册（hashgraphvc / basement 回哺）——`auto=format` 是内容协商，裸 fetch（`accept: */*`）与真浏览器对同一 URL 拿到两种字节，basement 镜像实证 webp 源被转码成 JPEG 落盘而下游门全绿；判级看内容烘焙时点不看库名（构建期烘焙 / fallback 查询 / 运行时装配三形态）；变体阶梯两层展开、运行时拼接 API base 的服务层改写、`_key` 化石纪律一并入 `references/sanity-platform.md`。
 
 ## 贡献
 

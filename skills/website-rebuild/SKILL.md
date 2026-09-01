@@ -3,7 +3,7 @@ name: website-rebuild
 description: 1:1 rebuild of award-winning creative websites (WebGL / scroll-animation / portfolio sites). Evidence-driven pipeline - mirror-first forensics, line-number-traceable reverse engineering of minified bundles, verbatim porting, quantitative verification gates. Use when user asks to "复刻网站", "重建网站", "1:1 rebuild", "clone this site", or provides a URL of a creative/award site to reproduce.
 compatibility: Requires Node 22+ (bundled scripts use built-in WebSocket to talk to CDP), npx, and a local Chrome/Chromium for headless comparison. POSIX shell optional - the Step 0 probe protocol has a zero-dependency Node equivalent (scripts/fingerprint.mjs) for shells without curl/cmp/tr/perl (e.g. Windows PowerShell). Agent-agnostic - works in any Agent Skills-compatible runtime.
 metadata:
-  version: "0.3.5"
+  version: "0.3.6"
 ---
 
 # Website Rebuild（获奖创意站 1:1 复刻）
@@ -118,6 +118,7 @@ Step 1 侦察结果决定加载哪些场景指南（按需，不要全量加载�
 | GSAP / 烘焙动画数据 / CSS 变量动画 / 自研输入状态机 | [references/animation-recovery.md](references/animation-recovery.md) |
 | 私有二进制格式（.buf / .sog / VAT / GLB 时间线 / .riv） | [references/binary-formats.md](references/binary-formats.md) |
 | Shopify 店铺（指纹见 `cdn/shop`、`Shopify.theme`、`cdn.shopify.com`） | [references/shopify-platform.md](references/shopify-platform.md) |
+| Sanity CMS（指纹见 `cdn.sanity.io/images/<projectId>/`、`*.api.sanity.io`、载荷里成片 `_key`/`_type`/`_ref`）——⛔ 判级看内容烘焙时点不看库名，且 `auto=format` 资产按 Accept 协商返回不同字节 | [references/sanity-platform.md](references/sanity-platform.md) |
 | DOM 层策略选型（所有站必经；Webflow 导出 / 静态单页 / 框架 SSR 分支不同，另有"DOM 被 3D 引擎当坐标源读"的正交约束） | [references/dom-shell-strategies.md](references/dom-shell-strategies.md) |
 | 大体量资产（百 MB 级媒体 / 授权字体） | [references/asset-management.md](references/asset-management.md) |
 | 无头探测行为异常 / 疑似环境问题 | [references/environment-traps.md](references/environment-traps.md) |
@@ -240,6 +241,7 @@ Step 0 → M(n) 全程不装任何东西；**复刻项目要到 M(n+1) 才获得
 - [animation-recovery.md](references/animation-recovery.md) — 动画/输入逆向路径
 - [binary-formats.md](references/binary-formats.md) — 私有二进制格式
 - [shopify-platform.md](references/shopify-platform.md) — Shopify 平台层剥离（B 类）
+- [sanity-platform.md](references/sanity-platform.md) — Sanity CMS 场景（判级三形态、`auto=format` 协商陷阱、变体阶梯两层展开、运行时拼接 API base）
 - [asset-management.md](references/asset-management.md) — 资产不复制策略与字体决策
 - [environment-traps.md](references/environment-traps.md) — 环境陷阱手册
 - [legal-and-deploy.md](references/legal-and-deploy.md) — 版权取证与部署决断（取证归 skill，决定归用户）
