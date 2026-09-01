@@ -39,7 +39,7 @@
 - **源码化交付**——逐字移植的产物重写成人能读的工程（拆模块、按证据命名、补溯源头注），**复制到任何地方断网可跑**
 - **零依赖工具链**——59 个 Node 脚本（47 个工序脚本与验收门 + 7 个共用库 + 5 个源码化/反推重构器），源码化之前整条流水线不装任何 npm 包
 - **死站也能救**——Wayback 存档抢救：锚点+时间窗选一个连贯时刻、原始字节落成标准镜像、永久洞如实登记；五次死站抢救实测（四个复活、其一走完 L3；一个画面层确证全失,失败形态入册）
-- **连 RSC 站也能重构**——服务端组件源不下发（React Server Components / Next.js App Router），但它的完整输出（flight 流）内联在每页 HTML 里就是规格书：从中重构一个可构建的 Next 工程，用 flight 语义门收口。实测一个 Next 16/Turbopack 博客站 18/18 路由语义一致；盲逆向对公开源码判卷，结构 ≈95%、行为 ≈98%
+- **连 RSC 站也能重构**——服务端组件源不下发（React Server Components / Next.js App Router），但它的完整输出（flight 流）内联在每页 HTML 里就是规格书：从中重构一个可构建的 Next 工程，用 flight 语义门收口。实测一个 Next 16/Turbopack 博客站 18/18 路由语义一致，一个 144 路由重站 PASS 144/144；盲逆向对公开源码判卷，结构 ≈95%、行为 ≈98%
 - **法务决定权归用户**——skill 只取证与呈交，产出默认私有 + noindex + 不部署
 
 ## 效果对比：源站 vs 复刻
@@ -143,13 +143,13 @@ cp -R skills/website-rebuild ~/.claude/skills/website-rebuild
 | **B 类：第三方资产桶 / headless CMS** | Storyblok（`/m/` 变换接口）、Strapi 上传桶全量镜像 | 一个 ~1,800 图的 CMS 桶 + 一个 864 MB 的 Strapi 桶 |
 | **B 类：序列化数据块展开** | Nuxt 等 SSG 把数据编码进页面的形态 | 一个 63.5 KB 的数据块（占文档 54%），展开为 566 KB 结构化数据并逐项比对 |
 | **X 类：失效站存档抢救** | Wayback CDX 枚举 → 锚点+时间窗选连贯捕获 → `id_` 原始字节 → 标准镜像；永久洞如实登记，别名回填单列，停车页验尸挡 200 型夺舍 | 五次抢救、五种形态实测：域名易主（8/15 路由）、平台回收（9/9 全清）、原地停车替换（0 洞 0/0/0）、DNS 消亡+停车夺舍（first-launch，走完 L3 全程）、清单驱动站画面层全失（mustachelab，引擎救回+失败形态入册） |
-| **C2 类：声明式组织的现代全栈站** | Next.js App Router（webpack / Turbopack）、Nuxt 3 + Vite、R3F、Theatre.js——RSC flight 与 devalue 载荷、服务端图片端点、会话态预取都有对应处理 | 六个 C2 目标：115 路由全站（115/115 跨侧一致）、Three r182 WebGPU/TSL 站、Theatre.js WebGL 长镜头站、产品页（4 检查点像素全零）等 |
+| **C2 类：声明式组织的现代全栈站** | Next.js App Router（webpack / Turbopack）、Nuxt 3 + Vite、R3F、Theatre.js——RSC flight 与 devalue 载荷、服务端图片端点、会话态预取、编译组件的逐字图内嵌（转写微运行时）都有对应处理 | 七个 C2 目标：115 路由全站（115/115 跨侧一致）、Three r182 WebGPU/TSL 站、Theatre.js WebGL 长镜头站、产品页（4 检查点像素全零）、重 WebGL 工作室站（C1+C2 混合，144 路由）等 |
 
 ### 有条件或做不了的场景
 
 | 类 | 类型 | 原因 |
 |---|---|---|
-| **C1** | 服务端组件站（RSC / Next.js App Router） | 服务端组件源不下发，但它的完整输出（flight 流）内联在每页 HTML 里就是规格书。⭐ **v0.3 起可做：重构式逆向**——重构一个可构建的 Next 工程，flight 语义门收口（实测 rauchg.com 18/18 路由一致）。没有逐字 port，产物是"人写的源码 + 门证明的等价" |
+| **C1** | 服务端组件站（RSC / Next.js App Router） | 服务端组件源不下发，但它的完整输出（flight 流）内联在每页 HTML 里就是规格书。⭐ **v0.3 起可做：重构式逆向**——重构一个可构建的 Next 工程，flight 语义门收口（实测 rauchg.com 18/18、basement.studio 144/144 路由一致）。没有逐字 port，产物是"人写的源码 + 门证明的等价" |
 | **D** | 服务端行为站 | 行为主体在服务端（CMS、电商库存、A/B 分桶、个性化），**客户端没有可移植的目标**，也没有确定性的验收基准 |
 | **X（无存档）** | 已消失且 Wayback 无覆盖的站 | 彻底没有可镜像的对象。⭐ **有存档的 X 站可以抢救**（见上表）；历年获奖站实测消失率约 **29%**——这也是"第一时间镜像"成为第一条纪律的原因 |
 
@@ -204,7 +204,7 @@ cp -R skills/website-rebuild ~/.claude/skills/website-rebuild
 | Hashgraph VC | [hashgraphvc.com](https://hashgraphvc.com/) | 风投官网（Nuxt 3 + Three r182 **WebGPU/TSL** + Sanity CMS），⭐ **首个由非 Claude runtime（Codex）全程执行**的复刻——166/166 响应字节一致；也是**拼接式分解**的诞生地：44.9 万行切成 2,043 个语义命名部件、逐字节重拼一致 |
 | Overworld Audio | [overworldaudio.com](https://overworldaudio.com/) | 游戏音频工作室官网（Nuxt 3 + THREE/Theatre + **Howler**），⭐ **声音第一次成为验收面**——98/98 音效池全量 loaded、零音频 404；"池子即账本"采集法的诞生地 |
 | Guillermo Rauch's blog | [rauchg.com](https://rauchg.com/) | ⭐ **首个 C1（RSC）重构式逆向**——从 flight 流重构一个可构建的 Next 工程，**18/18 路由语义门一致**；也是**盲逆向对答案**的诞生地：结构 ≈95%、行为 ≈98%，7 个依赖版本从字节证据精确命中 |
-| basement.studio | [basement.studio](https://basement.studio/) | 重 WebGL 设计工作室官网（Next 16.3 + React 19 流式 + three/R3F + Sanity），C1+C2 混合周级战役**进行中**；flight 语义门 **PASS 144/144**、模块双射 50 对零违背，`staticSiblings` 化石钉出未链接暗路由 |
+| basement.studio | [basement.studio](https://basement.studio/) | 重 WebGL 设计工作室官网（Next 16.3 + React 19 流式 + three/R3F + Sanity），C1+C2 混合周级战役，**功能面已收口**：flight 语义门 **PASS 144/144**、模块双射 50 对零违背；3D 办公室场景、16.5k 行 ScreenUI 街机引擎、双 offscreen worker、mux/tweet 惰性家族全部经**逐字图 + 转写微运行时**（v0.3.7 第四交付形态的诞生地）跑进重建工程，12 路由清扫 10 CLEAN |
 | First Launch 七點半的太空人 | —（已消失） | ⭐ **首个走完 L3 全程的 X 类死站**——2013 Awwwards 站（jQuery + skrollr 滚动叙事），从 Wayback 锚点 2015-01 重建：27 永久洞如实登记，数值门 **9,856 样本全等**，像素 7/9 检查点精确零，自包含交付物断网复活 |
 
 ### 边界样本与死站抢救
@@ -227,7 +227,7 @@ cp -R skills/website-rebuild ~/.claude/skills/website-rebuild
 ```
 skills/website-rebuild/    # 技能本体，目录结构遵循 agentskills.io 规范
 ├── SKILL.md               #   主流程 + 判级 + 纪律（激活时整体加载）
-├── references/            #   18 份分场景指南（按需加载）
+├── references/            #   20 份分场景指南（按需加载）
 ├── assets/templates/      #   文档模板
 ├── scripts/               #   零依赖 Node 工序脚本与验收门 + lib/ 共用模块
 │                          #     判级与源码化之前的全部工序都住这里
@@ -251,7 +251,7 @@ README.en.md               # 英文版 README
 
 ## 路线图
 
-- **v0.3 已落地**：C1（RSC）重构式逆向——flight 坐标系（flight-decode）、语义门（verify-flight，模块 id 全局双射）、正文反推器（flight-to-mdx）、运行时缺口对账器（reconcile-gaps）、指南 `rsc-reconstruction.md`；实测 rauchg.com 18/18 路由语义一致，盲逆向对答案判卷。
+- **v0.3 已落地**：C1（RSC）重构式逆向——flight 坐标系（flight-decode）、语义门（verify-flight，模块 id 全局双射）、正文反推器（flight-to-mdx）、运行时缺口对账器（reconcile-gaps）、指南 `rsc-reconstruction.md`；实测 rauchg.com 18/18 路由语义一致，盲逆向对答案判卷。v0.3.2–0.3.7 系列在 basement 等战役中继续演进：语义门重站淬炼（144 路由、双射审计换脊柱）、turbopack 三暗形态入图、X 类首个 L3 全程与"镜像可完整而站不可复活"失败形态入册、Sanity 场景入册、第四交付形态「逐字图 + 转写微运行时」。
 - **v0.2 已全部落地**：拼接式分解（v0.2.0）及其目录分组与 chunk 图谱（v0.2.8）、三级终点与交接边界（v0.2.1）、声音验收面（v0.2.2）、渲染广度门（v0.2.3）、存档抢救（v0.2.4–0.2.6）、冒烟自检 CI（v0.2.7）。
 - **源码化的两块空白**：命名的还原率取决于代码本身留下多少线索——实测一个扁平站有 63% 的局部变量没有任何可依据的证据，一个模块化站有 27/46 个模块只能保留哈希 id。这不是欠账，**错名比哈希更糟，因为哈希会让人去看**。另一块是模块头目前只写事实与溯源，**"这个模块是干什么的"仍然需要人来写**——工具写不出，而写错比留白更糟。
 - **远期**：C1 的更难形态——服务端**逻辑**（不只是渲染结果）的推断深度、隐藏路由空间的枚举、动态图片/OG 生成器的重建；以及 D 类（个性化注水、无确定性验收基准）是否存在可对拍的子集。
@@ -260,7 +260,7 @@ README.en.md               # 英文版 README
 
 版本随真实复刻项目递进：每个版本发布的功能与修复，都先在至少一个完整项目上验证过。
 
-完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.6**：Sanity 场景入册（hashgraphvc / basement 回哺）——`auto=format` 是内容协商，裸 fetch（`accept: */*`）与真浏览器对同一 URL 拿到两种字节，basement 镜像实证 webp 源被转码成 JPEG 落盘而下游门全绿；判级看内容烘焙时点不看库名（构建期烘焙 / fallback 查询 / 运行时装配三形态）；变体阶梯两层展开、运行时拼接 API base 的服务层改写、`_key` 化石纪律一并入 `references/sanity-platform.md`。
+完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.7**：第四交付形态「逐字图 + 转写微运行时」（basement 收官回哺）——当端口必须活在**另一个应用的外壳里**（重建的 Next 工程内嵌源站编译组件），三种既有交付形态都接不上；核心纪律是 **runtime 助手字母的语义只能从源站 runtime chunk 逐字转写**（`A` 是"resolve 后以 require 为参调用"、`n` 是 exportNamespace——从调用点反推的错语义会在远处以无关形状爆炸），配套 registry 顶替前读每个 chunk 作用域、自家构建 id 碰撞、闭包 `.i/.r/.A` 三形态同权三条陷阱，全部见 `porting-discipline.md` §2.5.1。
 
 ## 贡献
 
