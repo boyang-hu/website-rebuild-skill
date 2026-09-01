@@ -5,10 +5,12 @@
 > 请求、载荷里成片的 `_key`/`_type`/`_ref` 字段、或 `/studio` 路由——时。
 > 在判级前读完 §0，在 M0 镜像动工前读完 §1。
 >
-> **置信度声明**：本文实证来自三个样本——hashgraphvc（Nuxt 3 + Sanity，L2 收口）
-> 【hashgraphvc】、basement.studio（Next + Sanity，战役进行中）【basement】、
-> franshalsmuseum（Step 0 探测判 C/D）【franshalsmuseum】。URL 参数全集
-> （`w/h/fit/crop/q/fm/dpr/auto…`）是公开语法、未逐项实测；表外形态现场核验后回填本文。
+> **置信度声明**：本文实证来自五个样本——hashgraphvc（Nuxt 3 + Sanity，L2 收口）
+> 【hashgraphvc】、basement.studio（Next + Sanity，已收官）【basement】、
+> franshalsmuseum（Step 0 探测判 C/D）【franshalsmuseum】、darkroom.engineering
+> （Sanity 仅脚手架痕迹——反例样本）【darkroom】、14islands.com（pages router +
+> 直连 auto=format 大户）【14islands】。URL 参数全集（`w/h/fit/crop/q/fm/dpr/auto…`）
+> 是公开语法、未逐项实测；表外形态现场核验后回填本文。
 
 ## 0. 指纹与判级：Sanity 本身不定级，内容烘焙时点才定级
 
@@ -66,7 +68,9 @@ JPEG/PNG；而真浏览器（`Accept: image/avif,image/webp,…`）同一 URL �
   随请求 profile 变（`lib/negotiate.mjs` 的 `isNegotiated()`）；
 - **裸 Accept 重抓 6/6 sha256 与镜像精确一致**——分叉是 profile 级不是时间漂移，镜像
   在 `*/*` 标尺下内部自洽；
-- **实测浏览器协商结果是 webp**（Chrome Accept 含 avif 但未观察到 avif 返回，样本 6）。
+- **实测浏览器协商结果以 webp 为主、偶见 avif**：14islands 首轮 616 个 `auto=format`
+  变体魔数清点 604 webp / 4 avif（`ftypavif`）/ 8 png——basement 采样 6 全 webp 曾让
+  "未见 avif"成为论断，样本放大即修正【14islands】。
 
 后果三连：
 
