@@ -1,5 +1,34 @@
 # 更新记录
 
+## v0.3.2 — 语义门在重站上的成人礼（basement.studio C1 层收口）
+
+rauchg 18 路由的门,拿到 basement.studio(144 路由、Vercel 动态流、React 19 流式
+渲染、三层嵌套路由组)上淬了一遍。**verify-flight PASS 144/144,模块双射 50 对
+零违背**——每一条都是真实假红逼出来的规范化,或真实漏网逼出来的审计加固:
+
+**verify-flight 规范化 N11–N16**:N11 row-0 平台字段(b/u/r/s/a/h/l/p/d——Vercel
+动态流 vs 本地静态构建的部署指纹,先删后按固定序重加,否则键序比较照红)、
+N12 seed/routerState 尾槽、N13 children 深展平(渲染等价;数组分组=构建切分不是
+源形状)内嵌 N15 无键 fragment 展开与 N9 相邻字符串合并、N14 数字自动 key→null、
+N16 undefined-prop 键删除;default 导出编码归一("default"≡""≡"(default)");
+N1/N3/N5 chunk 路径放宽到 `/_next/static/immutable/chunks/`。
+
+**双射审计换了脊柱**:原按 resolve 序配对、全长相等才入表——平台包装节点
+(*Boundary)在剥离前就被解析,两侧引用数差 1,**审计在 144 路由上静默空转
+(0 对也算过)**。改为两树比对相等后在规范化等树上并行行走、按树位置一一配对
+($c 节点自带 $mid,firstDiff 无视)。长牙当天就咬到真violation:源站单文件多
+导出(528233 = SocialLinks/InternalLinks/Copyright footer 三件套)被生成器拆成
+三个文件——**一个模块 id 挂多个导出名,就是源站单文件多组件的化石**。
+
+**两个新化石**(rsc-reconstruction 谱系):① optimistic routing 的动态段元组第
+4 元 `staticSiblings` 是**源 app 树结构快照**——basement 靠它钉出未链接暗路由
+`/showcase/showcase-list`(线上 404,app 树里真实存在);② 流式行 X/C 之后,
+路径化自引用(`$id:seg:seg`)要在**原始行 json** 上走叶,整行重解会栈溢出,
+cycle guard 误杀则把 `{"$cycle":"6"}` 字面量烤进产物(v0.3.1 的修补在此定型)。
+
+自检 28 → 30:双射审计必须真收集到对(空转即红)、同源模块拆开必须红。
+(v0.3.1 为纯脚本补丁:X/C 流式 sentinel 容错进两个解析器 + sweep 外链后缀匹配。)
+
 ## v0.3.0 — C1 攻克：RSC 重构式逆向（rauchg.com 远征）
 
 **判级修订**：C1 从「拒绝」改为「可做：重构式逆向」。服务端组件源确实不下发,

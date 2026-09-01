@@ -1,7 +1,7 @@
 # website-rebuild-skill
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.2-blue.svg)](CHANGELOG.md)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-brightgreen.svg)](https://agentskills.io/)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522-339933.svg)](#快速开始)
 
@@ -179,6 +179,7 @@ cp -R skills/website-rebuild ~/.claude/skills/website-rebuild
 | Hashgraph VC | [hashgraphvc.com](https://hashgraphvc.com/) | 风投官网（Nuxt 3 + Three r182 **WebGPU/TSL** + Theatre + Sanity CMS），⭐ **首个由非 Claude runtime（Codex）全程执行**的复刻——验证了 Agent Skills 跨运行时可移植性；166/166 响应字节一致、6 路由载荷 10,458 叶一致、多检查点像素差 0，交付以逐文件 sha256 钉死、构建时逐字节复核；也是 **v0.2.0 拼接式分解**的诞生地——44.9 万行 / 33 chunk 切成 **2,043 个语义命名部件，逐字节重拼一致** |
 | Overworld Audio | [overworldaudio.com](https://overworldaudio.com/) | 游戏音频工作室官网（Nuxt 3 + THREE/Theatre + **Howler**），⭐ **声音第一次成为验收面**——入场后 **98/98 音效池全量 loaded、零音频 404**（运行时拼 URL 的音频族对静态提取整类不可见，"池子即账本"采集法的诞生地）；拼接式分解通过压缩形态考验（20 chunk / 435 部件重拼一致），交付物 379/379 字节自证；robots 为 Content-Signal 形态，已呈交用户裁决 |
 | Guillermo Rauch's blog | [rauchg.com](https://rauchg.com/) | ⭐ **首个 C1（RSC）重构式逆向**——服务端组件源不下发，从 flight 流重构一个可构建的 Next 16.1.1/Turbopack 工程：**18/18 路由 flight 语义门一致、模块 id 双射 19 对、运行时 sweep 18/18**。这也是**盲逆向对答案**的诞生地（目标源码 MIT 公开，全程不看、收口后判卷）：结构 ≈95%/行为 ≈98%/字面 ≈90%，7 个依赖版本从字节证据精确命中，`withHeadingId` 连函数名都对上；顺带定位线上 React #418 水合错误的根因是 Vercel 边缘的 `/`→`/index` 重写。催生 flight-decode / verify-flight / flight-to-mdx 三件工具与 `rsc-reconstruction.md` |
+| basement.studio | [basement.studio](https://basement.studio/) | 重 WebGL 设计工作室官网(Next 16.3 + React 19 流式 + three/R3F + Sanity + Mux HLS + DOSBox 彩蛋),C1+C2 混合周级战役**进行中**:L1 镜像收口(74/74 sitemap 路由、Sanity 722 图 + 26 GLB 场景全抓),**C1 内容层收口——flight 语义门 PASS 144/144、模块双射 50 对零违背**;门在此淬出 v0.3.2 六条规范化与并行配对审计;`staticSiblings` 化石钉出未链接暗路由 `/showcase/showcase-list`;three.js 场景逐字切片(C2)为下一阶段 |
 
 ### 边界样本与死站抢救
 
@@ -231,7 +232,7 @@ README.md                  # 本文件
 
 版本随真实复刻项目递进：每个版本发布的功能与修复，都先在至少一个完整项目上验证过。
 
-完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.0**:C1（RSC）攻克——从 flight 流重构可构建的 Next 工程,语义门收口;实测 rauchg.com 18/18 路由语义一致,盲逆向对公开源码判卷结构 ≈95%/行为 ≈98%。
+完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.2**:语义门在重站上淬火——basement.studio(144 路由、React 19 流式、Vercel 动态流)**144/144 语义一致、模块双射 50 对零违背**;六条新规范化、双射审计改等树并行配对(曾静默空转),staticSiblings 化石钉出未链接暗路由。
 
 ## 贡献
 

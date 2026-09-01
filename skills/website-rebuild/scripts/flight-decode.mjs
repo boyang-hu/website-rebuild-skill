@@ -110,10 +110,26 @@ function resolve(v, table, seen = new Set()) {
     if (v.startsWith("$S")) return { $symbol: v.slice(2) };
     if (v.startsWith("$D")) return { $date: v.slice(2) };
     if (v.startsWith("$n")) return { $bigint: v.slice(2) };
-    const m = /^\$([L@])?([0-9a-f]+)$/i.exec(v);
+    const m = /^\$([L@])?([0-9a-f]+)((?::[^\s\"]+)*)$/i.exec(v);
     if (m) {
       const id = m[2];
-      if (seen.has(id)) return { $cycle: id };
+      if (seen.has(id)) {
+        // 带路径的自引用指向行内数据叶(flight 去重),在原始 json 上走路径
+        // 再解析叶子(整行重解会无限递归);无路径的自引用才是真环。
+        if (!m[3]) return { $cycle: id };
+        const row0 = table.get(id);
+        if (!row0 || row0.kind !== "json") return { $cycle: id };
+        let leaf = row0.json;
+        for (const seg of m[3].split(":").filter(Boolean)) {
+          if (leaf == null) return { $badPath: v };
+          const isElem = Array.isArray(leaf) && leaf[0] === "$" && leaf.length >= 4;
+          if (isElem && seg === "props") { leaf = leaf[3]; continue; }
+          if (isElem && seg === "key") { leaf = leaf[2]; continue; }
+          if (isElem && seg === "type") { leaf = leaf[1]; continue; }
+          leaf = Array.isArray(leaf) && /^\d+$/.test(seg) ? leaf[Number(seg)] : leaf[seg];
+        }
+        return resolve(leaf, table, seen);
+      }
       const row = table.get(id);
       if (!row) return { $missingRow: id };
       if (row.kind === "T") return row.text;
@@ -122,7 +138,23 @@ function resolve(v, table, seen = new Set()) {
         return { $component: `${row.json[2] || "(default)"}#${row.json[0]}`, chunks: row.json[1] };
       const s2 = new Set(seen);
       s2.add(id);
-      return resolve(row.json, table, s2);
+      // $<id>:<seg>:<seg>… 深引用(flight 数据去重:同一份数据第二处只发路径,
+      // 实测 basement:links=$34:props:children:2:…)。段按 数字=数组下标、
+      // 其余=对象键 索引进已解析的目标。
+      let val = resolve(row.json, table, s2);
+      if (m[3]) {
+        for (const seg of m[3].split(":").filter(Boolean)) {
+          if (val == null) return { $badPath: v };
+          // flight element 是数组 ["$",type,key,props],但路径引用按 React
+          // element 对象寻址:props→[3]、key→[2]、type→[1]
+          const isElem = Array.isArray(val) && val[0] === "$" && val.length >= 4;
+          if (isElem && seg === "props") { val = val[3]; continue; }
+          if (isElem && seg === "key") { val = val[2]; continue; }
+          if (isElem && seg === "type") { val = val[1]; continue; }
+          val = Array.isArray(val) && /^\d+$/.test(seg) ? val[Number(seg)] : val[seg];
+        }
+      }
+      return val;
     }
     return v; // "$" followed by something we don't model — keep verbatim
   }

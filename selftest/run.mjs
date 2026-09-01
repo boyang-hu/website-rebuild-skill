@@ -146,13 +146,16 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
   // prefixed, no terminator), an EMPTY-ID :HL row (the first walker broke its
   // chain here), an I row (module ref), and a row-0 router payload.
   const mkStream = (opts) => {
-    const { moduleId = 123, chunk = "abc12345", text = "hello" } = opts || {};
+    const { moduleId = 123, chunk = "abc12345", text = "hello", moduleId2 = null } = opts || {};
     const tHex = Buffer.byteLength(text).toString(16);
+    const kids = [["$", "$L2", null, {}]];
+    if (moduleId2 != null) kids.push(["$", "$L6", null, {}]); // second ref, same export name
+    kids.push(["$", "p", null, { children: "$3" }]);
     const row0 = {
       P: null, b: "BUILDX", c: ["", ""], q: "", i: false,
       f: [[
         ["", { children: ["__PAGE__", {}] }, "$undefined", "$undefined", true],
-        ["$", "$1", "c", { children: ["$", "html", null, { children: ["$", "body", null, { children: [["$", "$L2", null, {}], ["$", "p", null, { children: "$3" }]] }] }] }],
+        ["$", "$1", "c", { children: ["$", "html", null, { children: ["$", "body", null, { children: kids }] }] }],
         ["$", "$1", "h", { children: ["$", "meta", null, { charSet: "utf-8" }] }],
         false,
       ]],
@@ -161,6 +164,7 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
     return [
       `1:"$Sreact.fragment"`,
       `2:I[${moduleId},["/_next/static/chunks/${chunk}.js"],"Logo"]`,
+      ...(moduleId2 != null ? [`6:I[${moduleId2},["/_next/static/chunks/${chunk}.js"],"Logo"]`] : []),
       `:HL["/_next/static/chunks/deadbeef.css","style"]`,
       `3:T${tHex},${text}`,
       // React 19 streaming sentinels (measured on basement.studio): X starts an
@@ -204,6 +208,23 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
   truthy("verify-flight — hash namespaces normalized, ids bijective (v0.3.0)", gate());
   writeFileSync(path.join(BUILT, "index.html"), wrap(mkStream({ moduleId: 456, chunk: "fedcba98", text: "hellp" })));
   truthy("verify-flight — one text byte goes red (v0.3.0)", !gate());
+  // v0.3.2: the audit itself must not be vacuous. The old pairing collected by
+  // resolve order, gated on total-count equality — platform-stripped refs put the
+  // two sides off by one, every route skipped pairing, and 144 basement routes
+  // "passed" with 0 pairs on the books. Pairing now walks the two equal
+  // normalized trees in parallel, so it is position-exact and always collects.
+  const gateOut = () => {
+    try { return { ok: true, out: execFileSync(process.execPath, [path.join(SKILL, "scripts/verify-flight.mjs"), "--mirror", MIR, "--built", BUILT], { stdio: "pipe", cwd: TMP }).toString() }; }
+    catch (e) { return { ok: false, out: String(e.stdout || "") }; }
+  };
+  writeFileSync(path.join(MIR, "index.html"), wrap(mkStream({ moduleId: 123, moduleId2: 123 })));
+  writeFileSync(path.join(BUILT, "index.html"), wrap(mkStream({ moduleId: 456, chunk: "fedcba98", moduleId2: 456 })));
+  truthy("verify-flight — bijection audit actually collects pairs (v0.3.2)", (() => { const g = gateOut(); return g.ok && /双射:1 对/.test(g.out); })());
+  // One origin module answered by two rebuild modules (basement 528233: a single
+  // source file exporting SocialLinks/InternalLinks/Copyright, regenerated as
+  // three files) — trees equal, bijection violated, gate must go red.
+  writeFileSync(path.join(BUILT, "index.html"), wrap(mkStream({ moduleId: 456, chunk: "fedcba98", moduleId2: 789 })));
+  truthy("verify-flight — one origin module split in two goes red (v0.3.2)", (() => { const g = gateOut(); return !g.ok && g.out.includes("123"); })());
 }
 
 // -------------------------------------------------------- 6. doc integrity
