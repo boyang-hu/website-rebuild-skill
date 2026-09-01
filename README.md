@@ -1,7 +1,7 @@
 # website-rebuild-skill
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.3-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.7-blue.svg)](CHANGELOG.md)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-brightgreen.svg)](https://agentskills.io/)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522-339933.svg)](#快速开始)
 

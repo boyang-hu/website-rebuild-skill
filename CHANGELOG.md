@@ -1,5 +1,31 @@
 # 更新记录
 
+## v0.3.7 — 第四交付形态：逐字图 + 转写微运行时（basement 收官回哺）
+
+basement 战役收官:34 个 DOM 外壳、ScreenUI(16.5k 行 preact-signals 引擎)、
+双 offscreen worker、mux/tweet 惰性家族全部以「逐字工厂 + 微运行时」跑进重建
+的 Next 应用——§2.5 的三种交付形态都接不上这个场景(端口活在**另一个应用的
+外壳里**,没有页面级替换点),故入册第四形态,判别器与做法进表。
+
+**核心新知——runtime 助手字母的语义只能从源站 runtime chunk 逐字转写,从调用
+点反推的"看起来能跑"错语义会在远处以无关形状爆炸**(porting-discipline §2.5.1):
+
+- `u.A=function(e){return this.r(e)(g.bind(this))}`:A 边是"resolve 后**以模块
+  require 为参调用**"——目标恒为 loader stub。shim 只 resolve 不调用,
+  next/dynamic 把 stub 当组件渲染,React 深处 `t is not a function`,栈不指 shim。
+- `u.n` 是 exportNamespace(exports **整体设为**该命名空间),不是 default 互操作
+  getter——猜错则重导出模块导出空,远处 React #306。
+- `e.v(值)` 三形态靠消费方消歧:worker 工厂(经 `i` 调用)/ css-module 表
+  (对象)/ loader stub(经 `A` 调用)。**修正 v0.3.3**:stub 会出现在组件
+  闭包里,"不进叶图"是错的;其 resolve 目标闭包必须同图在场。
+
+三个配套陷阱(各有实证):**registry 顶替前读该 id 在每个 chunk 作用域的注册体**
+(847851 主 chunk 证据像 hls.js,懒 chunk 里是 18.5k 行 mux 播放器组件——顶替
+成 npm 后文章视频死于 React #306);**id 碰撞**(自家 turbopack 构建对相同
+node_modules 派生与源站相同的数字 id,调试编译产物时判据是 chunk 注册表归属,
+不是数字);**闭包走查 `.i(`/`.r(`/`.A(` 三形态同权**(临时 grep 只匹配 `.i(`
+= 运行时"依赖未映射"补课)。
+
 ## v0.3.6 — Sanity 场景入册：同一个 URL、两种字节（hashgraphvc / basement 回哺）
 
 Next/Nuxt 创意站的主流内容层 Sanity CMS 此前在 skill 里只有一行脚本注释。本版从两个

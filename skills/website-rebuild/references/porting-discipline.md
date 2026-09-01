@@ -177,8 +177,42 @@ rogier 在实现里嵌入 68 处 mode 字符串，把"当前遵循哪条源码�
 | **独立运行时** | 端口的 require 闭包**自洽**（closure 门证明,且无跨 chunk id——看 module-map 的 `externalRequires`） | `modules-to-src.mjs` 产出的 `registry.js + runtime.js + index.js`,自带最小 require 实现,整包替换 |
 | **chunk 形交付** | 端口跨 chunk require 别的分包（vendor 拆分是 webpack 常态） | 端口以**真 chunk 身份** push 进页面原有的加载器（`(self.webpackChunk<name>=…\|\|[]).push([["main"], modules, startup])`）;**原 runtime 与 vendor 分包逐字节不动**,跨 chunk require 经真运行时解析。⛔ startup 必须**转写原 chunk 的启动尾**——`t.O(0, [vendor 名列表], () => entry)` 的延迟门保证入口在 vendor 注册完才跑,丢了这道门,app 会在 gsap 存在之前开始动画（与 Turbopack chunk 序言同族的加载序破坏） |
 | **verbatim 分层** | Vite/Turbopack 等 scope-hoisted 无容器产物,没有可整体替换的模块清单 | 不重打包:移植件以原名放 `site/`,其余原件留镜像经 `--fallback-root` 分层伺服 |
+| **逐字图 + 转写微运行时** | 端口必须活在**另一个应用外壳里**(重建的 Next app 内嵌源站编译组件),三种形态都接不上——没有页面级替换点 | 工厂逐字切出(`emit-verbatim`),在自写 `runGraph(factories, deps)` 微运行时下按需运行;**每个 runtime 助手字母的语义先从源站 runtime chunk 逐字转写,再落 shim**(§2.5.1);边界依赖(react/three 等必须单实例的)经显式 id→npm 登记表接桥 |
 
 **实证（milknetwork）**：main chunk 的 15 个模块闭包门报"自洽",但 module-map 的 `externalRequires` 列出 10 个跨 chunk id（gsap/three/swiper 全在 vendor 分包）——独立运行时形态在 app 第一次动画时必然 `module ./node_modules/gsap/index.js is not in the registry`。按 chunk 形交付后,原 runtime + 三个 vendor 原件不动,像素逐档与带宽全同。**闭包"自洽"只对本 chunk 的注册表成立,它说不出这个 chunk 能不能独自运行**——先看 `externalRequires`,再选形态。
+
+#### 2.5.1 转写微运行时：字母语义从 runtime chunk 抄，不从调用点猜【basement】
+
+第四形态的核心风险:turbopack 压缩 runtime 的单字母助手(`e.i/e.s/e.A/e.v/e.n/…`)
+语义**只能从源站 runtime chunk(`turbopack-*.js`)逐字转写**——从调用点用法反推
+会得到"看起来能跑"的错语义,错误在远处以完全无关的形状爆炸。两个实证:
+
+- **`A` 不是"异步 resolve",是"resolve 后调用"**。源站原文:
+  `u.A=function(e){return this.r(e)(g.bind(this))}` —— A 边目标恒为 loader stub
+  (`e.v(cb)` 注册的函数),A require 出它后**以模块 require 为参调用**,返回其
+  Promise。shim 若只 `Promise.resolve(require(id))`,next/dynamic 会把 stub 函数
+  当组件渲染 → React 深处 `t is not a function`,栈不指向 shim。
+- **`n` 是 exportNamespace,不是 default 互操作 getter**。源站原文:
+  `u.n=function(e,t){(r=t!=null?f(this.c,t):this.m).exports=r.namespaceObject=e}`
+  —— 把当前模块 exports **整体设为**该命名空间(重导出模块 `function(e){e.n(e.i(<id>))}`
+  的全部语义)。猜成 getter,重导出模块导出空,远处 React #306(lazy 解析到非组件)。
+
+配套判据与陷阱:
+
+1. **`e.v(值)` 三形态,靠消费方消歧**:worker 工厂(函数,消费方 `e.i` 取出后
+   带业务参调用)/ css-module 类名表(对象,消费方取 `.default`)/ loader stub
+   (函数,消费方 `e.A` 以 require 为参调用)。v0.3.3 说"stub 不进叶图"是错的:
+   stub 就在组件闭包里,其 resolve 目标与目标闭包必须同图在场(`l` 才能空转)。
+2. **registry 顶替一个 id 前,读它在每个 chunk 作用域里的注册体**——含镜像
+   从未静态抓到的懒加载 chunk(v0.3.3 钉出的 31 个)。实证:847851 按主 chunk
+   证据是 hls.js,但懒 chunk 里它是 18.5k 行 mux 播放器组件模块(内嵌 hls);
+   顶替成 npm hls.js,文章视频以 React #306 死在 next/dynamic。
+3. **id 碰撞陷阱**:你自己的 turbopack 构建对相同 node_modules 路径派生**与源站
+   相同的数字 id**。调试自家编译产物时,`e.s(…,847851)` 可能是你的模块也可能是
+   源站原件——判据是它注册在**谁的 chunk 注册表**里,不是数字本身。
+4. 闭包走查的 require 形态是 `.i(`/`.r(`/`.A(` 三者同权(module-map.mjs 已收);
+   手写临时 grep 只匹配 `.i(` 会在运行时以"依赖未映射"补课。`t` 不是模块边
+   (源站原文:node require 直通,浏览器侧 throw)。
 
 ### 2.6 chunk 形交付的入口文件规范
 
