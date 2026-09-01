@@ -158,7 +158,10 @@ endpoint），应答按**完整 query 字符串为键**返回镜像实测的那�
 
 **M0 `--hosts` 预设**（按指纹删减）：`cdn.sanity.io`、`<projectId>.api.sanity.io`、
 `<projectId>.apicdn.sanity.io`、`fonts.googleapis.com` + `fonts.gstatic.com`、
-`*.mux.com` 族（视频，basement）、`www.googletagmanager.com`（遥测，通常 D5 登记不抓）。
+`stream.mux.com` 等 `*.mux.com` 族（视频，basement/14islands）、`www.googletagmanager.com`
+（遥测，通常 D5 登记不抓）。⚠ **预设不会自己进命令行**——14islands 实测：本卡写着
+mux 族，netcapture 命令里漏传，断网 sweep 才在 100/100 路由上把它报出来。开工时把
+本行逐项抄进 mirror-site / netcapture 的 `--hosts`，抄完对着 off-host 普查核一遍。
 
 **⛔ 协商面三族**（全部实测；镜像账本 v0.3.9 起记 `vary`，关账前对账本 Vary 普查一遍即得全景）：
 
