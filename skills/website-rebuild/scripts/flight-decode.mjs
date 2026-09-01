@@ -83,7 +83,19 @@ function rowsOf(stream) {
     if (body.startsWith("I")) rows.push({ id, kind: "I", json: JSON.parse(body.slice(1)) });
     else if (body.startsWith("HL")) rows.push({ id, kind: "HL", json: JSON.parse(body.slice(2)) });
     else if (body.startsWith("E")) rows.push({ id, kind: "E", json: JSON.parse(body.slice(1)) });
-    else rows.push({ id, kind: "json", json: JSON.parse(body) });
+    else {
+      // Everything else is a JSON model row — EXCEPT React 19 stream-control
+      // sentinels (measured on basement.studio): `<id>:X` starts an async
+      // iterable, `<id>:C` closes a stream, `R`/`r`/`x` start byte/text streams.
+      // Their body is a bare tag char, not JSON, and JSON.parse would throw and
+      // abort the whole document. Store them raw; they carry stream plumbing,
+      // not element trees, so a $-ref to one resolves to a sentinel marker.
+      try {
+        rows.push({ id, kind: "json", json: JSON.parse(body) });
+      } catch {
+        rows.push({ id, kind: "raw", raw: body });
+      }
+    }
   }
   return rows;
 }
@@ -105,6 +117,7 @@ function resolve(v, table, seen = new Set()) {
       const row = table.get(id);
       if (!row) return { $missingRow: id };
       if (row.kind === "T") return row.text;
+      if (row.kind === "raw") return { $stream: row.raw }; // X/C/R stream sentinel
       if (row.kind === "I")
         return { $component: `${row.json[2] || "(default)"}#${row.json[0]}`, chunks: row.json[1] };
       const s2 = new Set(seen);

@@ -72,7 +72,14 @@ function rowsOf(stream) {
     if (body.startsWith("I")) out.set(id, { kind: "I", json: JSON.parse(body.slice(1)) });
     else if (body.startsWith("HL")) out.set(id, { kind: "HL", json: JSON.parse(body.slice(2)) });
     else if (body.startsWith("E")) out.set(id, { kind: "E", json: JSON.parse(body.slice(1)) });
-    else out.set(id, { kind: "json", json: JSON.parse(body) });
+    // React 19 stream-control sentinels (X async-iterable, C stop-stream) carry
+    // a bare tag char, not JSON. Same crash the decoder hit — the gate has its
+    // own parser, so it needs the same guard. Store raw; a $-ref resolves to a
+    // stream marker (both sides symmetric, so it drops out of the diff).
+    else {
+      try { out.set(id, { kind: "json", json: JSON.parse(body) }); }
+      catch { out.set(id, { kind: "raw", raw: body }); }
+    }
   }
   return out;
 }
@@ -101,6 +108,7 @@ function resolve(v, table, side, ids, seen = new Set()) {
       const row = table.get(id);
       if (!row) return "«missing:" + id + "»";
       if (row.kind === "T") return normStr(row.text);
+      if (row.kind === "raw") return "«stream:" + row.raw + "»"; // X/C sentinel, both sides symmetric
       if (row.kind === "I") {
         ids.push(row.json[0]);
         return { $c: `${row.json[2] || "(default)"}` };

@@ -70,6 +70,13 @@ const INTERACT = flag("interact", null);
 const INTERACT_WAIT = Number(flag("interact-wait", "4000"));
 const EVAL = flag("eval", null);
 const ALLOW_EXTERNAL = new Set((flag("allow-external", "") || "").split(",").map((s) => s.trim()).filter(Boolean));
+// Suffix form: an entry beginning with "." (e.g. ".mux.com") allows any
+// subdomain of that domain. Multi-CDN video/streaming hosts rotate their
+// subdomain per request (measured on basement: mux HLS lands on edgemv one
+// run, fastly the next), so an exact host set can never register them all.
+const allowedExt = (h) =>
+  ALLOW_EXTERNAL.has(h) ||
+  [...ALLOW_EXTERNAL].some((a) => a.startsWith(".") && (h === a.slice(1) || h.endsWith(a)));
 // --allow-errors <regex>: a REGISTERED page-error pattern (deviation/quirk
 // table entry) counted and reported but not fatal. Exists for judgment calls a
 // dead-site rescue cannot settle against a live origin (e.g. Vue Router's
@@ -192,7 +199,7 @@ ws.onmessage = (ev) => {
       requests.set(m.params.requestId, u);
       if (/^https?:/.test(u) && new URL(u).origin !== SELF_ORIGIN) {
         const h = new URL(u).host;
-        if (ALLOW_EXTERNAL.has(h)) allowedExternal.set(h, (allowedExternal.get(h) || 0) + 1);
+        if (allowedExt(h)) allowedExternal.set(h, (allowedExternal.get(h) || 0) + 1);
         else external.set(h, (external.get(h) || 0) + 1);
       }
       break;
@@ -205,7 +212,7 @@ ws.onmessage = (ev) => {
       // Reported, never fatal; the same status from OUR origin stays fatal.
       if (s >= 400) {
         const h = (() => { try { return new URL(m.params.response.url).host; } catch { return ""; } })();
-        (ALLOW_EXTERNAL.has(h) ? allowedFailures : failures).push(`HTTP ${s} ${m.params.response.url}`);
+        (allowedExt(h) ? allowedFailures : failures).push(`HTTP ${s} ${m.params.response.url}`);
       }
       break;
     }
@@ -213,7 +220,7 @@ ws.onmessage = (ev) => {
       const u = requests.get(m.params.requestId) || "?";
       if (!m.params.canceled) {
         const h = (() => { try { return new URL(u).host; } catch { return ""; } })();
-        (ALLOW_EXTERNAL.has(h) ? allowedFailures : failures).push(`FAILED ${m.params.errorText} ${u}`);
+        (allowedExt(h) ? allowedFailures : failures).push(`FAILED ${m.params.errorText} ${u}`);
       }
       break;
     }

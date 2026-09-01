@@ -163,6 +163,11 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
       `2:I[${moduleId},["/_next/static/chunks/${chunk}.js"],"Logo"]`,
       `:HL["/_next/static/chunks/deadbeef.css","style"]`,
       `3:T${tHex},${text}`,
+      // React 19 streaming sentinels (measured on basement.studio): X starts an
+      // async iterable, C stops a stream — bare tag char, NOT JSON. The first
+      // decoder JSON.parse'd every non-I/HL/T row and crashed the whole doc here.
+      `4:X`,
+      `5:C`,
       `0:${JSON.stringify(row0)}`,
     ].join("\n") + "\n";
   };
@@ -185,6 +190,8 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
     truthy("flight-decode — T row resolved into tree (v0.3.0)", JSON.stringify(doc.tree).includes('"hello"'));
     truthy("flight-decode — empty-id :HL row does not break the walk (v0.3.0)", doc.hints.length === 1);
     truthy("flight-decode — I row export name surfaces (v0.3.0)", JSON.stringify(doc.modules).includes('"Logo"'));
+    // basement.studio: X/C streaming sentinels must not crash the decode.
+    truthy("flight-decode — X/C stream sentinels do not crash decode (v0.3.1)", doc && doc.tree != null);
   } catch (e) { bad("flight-decode — mini stream", String(e.stderr || e.message).split("\n")[0]); }
 
   // gate: hash namespaces normalized away = PASS; a one-character text change = red
