@@ -347,6 +347,23 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
     truthy("module-map — push signature reported", /push signature/.test(out));
   } catch (e) { bad("module-map — webpack push container", String(e.stderr || e.stdout || e.message).split("\n")[0]); }
 
+  // v0.3.11 / 14islands F12+F13: a SINGLE-factory push chunk is a container
+  // (it used to fall through the `< 2` threshold into the array reader, which
+  // counted a worker's `[function(){…}, …]` table as 31 modules), and a
+  // MINIFIED one-line chunk must not trip the overlap rule (F11: 652 correct
+  // modules all on line 1 — the invariant is characters, not lines).
+  const WP1 = path.join(TMP, "wp-single.js");
+  writeFileSync(WP1, `"use strict";(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[7871],{87871:function(e,t,r){var q=[function(){return 1},function(){return 2},function(){return 3}];t.exports=q}}]);`);
+  const WP2 = path.join(TMP, "wp-minified.js");
+  writeFileSync(WP2, `(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[1],{10:function(e,t,n){t.exports=1},20:function(e,t,n){t.exports=n(10)},30:function(e,t,n){t.exports=n(20)}}]);`);
+  for (const [f, want, label] of [[WP1, ["87871"], "single-factory push chunk is 1 module, not the worker table (v0.3.11)"], [WP2, ["10", "20", "30"], "minified one-line chunk passes the char-overlap invariant (v0.3.11)"]]) {
+    const o = path.join(TMP, path.basename(f) + ".json");
+    try {
+      execFileSync(process.execPath, [path.join(SKILL, "scripts/module-map.mjs"), "--in", f, "--out", o], { stdio: "pipe" });
+      eq(`module-map — ${label}`, JSON.parse(readFileSync(o, "utf8")).modules.map((m) => String(m.id)).sort(), want);
+    } catch (e) { bad(`module-map — ${label}`, String(e.stderr || e.stdout || e.message).split("\n")[0]); }
+  }
+
   // F4: token stream equality sees a nested-template content change that
   // parses fine. Same code with different whitespace is EQUAL; a changed
   // template literal is not.
@@ -388,6 +405,19 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
   truthy("verify-nextdata — two identical sides pass", vn(ND, NDB));
   nd(NDB, "changed");
   truthy("verify-nextdata — a changed pageProp goes red", !vn(ND, NDB));
+}
+
+// ------------------------------ 5a3. make-standalone refuses to run blind (v0.3.11)
+{
+  // 14islands F15: `--shell` defaulted to "site", so a usage probe EXECUTED the
+  // defaults and copied a 1.27 GB mirror into src/public/. No --shell → usage,
+  // exit 2, nothing written.
+  const D = path.join(TMP, "standalone-blind");
+  mkdirSync(D, { recursive: true });
+  let code = 0;
+  try { execFileSync(process.execPath, [path.join(SKILL, "tools/make-standalone.mjs")], { cwd: D, stdio: "pipe" }); }
+  catch (e) { code = e.status; }
+  truthy("make-standalone — no --shell exits 2 without writing (v0.3.11)", code === 2 && readdirSync(D).length === 0, `exit ${code}, wrote ${readdirSync(D).join(",")}`);
 }
 
 // ----------------------------------------- 5b. off-host census contract (v0.3.4)

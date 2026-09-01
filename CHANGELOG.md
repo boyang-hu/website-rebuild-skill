@@ -1,5 +1,30 @@
 # 更新记录
 
+## v0.3.11 — 正签名的下半句：单模块 chunk 也是容器（14islands L3 收口回哺）
+
+14islands 续跑到 **L3**：`7753`（token 流上切 652 个压缩原字节部件，覆盖 99.8%）与 `2186`
+入港，verify-tokens 25/25；像素巡航 12 路由×5 检查点（`/culture` 0.04 稳定残留登记不算过）；
+25 chunk 摊成 `src/chunks/*` 1,231 模块文件（name-modules + 17 条 tier-0 裁决附"读到了什么"，
+作用域安全重命名 1,225），**verify-module-map 25/25**；`standalone/` 自足交付物
+verify-standalone `--full` PASS、byte-manifest 2,808/2,808、像素 home/culture 0.00。第二轮
+七条回哺，全部工具级：
+
+**v0.3.10 的正签名读法当天就被实弹修正**（F12/F13）：签名找到了容器，下游 `members.length < 2`
+的门槛却把**单模块 chunk** 当"没找到"——3163 / 57f4964f（各一个工厂）报"no container"，
+7871（一个工厂里装着 troika 的 `[function(){…},…]` worker 表）回退到数组读法报 31 模块。
+fork 的初判"签名只认文件开头"是表象。修法与 Turbopack 单工厂那课同形：**正签名定位的
+容器在任何成员数下都是容器**，不再回退。**行数不变量改为字符不变量**（F11）：压缩原件
+（js-beautify 解析失败时的坐标）652 个正确模块全落在第 1 行，"模块行数 > 文件行数"是
+恒假红；工厂在任何容器形态下都不共享字符，字符和才是不变量。
+
+**其余**：verify-module-map 两个边界分支同一套剥键逻辑（F16：合成 char 边界指到 id 起点时
+每模块恒差 2 token）+ 键正则认压缩器的指数记法 id `71e3:`（F14，modules-to-src 同修）；
+make-standalone **无 `--shell` 即打印 usage 退出**（F15①：一次 usage 试探把 1.27GB 镜像拷进
+src/public）、引用提取解 HTML 实体（F15②：srcset 的 `&amp;w=` 让 628 个在场变体报"落范围外"）、
+无 index.js 或 `--no-build` 不生成 esbuild 构建脚本（F15③）、新增 `--keep-own`（F17：`--own`
+的"单一构建产物"语义把 25 个再发射 chunk 的外壳全改写到同一个 gen 文件，首屏空白而 CLEAN/
+请求失败全绿——像素门的非空帧前置条件是唯一说话的门）。selftest 59→62。
+
 ## v0.3.10 — 排版字节不是原件：token 门与 webpack 正签名（14islands L2 收口回哺）
 
 14islands.com（Next 13.4 pages router + Sanity 直连 + R3F/scroll-rig，104 路由）无人值守跑到

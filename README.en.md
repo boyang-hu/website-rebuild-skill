@@ -1,7 +1,7 @@
 # website-rebuild-skill
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.10-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.11-blue.svg)](CHANGELOG.md)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-brightgreen.svg)](https://agentskills.io/)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522-339933.svg)](#quick-start)
 
@@ -260,7 +260,7 @@ Before anything goes public, per-asset copyright **forensics** must be completed
 
 Versions advance with real rebuild projects: every feature and fix shipped was first validated on at least one complete project.
 
-Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.10** — beautified bytes are not the original: js-beautify changes the content of nested template literals while every pixel/CLEAN gate stays green (14islands: 748,409 vs 748,398 tokens), so `lib/tokens.mjs` + a `verify-tokens.mjs` gate land, and beautify-bundle now self-checks its token stream; module-map's webpack reader locates the container by the positive `webpackChunk` push signature (a three.js 400+ export map used to outvote the real container) and FATALs when module lines exceed file lines; new `verify-nextdata.mjs` (pages-router payload gate) and `emit-webpack-chunk.mjs` (verbatim multi-chunk re-emission); mirror-site's redirect ledger accumulates across runs. 14islands.com ran unattended to L2 (offline 104/104, token gate 23/23, payload gate 104/104, pixel 0.00). Selftest 50→59.
+Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.11** — the second half of the positive signature: a single-module chunk is a container too. v0.3.10's webpack push signature was corrected the same day by live data: a `members < 2` threshold treated single-factory chunks as "not found" and fell through to the array reader (a troika worker table counted as 31 modules); a positively identified container is now the container at any member count; the overlap invariant moves from lines to characters (a minified original puts every module on line 1); verify-module-map strips keys identically on both branches and accepts exponent-form ids; make-standalone exits on a missing `--shell`, entity-decodes references, emits no build step without an entry module, and gains `--keep-own` (a verbatim multi-chunk port's shells are no longer rewritten to a single build output — blank first paint with CLEAN green, caught only by the pixel gate's non-empty-frame precondition). 14islands.com ran unattended to **L3** (verify-module-map 25/25, standalone deliverable byte-manifest 2,808/2,808). Selftest 59→62.
 
 ## Contributing
 

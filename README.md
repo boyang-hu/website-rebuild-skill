@@ -1,7 +1,7 @@
 # website-rebuild-skill
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.10-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.11-blue.svg)](CHANGELOG.md)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-brightgreen.svg)](https://agentskills.io/)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522-339933.svg)](#快速开始)
 
@@ -260,7 +260,7 @@ README.en.md               # 英文版 README
 
 版本随真实复刻项目递进：每个版本发布的功能与修复，都先在至少一个完整项目上验证过。
 
-完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.10**：排版字节不是原件——js-beautify 会改变嵌套模板字面量的内容而像素/CLEAN 门全绿（14islands 748,409 vs 748,398 token），新增 `lib/tokens.mjs` + `verify-tokens.mjs` 门、beautify-bundle 产出后自查 token 流；module-map 的 webpack 读法改由 `webpackChunk` push 正签名定位容器（three 的 400+ 导出映射曾赢过真容器）、模块行数超文件行数一律 FATAL；新增 pages router 载荷门 `verify-nextdata.mjs` 与多 chunk 逐字再发射器 `emit-webpack-chunk.mjs`；mirror-site 重定向账本跨运行累积。14islands.com 无人值守跑到 L2（断网 104/104、token 门 23/23、载荷门 104/104、像素 0.00）。selftest 50→59。
+完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.11**：正签名的下半句——单模块 chunk 也是容器。v0.3.10 的 webpack push 正签名当天被实弹修正：`members < 2` 门槛把单工厂 chunk 当"没找到"回退到数组读法（troika worker 表被数成 31 模块），现在正签名定位的容器在任何成员数下都是容器；行数不变量改为字符不变量（压缩原件全落第 1 行）；verify-module-map 双分支同一剥键逻辑 + 指数记法 id；make-standalone 无 `--shell` 即退出、引用解 HTML 实体、无入口不生成构建、新增 `--keep-own`（多 chunk 逐字端口的外壳不再被改写到单一构建产物——首屏空白而 CLEAN 全绿，只有像素门的非空帧前置条件说话）。14islands.com 无人值守跑到 **L3**（verify-module-map 25/25、standalone 交付物 byte-manifest 2,808/2,808）。selftest 59→62。
 
 ## 贡献
 

@@ -74,7 +74,7 @@ for (const id of ids) {
     : SRC.slice(m.startLine - 1, m.endLine).join("\n");
 
   // Strip `"<id>": ` / `<id>: ` so the file starts at `function (…)`.
-  const fnText = raw.replace(/^\s*(?:"[^"]+"|[A-Za-z_$][\w$]*|\d+)\s*:\s*/, "").replace(/,\s*$/, "");
+  const fnText = raw.replace(/^\s*(?:"[^"]+"|[A-Za-z_$][\w$]*|\d+(?:\.\d+)?(?:e\d+)?)\s*:\s*/, "").replace(/,\s*$/, "");
 
   // ⛔ Rename ONLY the wrapper's own three parameters, and do it with SCOPE, not
   // with text. A text-level shadow test is far too coarse for one-letter names:

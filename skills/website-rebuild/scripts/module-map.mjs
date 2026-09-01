@@ -240,7 +240,17 @@ for (let i = 0; i + 2 < T.length; i++) {
 // --- array-form container: `[function(…), function(…)]` ---------------------
 let entries = [];
 let containerKind = "ObjectExpression";
-if (!members || members.length < 2) {
+// ⛔ A POSITIVELY identified container is the container at ANY member count.
+// The `< 2` threshold below exists for the heuristic reader; applied to a
+// webpackChunk push it threw away single-module chunks: 3163 / 57f4964f
+// (one factory each) fell through to "no container", and 7871 (one factory
+// holding troika's worker table `[function(){…}, …]`) fell through to the
+// ARRAY reader and came back as 31 modules (14islands F12/F13). Same lesson
+// as the Turbopack one-factory chunk: the signature is the evidence, the
+// count is not.
+if (webpackPush && members && members.length >= 1) {
+  entries = members.map((i) => ({ id: String(val(i)), fi: i + 2 }));
+} else if (!members || members.length < 2) {
   // Fall back to the array form before giving up.
   const arr = [];
   for (let i = 0; i + 1 < T.length; i++) {
@@ -499,17 +509,19 @@ console.log(`  container: ${containerKind === "TurbopackChunk" ? "turbopack chun
 // of the next share a line, so the per-module line counts overlap by one each.
 // Say so rather than letting "more lines inside modules than in the file" read
 // as a bug in the reader.
-if (total > fileLines) {
-  if (containerKind === "TurbopackChunk") {
-    console.log(`  ⚠    module spans overlap by ${total - fileLines} line(s): in a flat list one line closes a module and opens the next`);
-  } else {
-    // ⛔ In an object/array container every factory owns whole lines; more
-    // module lines than the file has means the boundaries are wrong (14islands
-    // chunk 7753: 1,864 module lines in a 1,213-line file, reported as success
-    // because the require-edge check happened to pass). This is a FATAL, not a
-    // footnote — every downstream slice would carry the wrong bytes.
-    console.error(`FATAL — ${total} module line(s) inside a ${fileLines}-line file: the container boundaries are wrong.`);
-    console.error(`        (object/array containers cannot overlap; only a Turbopack flat list shares a line between modules)`);
+if (total > fileLines) console.log(`  ⚠    module spans overlap by ${total - fileLines} line(s): modules share lines (flat list, or a minified original)`);
+// ⛔ The overlap invariant is in CHARACTERS, not lines. Lines lied both ways:
+// on a beautified chunk "1,864 module lines in a 1,213-line file" was a real
+// wrong-boundary case that passed (14islands 7753 via the heuristic reader),
+// and on a MINIFIED original — the coordinates when js-beautify cannot parse
+// the file — 652 correct modules all "span" line 1, so a line rule is a
+// permanent false red (14islands F11). Factories never share characters in
+// any container shape, so the character sum is the invariant.
+{
+  const totalChars = mods.reduce((t, m) => t + (m.endChar - m.startChar + 1), 0);
+  if (totalChars > code.length) {
+    console.error(`FATAL — ${totalChars} module character(s) inside a ${code.length}-character file: the container boundaries overlap, so they are wrong.`);
+    console.error(`        Every downstream slice would carry the wrong bytes. Do NOT fall back to the flat layer map.`);
     process.exit(5);
   }
 }
