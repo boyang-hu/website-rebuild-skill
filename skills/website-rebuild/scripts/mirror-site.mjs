@@ -146,6 +146,20 @@ const fetched = new Set();
 // Redirects are SOURCE-SITE BEHAVIOR, not crawler bookkeeping: they get their
 // own ledger and are never collapsed into the source path's file.
 const redirects = []; // {from, status, to}
+// ⛔ The redirect ledger must ACCUMULATE like the manifest does. A later run
+// (`--scope` to add a page family, `--seeds` to fill a gap) rebuilt this array
+// from scratch and wrote a file with only the header: the first crawl's
+// `/work 308 -> /` was gone, and the payload gate found out by hitting a 404
+// on /work (14islands F6). Same promise as the manifest carry-over above — a
+// ledger that forgets what it is being added to is not the same ledger.
+{
+  const prior = await readFile(join(OUT, 'redirects.tsv'), 'utf8').catch(() => '');
+  for (const line of prior.split('\n').slice(1)) {
+    const [status, from, to] = line.split('\t');
+    if (status && from) redirects.push({ from, status: Number(status), to: to || '' });
+  }
+  if (redirects.length) console.log(`[ledger] carrying over ${redirects.length} redirect row(s) from the existing redirects.tsv`);
+}
 
 // Delegated to lib/urlpath.mjs so the crawler, the capture pass, the server and
 // the mirror gate cannot drift apart on where a URL lives — and so the query
@@ -421,7 +435,9 @@ await writeFile(
   // Column order is CODE FROM TO because serve.mjs's replay reader destructures
   // in that order; a FROM-first ledger silently replays nothing.
   ['CODE', 'FROM', 'TO'].join('\t') + '\n' +
-    redirects.map((r) => [r.status, r.from, r.to].join('\t')).join('\n') + (redirects.length ? '\n' : '')
+    // dedupe: a re-visited redirect is the same source behaviour, not a new row
+    [...new Map(redirects.map((r) => [`${r.status}\t${r.from}\t${r.to}`, r])).values()]
+      .map((r) => [r.status, r.from, r.to].join('\t')).join('\n') + (redirects.length ? '\n' : '')
 );
 await writeFile(
   join(OUT, 'inventory.tsv'),

@@ -1,7 +1,7 @@
 # website-rebuild-skill
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.9-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.10-blue.svg)](CHANGELOG.md)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-brightgreen.svg)](https://agentskills.io/)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522-339933.svg)](#快速开始)
 
@@ -37,7 +37,7 @@
 - **行号可溯源的逆向**——复刻里的每一行都能指回源站 bundle 的哪一行；bug 与怪写法照抄不修
 - **量化验收**——控制台 / 网络 / DOM / 几何 / **逐像素**五层自动比对，差异要么修掉、要么登记，不许糊过去
 - **源码化交付**——逐字移植的产物重写成人能读的工程（拆模块、按证据命名、补溯源头注），**复制到任何地方断网可跑**
-- **零依赖工具链**——61 个 Node 脚本（48 个工序脚本与验收门 + 8 个共用库 + 5 个源码化/反推重构器），源码化之前整条流水线不装任何 npm 包
+- **零依赖工具链**——65 个 Node 脚本（51 个工序脚本与验收门 + 9 个共用库 + 5 个源码化/反推重构器），源码化之前整条流水线不装任何 npm 包
 - **死站也能救**——Wayback 存档抢救：锚点+时间窗选一个连贯时刻、原始字节落成标准镜像、永久洞如实登记；五次死站抢救实测（四个复活、其一走完 L3；一个画面层确证全失,失败形态入册）
 - **连 RSC 站也能重构**——服务端组件源不下发（React Server Components / Next.js App Router），但它的完整输出（flight 流）内联在每页 HTML 里就是规格书：从中重构一个可构建的 Next 工程，用 flight 语义门收口。实测一个 Next 16/Turbopack 博客站 18/18 路由语义一致，一个 144 路由重站 PASS 144/144；盲逆向对公开源码判卷，结构 ≈95%、行为 ≈98%
 - **法务决定权归用户**——skill 只取证与呈交，产出默认私有 + noindex + 不部署
@@ -260,7 +260,7 @@ README.en.md               # 英文版 README
 
 版本随真实复刻项目递进：每个版本发布的功能与修复，都先在至少一个完整项目上验证过。
 
-完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.9**：标尺只有一把——镜像开始发浏览器的图片 Accept（basement D5 定案回哺）。`auto=format` 类 CDN 按 Accept 协商返回格式，`accept: */*` 拿到的是回退字节：双 Accept 采样 6/6 全分叉（1.13MB png→61KB webp，体积差 18×），**分叉面是全部栅格变体**而门全绿。新共用库 `lib/negotiate.mjs`（`IMG_ACCEPT` 逐字照抄 Chrome、next/image 代理先解码再判、CDP TYPE 列优先）接入 mirror-site / reconcile-gaps；账本新记 `profile`+`vary` 补上"协商响应不可区分"的账本盲区；fingerprint.mjs Step 0 采 Sanity 证据（projectId/dataset/API 主机，三种拼写归一）。selftest 36→45。
+完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.10**：排版字节不是原件——js-beautify 会改变嵌套模板字面量的内容而像素/CLEAN 门全绿（14islands 748,409 vs 748,398 token），新增 `lib/tokens.mjs` + `verify-tokens.mjs` 门、beautify-bundle 产出后自查 token 流；module-map 的 webpack 读法改由 `webpackChunk` push 正签名定位容器（three 的 400+ 导出映射曾赢过真容器）、模块行数超文件行数一律 FATAL；新增 pages router 载荷门 `verify-nextdata.mjs` 与多 chunk 逐字再发射器 `emit-webpack-chunk.mjs`；mirror-site 重定向账本跨运行累积。14islands.com 无人值守跑到 L2（断网 104/104、token 门 23/23、载荷门 104/104、像素 0.00）。selftest 50→59。
 
 ## 贡献
 

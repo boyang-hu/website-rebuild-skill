@@ -178,7 +178,10 @@ mux 族，netcapture 命令里漏传，断网 sweep 才在 100/100 路由上把�
    next-router-segment-prefetch`——同 URL 按 header 返回 HTML 或 flight 载荷（`?_rsc=`
    的 header 形态），镜像收 HTML 形态、flight 走 `?_rsc=` 变体入镜（rsc-reconstruction §2）。
 
-**运行时资源族清单**（BFS 看不见、netcapture/推导要补的）：`?_rsc=` 预取载荷、
+**运行时资源族清单**（BFS 看不见、netcapture/推导要补的；⭐ **能从字节推导的先推导，再拿
+netcapture 对账**——14islands 实测：webpack runtime 的 `h.u`（chunk id→hash 表）+ `h.miniCssF`
++ `_buildManifest` 推出 28 chunk + 11 css + 9 页 chunk，其中 28 条是预览分支的死 chunk，任何路由
+都跑不到；`_next/data/<buildId>/<route>.json` 按路由表推导 98 条得 95）：`?_rsc=` 预取载荷、
 next/image srcset 阶梯（§1.3 两层展开）、动态 OG 图（`og:image`/`twitter-image` 指向的
 爬虫专供路由）、well-known 探测（`/sitemap.xml` `/robots.txt` `/llms.txt` `/openapi.json`
 `/*.md` 孪生——darkroom 实测五种都有）、`/_vercel/insights`（快照入 public/，登记）。

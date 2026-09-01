@@ -1,5 +1,37 @@
 # 更新记录
 
+## v0.3.10 — 排版字节不是原件：token 门与 webpack 正签名（14islands L2 收口回哺）
+
+14islands.com（Next 13.4 pages router + Sanity 直连 + R3F/scroll-rig，104 路由）无人值守跑到
+L2：L1 关账（全路由 netcapture 1,243 GAP 全补 + 三条字节推导阶梯；verify-mirror 2,782 行
+五项 PASS；断网 sweep 104/104）→ M1 钉栈 → M2 策略 A 外壳（verify-shell 121 hunk 全可重放、
+verify-offline 104/104、verify-refs-served 5,670/5,670）→ **23 个站点 chunk 逐字再发射**、
+token 门 23/23、`__NEXT_DATA__` 门 104/104、像素门三路由 0.00 → 冷头审计 + DEPLOY 取证草案。
+战役产出十条回哺，本版落六条工具级 + 三条文档级：
+
+**核心新知——js-beautify 会改变嵌套模板字面量的内容，且所有渲染门照绿**（F4）：
+`${iW(e)}:${t};` 被排成 `$ {\n iW(e)\n }: $ {\n t\n };`，能解析、能渲染、像素 0.00，token
+流 748,409 vs 748,398。**排版字节不是原件**——凡以 `_pretty` 交付（再发射/切片）的路线，
+token 流等价是必需门。落地：`lib/tokens.mjs` + `verify-tokens.mjs`（门）+ beautify-bundle
+产出后自查（账本新增 tokens 列，`DIFFER@n` 的文件只能当坐标、退出码 1）。
+
+**module-map 的 webpack 读法换脊柱（F1/F9）**：容器改由 `webpackChunk*/webpackJsonp` 的
+`push([[ids],{…}])` **正签名**定位——此前"属性最多的对象"这个计数在 three.js 400+ 导出映射
+面前输了（256 模块的 `_app` 报成 406 个 3 行模块），另一 chunk 报"1,864 行落在 1,213 行文件
+里"却不 FATAL（require 边碰巧在内）。对象/数组容器**模块行数 > 文件行数一律 FATAL**。
+
+**其余工具级**：`verify-nextdata.mjs`（F2：pages router 载荷门，verify-payload 的空白；`--a/--b`
+认目录，selftest 可离线钉）；`emit-webpack-chunk.mjs`（F3：多 chunk webpack 站的逐字再发射
+出口，Turbopack 路线的同构物，拼接门 + `--raw`）；beautify-bundle 对 `[slug]` 文件名喂无
+括号副本 + "输出 === 压缩输入"直接 FAIL（F5：CLI 对 -f 做 glob，四个页 chunk 静默停留 8 行
+raw）；mirror-site `redirects.tsv` 跨运行累积（F6：`--scope` 补页把它截成表头，`/work` 308
+消失）。selftest 50→59。
+
+**文档级**：JSON 数据岛里的 URL 是内容不是地址，T-LOCALIZE 不许进岛（F7，dom-shell §6.0）；
+pages router 的 chunk 全集从 webpack runtime `h.u`/`h.miniCssF`/`_buildManifest` 推导、
+`_next/data` 按路由表推导（F8，sanity-platform §4）；门的退出码不许经过管道 `tail`（F10，
+verification-gates）。
+
 ## v0.3.9 — 标尺只有一把：镜像开始发浏览器的图片 Accept（basement D5 定案回哺）
 
 v0.3.6 入册的 `auto=format` 协商陷阱，本版从"文档警告"落成"工具行为"。定案数据

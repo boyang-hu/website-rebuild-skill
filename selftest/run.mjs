@@ -326,6 +326,70 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
   } catch (e) { bad("module graph — turbopack shapes", String(e.stderr || e.stdout || e.message).split("\n")[0]); }
 }
 
+// ------------------------------ 5a2. webpack push container + token gates (v0.3.10)
+{
+  // 14islands F1: a three.js-style export map with MORE `key: function` props
+  // than the container has modules used to be picked as the container. The
+  // webpackChunk push signature is positive evidence; the count is not.
+  const WP = path.join(TMP, "wp-chunk.js");
+  const bigMap = Array.from({ length: 12 }, (_, i) => `K${i}:function(){return ${i}}`).join(",");
+  writeFileSync(WP, `(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[2888],{\n` +
+    `  10:function(e,t,n){"use strict";n.d(t,{${bigMap}});var a=n(20);t.exports={a}},\n` +
+    `  20:function(e,t,n){"use strict";t.exports=1},\n` +
+    `  30:function(e,t,n){"use strict";var z=n(10)}\n` +
+    `}]);\n`);
+  const WPOUT = path.join(TMP, "wp-map.json");
+  try {
+    const out = execFileSync(process.execPath, [path.join(SKILL, "scripts/module-map.mjs"), "--in", WP, "--out", WPOUT], { stdio: "pipe" }).toString();
+    const mm = JSON.parse(readFileSync(WPOUT, "utf8"));
+    eq("module-map — webpackChunk push object is the container, not the bigger export map (v0.3.10)",
+      mm.modules.map((m) => String(m.id)).sort(), ["10", "20", "30"]);
+    truthy("module-map — push signature reported", /push signature/.test(out));
+  } catch (e) { bad("module-map — webpack push container", String(e.stderr || e.stdout || e.message).split("\n")[0]); }
+
+  // F4: token stream equality sees a nested-template content change that
+  // parses fine. Same code with different whitespace is EQUAL; a changed
+  // template literal is not.
+  const T0 = path.join(TMP, "tok-orig.js"), T1 = path.join(TMP, "tok-ws.js"), T2 = path.join(TMP, "tok-tpl.js");
+  writeFileSync(T0, "const f=(e,t)=>`${iW(e)}:${t};`;export{f};\n");
+  writeFileSync(T1, "const f = (e, t) => `${iW(e)}:${t};`;\nexport { f };\n");
+  writeFileSync(T2, "const f = (e, t) => `$ {\n  iW(e)\n}: $ {\n  t\n};`;\nexport { f };\n");
+  const vt = (a, b) => { try { execFileSync(process.execPath, [path.join(SKILL, "scripts/verify-tokens.mjs"), a, b], { stdio: "pipe" }); return true; } catch { return false; } };
+  truthy("verify-tokens — whitespace-only reformat is token-identical (v0.3.10)", vt(T0, T1));
+  truthy("verify-tokens — beautifier-style template mangling goes red (v0.3.10)", !vt(T0, T2));
+
+  // F3: emit-webpack-chunk re-emits a pretty webpack chunk part-by-part and
+  // its reassembly gate must be byte-exact; consumes module-map's field names.
+  const PRETTY = path.join(TMP, "wp-pretty.js");
+  writeFileSync(PRETTY, `(self.webpackChunk_N_E = self.webpackChunk_N_E || []).push([[2888], {\n` +
+    `    10: function(e, t, n) {\n        "use strict";\n        t.exports = 1\n    },\n` +
+    `    20: function(e, t, n) {\n        "use strict";\n        var z = n(10)\n    }\n}]);\n`);
+  const PMAP = path.join(TMP, "wp-pretty-map.json"), GEN = path.join(TMP, "wp-gen.js"), PARTS = path.join(TMP, "wp-parts");
+  try {
+    execFileSync(process.execPath, [path.join(SKILL, "scripts/module-map.mjs"), "--in", PRETTY, "--out", PMAP], { stdio: "pipe" });
+    execFileSync(process.execPath, [path.join(SKILL, "scripts/emit-webpack-chunk.mjs"), "--in", PRETTY, "--map", PMAP, "--out", GEN, "--parts", PARTS], { stdio: "pipe" });
+    truthy("emit-webpack-chunk — parts reassemble byte-exact to the pretty chunk (v0.3.10)", readFileSync(GEN, "utf8") === readFileSync(PRETTY, "utf8"));
+    execFileSync(process.execPath, [path.join(SKILL, "scripts/emit-webpack-chunk.mjs"), "--in", PRETTY, "--map", PMAP, "--out", GEN, "--parts", PARTS, "--check"], { stdio: "pipe" });
+    ok("emit-webpack-chunk — --check passes on untouched parts");
+  } catch (e) { bad("emit-webpack-chunk", String(e.stderr || e.stdout || e.message).split("\n")[0]); }
+
+  // F2: verify-nextdata reads a pages-router mirror DIRECTORY (offline) and
+  // compares __NEXT_DATA__ with _next/data; a changed prop goes red.
+  const ND = path.join(TMP, "nd-a"), NDB = path.join(TMP, "nd-b");
+  const nd = (dir, title) => {
+    mkdirSync(path.join(dir, "_next/data/BUILD1"), { recursive: true });
+    const props = { pageProps: { title, items: [{ _key: "k1", v: 1 }] }, __N_SSG: true };
+    writeFileSync(path.join(dir, "index.html"), `<html><script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ props, page: "/", query: {}, buildId: "BUILD1" })}</script></html>`);
+    writeFileSync(path.join(dir, "_next/data/BUILD1/index.json"), JSON.stringify(props));
+  };
+  nd(ND, "hello"); nd(NDB, "hello");
+  const vn = (a, b) => { try { execFileSync(process.execPath, [path.join(SKILL, "scripts/verify-nextdata.mjs"), "--a", a, ...(b ? ["--b", b] : []), "--routes", "/"], { stdio: "pipe" }); return true; } catch { return false; } };
+  truthy("verify-nextdata — single side: __NEXT_DATA__ agrees with _next/data (v0.3.10)", vn(ND));
+  truthy("verify-nextdata — two identical sides pass", vn(ND, NDB));
+  nd(NDB, "changed");
+  truthy("verify-nextdata — a changed pageProp goes red", !vn(ND, NDB));
+}
+
 // ----------------------------------------- 5b. off-host census contract (v0.3.4)
 // extract-refs reports off-list hosts as onOffHost(host, href) — a BARE host.
 // wayback-mirror consumed it as a URL: new URL("fonts.googleapis.com") throws,

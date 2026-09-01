@@ -244,6 +244,16 @@ else { /* 生产路径 */ }
 
 ## 6. 常见坑（各策略通用）
 
+0. **JSON 数据岛里的 URL 是内容，不是地址——T-LOCALIZE 不许进岛**【14islands】。pages router 的
+   `<script id="__NEXT_DATA__" type="application/json">`（以及 JSON-LD）里既有资产地址也有
+   **文本位置的 URL**（portable text 的 `markDefs.url`/`externalLink.url`、正文里的裸链接）；
+   内建 T-LOCALIZE 的守卫只认 `>URL<` 与 `"children":"URL"` 两种位置，实测 17/104 路由的
+   文章内容 URL 被改成 `/`，而外壳字节门全绿（改写本身就是登记变换）。正确形状：**岛整段
+   保真（登记为 T-DATA-KEEP）**，运行时由 JSON 拼出的资产 URL 交给服务层 `serve --rewrite` /
+   `/ext/<host>/` 响应改写（hashgraphvc 6.2 / 14islands 6.4 同族）；Nuxt payload 那种"岛内
+   全是资产地址"的站另当别论（verify-payload 路线），**判据是岛里有没有文本位置的 URL**，
+   不是框架名。
+
 1. **自创补偿性 CSS 会反转成 bug**：JS 机制没对齐时用 CSS 补观感，等 JS 对齐后补丁全部反转——rogier 十余个视觉 bug 全部源于此。"宁可先不像，也不要发明规则"【rogier】。
 2. **门只断言想到的字段是盲的**：`<main>` 只比 3 个固定字段抓不到"shell 组件发明了源站没有的 DOM 属性"；修法是**并集全量比对**替代字段名单【kimi】。
 3. **只测一种 URL 形态漏掉重定向链**：kimi 只测无斜杠形态，尾斜杠重定向链与源站相反没被抓到，R1 审查才发现【kimi】。

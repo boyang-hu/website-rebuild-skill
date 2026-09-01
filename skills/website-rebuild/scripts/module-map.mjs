@@ -128,7 +128,43 @@ const ownerAt = new Int32Array(T.length).fill(-1);
 }
 const byOwner = new Map();
 for (const i of props) byOwner.set(ownerAt[i], (byOwner.get(ownerAt[i]) || []).concat(i));
-const [, members] = [...byOwner].sort((a, b) => b[1].length - a[1].length)[0] || [];
+// ⛔ "The depth with the most module-shaped properties" is a COUNT, and a count
+// loses to a bigger unrelated object: three.js's namespace export map
+// `n.d(t,{ACESFilmicToneMapping:function(){return …}, …})` holds 400+
+// `key: function` properties inside ONE module, so on 14islands the reader
+// picked it — "406 modules of 3 lines" for a chunk with 256 real factories —
+// and on another chunk reported 1,864 module lines inside a 1,213-line file
+// without FATAL. A POSITIVE signature beats a count (the Turbopack lesson,
+// again): a webpack 5 / webpack 4 chunk registers its container as
+//   (self.webpackChunk_N_E = self.webpackChunk_N_E || []).push([[<ids>], { <id>: factory, … }, runtime?])
+//   (window.webpackJsonp = window.webpackJsonp || []).push([[<ids>], { … }])
+// — the object literal that is the SECOND element of the pushed array. When
+// that push is present, its object IS the container, whatever else the file
+// contains.
+let pushOwner = -1;
+for (let i = 0; i + 4 < T.length && pushOwner < 0; i++) {
+  if (lab(i) !== "name" || !/^webpack(Chunk|Jsonp)/.test(String(val(i)))) continue;
+  let j = i;
+  while (j < T.length && !(lab(j) === "name" && val(j) === "push")) j++;
+  while (j < T.length && lab(j) !== "[") j++;
+  if (j >= T.length) continue;
+  // walk the pushed array at depth 1; the first `{` that STARTS an element is the container
+  let d = 0;
+  for (let k = j; k < T.length; k++) {
+    const l = lab(k);
+    if (OPEN.has(l)) {
+      d++;
+      if (d === 2 && l === "{" && (lab(k - 1) === "," )) { pushOwner = k; break; }
+    } else if (CLOSE.has(l)) { d--; if (d === 0) break; }
+  }
+}
+let members;
+if (pushOwner >= 0 && byOwner.has(pushOwner)) {
+  members = byOwner.get(pushOwner);
+} else {
+  [, members] = [...byOwner].sort((a, b) => b[1].length - a[1].length)[0] || [];
+}
+const webpackPush = pushOwner >= 0 && byOwner.has(pushOwner);
 
 // --- Turbopack container ----------------------------------------------------
 // ⭐ A second packer, a different container syntax, the same porting unit.
@@ -463,7 +499,21 @@ console.log(`  container: ${containerKind === "TurbopackChunk" ? "turbopack chun
 // of the next share a line, so the per-module line counts overlap by one each.
 // Say so rather than letting "more lines inside modules than in the file" read
 // as a bug in the reader.
-if (total > fileLines) console.log(`  ⚠    module spans overlap by ${total - fileLines} line(s): in a flat list one line closes a module and opens the next`);
+if (total > fileLines) {
+  if (containerKind === "TurbopackChunk") {
+    console.log(`  ⚠    module spans overlap by ${total - fileLines} line(s): in a flat list one line closes a module and opens the next`);
+  } else {
+    // ⛔ In an object/array container every factory owns whole lines; more
+    // module lines than the file has means the boundaries are wrong (14islands
+    // chunk 7753: 1,864 module lines in a 1,213-line file, reported as success
+    // because the require-edge check happened to pass). This is a FATAL, not a
+    // footnote — every downstream slice would carry the wrong bytes.
+    console.error(`FATAL — ${total} module line(s) inside a ${fileLines}-line file: the container boundaries are wrong.`);
+    console.error(`        (object/array containers cannot overlap; only a Turbopack flat list shares a line between modules)`);
+    process.exit(5);
+  }
+}
+if (webpackPush) console.log(`  container identified by its webpackChunk/webpackJsonp push signature (positive), not by property count`);
 console.log(`  tokenized by acorn@${ACORN_VERSION} (pinned, spawned — not imported)`);
 {
   const aliased = mods.filter((m) => (m.aliases || []).length);

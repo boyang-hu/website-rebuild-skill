@@ -408,6 +408,7 @@ canvasStyleFromSource: (() => {
 ### 1.5 CLEAN 探针门（底线门）
 
 - **定义**：无头加载 + 滚动/遍历状态，采集 console 错误、页面异常、失败/非 2xx 请求，零错误（白名单放行已知残留）即 CLEAN，退出码进 CI。
+- ⛔ **退出码不许经过管道**：`node verify-x.mjs | tail -20` 让 shell 只看见 `tail` 的退出码，门红了也是 0——14islands 一次 commit 信息写"23/23"时门实际 22/23，就是这么来的。commit 前把门**单独跑一遍**读退出码（或 `set -o pipefail`）；更稳的做法是让门把结论写进文件，日志引用文件而不是引用记忆【14islands】。
 - **实例**：lando `verify.mjs` 全 7 路由 × 桌面(1728×1080)/移动(390×844) = 14 个探针跑，滚动到 50%、等 12s、已知残留（iubenda badge）白名单放行，M7 关闭时 14/14 ALL PASS【lando】；samsy 零控制台错误门，无头回归必带 anti-throttling 旗标【samsy】；oryzo 无头双分支（桌面 + iPhone 级 390×844 触摸仿真）+ 三段截图【oryzo】。
 - **适用条件**：**所有站点**，成本最低，从 M0.5 镜像跑通开始终身使用（镜像与复刻两侧都跑）。
 - **skill 脚本**：`scripts/probe.mjs`（必须含 CDP Log 域监听，见 §7 坑 1）。

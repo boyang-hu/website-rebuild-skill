@@ -21,6 +21,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
+import { tokenStream, firstDivergence, showToken } from "./lib/tokens.mjs";
 
 // The pinned beautifier version. NEVER bump mid-project: regenerate everything
 // and re-verify every recorded line reference if you must change it.
@@ -46,6 +47,7 @@ const typeFor = (f) =>
   /\.css$/i.test(f) ? "css" : /\.html?$/i.test(f) ? "html" : "js";
 
 const entries = [];
+let tokenTrouble = 0; // files whose beautified tokens differ from the source (coordinates only)
 for (const file of FILES) {
   const src = path.resolve(file);
   // ⛔ Flattening to the basename is not injective, and the coordinate system
@@ -70,14 +72,40 @@ for (const file of FILES) {
   takenNames.set(path.basename(src), path.relative(process.cwd(), src));
   const type = typeFor(src);
   console.log(`[beautify] ${path.basename(src)} (${type}) -> ${path.relative(process.cwd(), dest)}`);
+  // ⛔ js-beautify's CLI globs its -f argument. A Next dynamic-route chunk is
+  // named `[slug]-<hash>.js`, and `[slug]` is a character class that matches
+  // nothing — the tool "succeeded" and left the file untouched, with no
+  // message (14islands: four page chunks sat at 8 raw lines until module-map
+  // reported "29 lines inside a 9-line file"). Feed it a glob-free copy.
+  let feed = src;
+  if (/[\[\]{}*?]/.test(path.basename(src))) {
+    const tmpDir = path.join(OUT, ".feed");
+    mkdirSync(tmpDir, { recursive: true });
+    feed = path.join(tmpDir, `${entries.length}.${type}`);
+    writeFileSync(feed, readFileSync(src));
+  }
   const r = spawnSync(
     "npx",
-    ["-y", `js-beautify@${JS_BEAUTIFY_VERSION}`, "--type", type, "-f", src, "-o", dest],
+    ["-y", `js-beautify@${JS_BEAUTIFY_VERSION}`, "--type", type, "-f", feed, "-o", dest],
     { stdio: ["ignore", "inherit", "inherit"] },
   );
   if (r.status !== 0) {
     console.error(`[beautify FAIL] ${src} (exit ${r.status})`);
     process.exit(1);
+  }
+  // ⛔ "Output === input" is the silent-failure signature above; on a minified
+  // input it can never be legitimate. Do not ship a coordinate system that is
+  // the bundle itself while the ledger says it was beautified.
+  {
+    let outBuf = null;
+    try { outBuf = readFileSync(dest); } catch {}
+    const srcBuf = readFileSync(src);
+    const longest = srcBuf.toString("utf8").split("\n").reduce((m, l) => Math.max(m, l.length), 0);
+    if (!outBuf) { console.error(`[beautify FAIL] ${src}: no output written`); process.exit(1); }
+    if (outBuf.equals(srcBuf) && longest > 5000) {
+      console.error(`[beautify FAIL] ${src}: output is byte-identical to a minified input (longest line ${longest}) — js-beautify did nothing`);
+      process.exit(1);
+    }
   }
   // ⛔ VERIFY THE OUTPUT STILL PARSES. js-beautify can corrupt a file: a
   // backtick INSIDE a double-quoted string ("`forbidden()`…") reads to it as a
@@ -95,12 +123,36 @@ for (const file of FILES) {
       writeFileSync(dest, readFileSync(src));
     }
   }
+  // ⛔⛔ PARSES is not ENOUGH. js-beautify can change the CONTENT of a nested
+  // template literal — `${iW(e)}:${t};` came out as `$ {\n iW(e)\n }: $ {\n t\n };`
+  // — and the result parses, renders, and passes every pixel/CLEAN gate
+  // (14islands _app module 99150; 748,409 vs 748,398 tokens). The token stream
+  // is the only witness. A file whose tokens differ is still usable as
+  // COORDINATES, but its bytes must never be DELIVERED (re-emitted/sliced):
+  // the ledger says so, and this run exits non-zero so nobody misses it.
+  let tokens = "n/a";
+  if (type === "js") {
+    try {
+      const k = firstDivergence(tokenStream(src), tokenStream(dest));
+      if (k < 0) tokens = "equal";
+      else {
+        tokens = `DIFFER@${k}`;
+        tokenTrouble++;
+        console.error(`  ⛔ token stream differs from the source at #${k} — this _pretty file is coordinates only,`);
+        console.error(`     NOT delivery bytes (slice from the minified original for that span; verify-tokens gate)`);
+      }
+    } catch (e) {
+      tokens = `unchecked (${e.message.split("\n")[0].slice(0, 60)})`;
+      console.error(`  ⚠ token check skipped: ${tokens}`);
+    }
+  }
   const sha = createHash("sha256").update(readFileSync(src)).digest("hex");
   entries.push({
     pretty: path.basename(dest),
     source: path.relative(process.cwd(), src),
     sha256: sha,
     type,
+    tokens,
   });
 }
 
@@ -114,14 +166,17 @@ never regenerate with a different version).
 
 Generated ${new Date().toISOString()} by scripts/beautify-bundle.mjs.
 
-| pretty file | source | source sha256 | regenerate |
-|---|---|---|---|
+| pretty file | source | source sha256 | tokens vs source | regenerate |
+|---|---|---|---|---|
 ${entries
   .map(
     (e) =>
-      `| ${e.pretty} | ${e.source} | \`${e.sha256.slice(0, 16)}…\` | \`npx -y js-beautify@${JS_BEAUTIFY_VERSION} --type ${e.type} -f ${e.source} -o mirror/_pretty/${e.pretty}\` |`,
+      `| ${e.pretty} | ${e.source} | \`${e.sha256.slice(0, 16)}…\` | ${e.tokens} | \`npx -y js-beautify@${JS_BEAUTIFY_VERSION} --type ${e.type} -f ${e.source} -o mirror/_pretty/${e.pretty}\` |`,
   )
   .join("\n")}
+
+Token column: \`equal\` = safe to deliver these bytes (re-emit / slice); \`DIFFER@n\` = js-beautify
+changed content (nested template literal) — COORDINATES ONLY, deliver from the minified original.
 
 Rules:
 - Files in _pretty/ are READ-ONLY reference material; never edit them.
@@ -135,3 +190,7 @@ if (new Set(dests).size !== dests.length) {
   process.exit(5);
 }
 console.log(`[beautify] ${entries.length} file(s) done; ${new Set(dests).size} distinct output(s); ledger -> ${path.relative(process.cwd(), path.join(OUT, "README.md"))}`);
+if (tokenTrouble) {
+  console.error(`[beautify] ⛔ ${tokenTrouble} file(s) have a token stream that differs from the source — see the ledger's tokens column. Exit 1 so this is not skimmed.`);
+  process.exitCode = 1;
+}

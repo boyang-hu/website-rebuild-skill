@@ -1,7 +1,7 @@
 # website-rebuild-skill
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.9-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.10-blue.svg)](CHANGELOG.md)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-brightgreen.svg)](https://agentskills.io/)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522-339933.svg)](#quick-start)
 
@@ -37,7 +37,7 @@ It follows the [Agent Skills open standard](https://agentskills.io/) and is buil
 - **Line-traceable reverse engineering** — every line in the rebuild points back to a line in the source bundle; bugs and oddities are copied verbatim, never "fixed"
 - **Quantified acceptance** — five automated comparison layers: console / network / DOM / geometry / **pixel-by-pixel**; every difference is either fixed or registered, never glossed over
 - **Source-form delivery** — the verbatim port is rewritten into a human-readable project (split into modules, named from evidence, provenance headers added) that **runs offline anywhere you copy it**
-- **Zero-dependency toolchain** — 61 Node scripts (48 stage scripts and gates + 8 shared libs + 5 sourcification/reconstruction tools); until the final stage, the pipeline installs no npm packages
+- **Zero-dependency toolchain** — 65 Node scripts (51 stage scripts and gates + 9 shared libs + 5 sourcification/reconstruction tools); until the final stage, the pipeline installs no npm packages
 - **Dead sites can be rescued** — Wayback archive salvage: anchor + time-window selection of a coherent moment, raw bytes landed as a standard mirror, permanent holes honestly registered; five dead-site salvages in practice (four revived, one to full L3; one art layer certifiably lost — the failure mode is in the book)
 - **Even RSC sites can be reconstructed** — server component source is never shipped (React Server Components / Next.js App Router), but its complete output (the flight stream) inlined in every page's HTML *is* the spec: reconstruct a buildable Next project from it and close with flight-semantics gates. Measured on a Next 16/Turbopack blog: 18/18 routes semantically identical, and on a 144-route heavyweight: PASS 144/144; blind reverse-engineering graded against the public source scored ≈95% structure / ≈98% behavior
 - **Legal decisions belong to the user** — the skill only collects evidence and presents it; output defaults to private + noindex + not deployed
@@ -260,7 +260,7 @@ Before anything goes public, per-asset copyright **forensics** must be completed
 
 Versions advance with real rebuild projects: every feature and fix shipped was first validated on at least one complete project.
 
-Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.9** — one yardstick only: the mirror now sends the browser's image Accept header (basement D5 closed out). CDNs with `auto=format` negotiate the response format on Accept, and `accept: */*` lands the fallback bytes: dual-Accept sampling diverged 6/6 (a 1.13MB png URL serves a 61KB webp to a browser — 18× size difference), so **the divergence face is every raster variant** while every gate stayed green. New shared lib `lib/negotiate.mjs` (`IMG_ACCEPT` copied verbatim from Chrome; next/image proxy URLs decoded before host checks; CDP TYPE column outranks URL spelling) wired into mirror-site / reconcile-gaps; the ledger now records `profile`+`vary`, closing the blind spot where a negotiated response was indistinguishable from a plain one; fingerprint.mjs Step 0 collects Sanity evidence (projectId/dataset/API hosts, three spellings normalized). Selftest 36→45.
+Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.10** — beautified bytes are not the original: js-beautify changes the content of nested template literals while every pixel/CLEAN gate stays green (14islands: 748,409 vs 748,398 tokens), so `lib/tokens.mjs` + a `verify-tokens.mjs` gate land, and beautify-bundle now self-checks its token stream; module-map's webpack reader locates the container by the positive `webpackChunk` push signature (a three.js 400+ export map used to outvote the real container) and FATALs when module lines exceed file lines; new `verify-nextdata.mjs` (pages-router payload gate) and `emit-webpack-chunk.mjs` (verbatim multi-chunk re-emission); mirror-site's redirect ledger accumulates across runs. 14islands.com ran unattended to L2 (offline 104/104, token gate 23/23, payload gate 104/104, pixel 0.00). Selftest 50→59.
 
 ## Contributing
 
