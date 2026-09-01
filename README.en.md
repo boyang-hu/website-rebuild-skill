@@ -38,7 +38,7 @@ It follows the [Agent Skills open standard](https://agentskills.io/) and is buil
 - **Quantified acceptance** — five automated comparison layers: console / network / DOM / geometry / **pixel-by-pixel**; every difference is either fixed or registered, never glossed over
 - **Source-form delivery** — the verbatim port is rewritten into a human-readable project (split into modules, named from evidence, provenance headers added) that **runs offline anywhere you copy it**
 - **Zero-dependency toolchain** — 59 Node scripts (47 stage scripts and gates + 7 shared libs + 5 sourcification/reconstruction tools); until the final stage, the pipeline installs no npm packages
-- **Dead sites can be rescued** — Wayback archive salvage: anchor + time-window selection of a coherent moment, raw bytes landed as a standard mirror, permanent holes honestly registered; four dead sites revived in practice (one taken all the way to L3)
+- **Dead sites can be rescued** — Wayback archive salvage: anchor + time-window selection of a coherent moment, raw bytes landed as a standard mirror, permanent holes honestly registered; five dead-site salvages in practice (four revived, one to full L3; one art layer certifiably lost — the failure mode is in the book)
 - **Even RSC sites can be reconstructed** — server component source is never shipped (React Server Components / Next.js App Router), but its complete output (the flight stream) inlined in every page's HTML *is* the spec: reconstruct a buildable Next project from it and close with flight-semantics gates. Measured on a Next 16/Turbopack blog: 18/18 routes semantically identical; blind reverse-engineering graded against the public source scored ≈95% structure / ≈98% behavior
 - **Legal decisions belong to the user** — the skill only collects evidence and presents it; output defaults to private + noindex + not deployed
 
@@ -142,7 +142,7 @@ These are not style preferences. Each was learned by collision, and violating an
 | **Class B: platform-layer separation** | Shopify (platform / apps / upstream theme / site-specific code as four layers) | two Shopify stores, one a theme-fork custom shop |
 | **Class B: third-party asset buckets / headless CMS** | Storyblok (`/m/` transform endpoints), full Strapi upload-bucket mirroring | a ~1,800-image CMS bucket + an 864 MB Strapi bucket |
 | **Class B: serialized data-blob expansion** | Nuxt-style SSG data encoded into the page | a 63.5 KB blob (54% of the document) expanded to 566 KB of structured data, compared item by item |
-| **Class X: dead-site archive salvage** | Wayback CDX enumeration → anchor + time-window coherent capture → `id_` raw bytes → standard mirror; permanent holes honestly registered, alias backfills listed, parked-page autopsy blocks 200-type body-snatching | four dead sites, four causes of death, all revived: domain takeover (8/15 routes), platform reclamation (9/9 clean), in-place parking replacement (0 holes, 0/0/0), DNS death + parking body-snatch (first-launch, full L3 pipeline) |
+| **Class X: dead-site archive salvage** | Wayback CDX enumeration → anchor + time-window coherent capture → `id_` raw bytes → standard mirror; permanent holes honestly registered, alias backfills listed, parked-page autopsy blocks 200-type body-snatching | five salvages, five shapes: domain takeover (8/15 routes), platform reclamation (9/9 clean), in-place parking replacement (0 holes, 0/0/0), DNS death + parking body-snatch (first-launch, full L3), manifest-driven art layer wholly unarchived (mustachelab — engine rescued, failure mode recorded) |
 | **Class C2: declaratively organized modern full-stack sites** | Next.js App Router (webpack / Turbopack), Nuxt 3 + Vite, R3F, Theatre.js — RSC flight and devalue payloads, server image endpoints, session-state prefetch all handled | six C2 targets: a 115-route full site (115/115 cross-side identical), a Three r182 WebGPU/TSL site, a Theatre.js WebGL long-take site, a product page (4 checkpoints pixel-zero), and more |
 
 ### Conditional or out of scope
@@ -209,7 +209,7 @@ The origin and proving ground of the methodology — every entry in the [changel
 
 ### Boundary samples and dead-site salvage
 
-Representatives from 43 probed sites that drew the boundary — **the boundary is measured, not declared**; four dead sites have been salvaged back to life (three stopped at L1 mirror archives; first-launch went through the full L3 pipeline, see the table above).
+Representatives from 43 probed sites that drew the boundary — **the boundary is measured, not declared**; five dead-site salvages measured: four revived (three at L1; first-launch through the full L3 pipeline, see above), one with its engine rescued and its art certifiably lost — **failure modes go in the book too**.
 
 | Site | URL | Class | One-liner |
 |---|---|---|---|
@@ -220,6 +220,7 @@ Representatives from 43 probed sites that drew the boundary — **the boundary i
 | darknetflix.io | — | **X→salvaged** | Domain takeover; ⭐ recovered from Wayback (anchor 2020-07, 8/15 routes revived, 92 permanent holes honestly registered) |
 | umamiland | — | **X→salvaged** | Platform reclamation; ⭐ recovered from Wayback (**sweep 9/9 routes clean**, probe→seed iterative convergence) |
 | jiouhe.com | — | **X→salvaged** | Replaced in place (domain alive, serving a parking page); ⭐ recovered at anchor 2018, **0 permanent holes, 0/0/0**, scroll-wheel frame animation fully revived — birthplace of the parked-page autopsy and typo-twin normalization |
+| Merlin's Mustache LAB | — (gone) | **X→engine rescued, art certifiably lost** | ⭐ Names the second class-X failure mode: **a complete mirror that cannot revive the site** — code layer 100% (manifest-driven circuit-board engine, CreateJS-as-loader + Swiffy, fully readable), art layer 157/160 assets never captured by any archive (IA does not execute JS); all 157 holes derived line-by-line and registered, stopped at L1 + engine docs |
 
 ## Repository layout
 
@@ -259,7 +260,7 @@ Before anything goes public, per-asset copyright **forensics** must be completed
 
 Versions advance with real rebuild projects: every feature and fix shipped was first validated on at least one complete project.
 
-Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.4** — class X comes of age: dead site first-launch taken through the full L3 pipeline for the first time (numeric gate 9,856 samples identical, pixels inside the self-band, self-contained deliverable revives offline); parked-page autopsy kit, anchor biasing and dead-site CLEAN semantics enter the book; three tool defects caught by data and fixed (off-host census silently dead from an interface drift, Compass-comment false positives, ?__probe auto-append), selftest 33→36.
+Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.5** — the other half of the class-X truth: mustachelab proves a mirror can be complete while the site cannot be revived (art layer 157/160 never captured by any archive — IA does not execute JS); "no CDX coverage = truly undoable" now reads per asset layer, Step 0 gains a layered-coverage recon; the hole ledger gains a derive-the-full-set discipline (157 holes registered with source line numbers = a ready seeds list if the assets ever return); the offline gate proves, on a total-loss site, that the loss is fully accounted for.
 
 ## Contributing
 

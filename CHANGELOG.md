@@ -1,5 +1,32 @@
 # 更新记录
 
+## v0.3.5 — X 类的另一半真相：镜像可完整而站不可复活（mustachelab）
+
+v0.3.4 证明抢救镜像能走完 L3;本版记录**它的对偶失败形态**并命名入册。
+Merlin's Mustache LAB(2014 Awwwards,"电路板即作品集",CreateJS 加载器 + Swiffy +
+清单驱动 DOM 引擎):代码层 22/22 全捕获、引擎逐行可读,而**画面层 157/160 资产在
+任何档案、任何年代、任何 host 拼写下零捕获**——IA 爬虫不执行 JS,凡 `LoadQueue(PATH)` /
+`RESOURCE.dir+file` 拼出来的 URL 从未被请求过。断网跑起来是一张纯白页。
+
+**规则修正(SKILL.md X 类 + archival-rescue §1.9)**:"CDX 无覆盖才是真不可做"**按资产层
+读,不按站读**。Step 0 新增分层覆盖侦察——读引用形态(静态标签 vs 清单拼接)→ 对代码
+暗示的资产子树做 CDX 前缀查询(collapse=urlkey 零行 = 任何年代零捕获,权威)→ 分层
+报告覆盖率;媒体层为零的站在锚点选定前就改判终点,不要跑到 M0.5 撞白屏。
+
+**洞账的补全集纪律**:wayback-mirror 内建洞扫描走静态提取,对 class-4(运行时拼接)
+整类失明——157 个洞一条没报。做法:站点侧推导器把清单机械展开(逐条带 init.js 行号)
+→ 对账 → 整批 append 进 wayback-holes.txt,它同时就是资产若回归的 seeds 清单。
+断网门语义照 §4.5:36 个去重失败 URL 逐条 ⊆ 洞账、账外为零——**门在全损的站上照样
+能证明"损失被完整登记"**。
+
+**外部档案没有可自动化的备胎**:archive.today 有 CAPTCHA(agent 不代过验证码),
+TimeTravel 聚合器不可达——都只能登记给人工。唯一现实的复活路径是**权利人本人**
+(该站母公司 bremen.com.tw 仍在线):"联系作者"进 DEPLOY.md 选项表。
+
+顺带入册两条小刺:`assets/<host>/` 跨 host 约定与源站自己的 `/assets/` 目录共用命名
+空间(本站 www 别名树落进了真实 assets 目录,无碰撞但属既存隐患);serve 端口按槽位
+分配,别的会话占 0-3 槽时 mirror 落 25001——探针别硬编码 21001。
+
 ## v0.3.4 — X 类的成人礼：死站第一次走完 L3 全程（first-launch）
 
 此前三个死站抢救止于 L1。first-launch.com（2013 Awwwards Honorable Mention,
