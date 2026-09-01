@@ -167,6 +167,7 @@ grep -c 'sourceMappingURL' <bundle>.js                 # 有无 sourcemap 指针
 | minified/混淆产物（常态） | 单行或数万字符长行；标识符压成 1–2 字符 | 走 §1 beautify 流程 |
 | **未混淆 esbuild 产物** | 标识符全保留、自带换行缩进——开头即 `var __defProp = Object.defineProperty;`、内部函数名（如 `copyAttributeData`）原样可读 | **跳过 beautify**，直接以原文件行号为坐标系（边界探测实录：bruno-simon 4.86MB 产物、star-atlas 均属此类） |
 | 带公开 sourcemap 且 sourcesContent 完整 | map 可下载且含完整源码 | 直取 sourcesContent 替代 beautify（边界探测实录：orano） |
+| **手写多文件站（2013 时代，无打包器）** | 每 `<script>` 一文件、原始命名；CoffeeScript 特征（`_i/_len/_ref`、`(function(){}).call(this)`）、Compass 行号注释 | **跳过 beautify 并把这次跳过登记进日志**（"行号指 \_pretty"是全库默认约定，静默跳过会让后来者找错文件）；坐标系 = mirror 原文件行号。⭐ **先做 vendor 逐字节鉴真**：站上的库文件与上游官方 release 直接 diff（skrollr 0.6.11 diff 为空、jquery.min sha1 与官方 CDN 一致）——一次 diff 杀掉整棵"站方魔改库"假设树，剩下的应用文件就是全部逆向面【firstlaunch】 |
 | **无 bundle：行为在 HTML 内联块里** | 站点自己的 js 只有 vendor 与主题存量，签名行为的字面量只在 HTML 的 `<script>` 块内命中 | **走 §0.1 平行分支**：坐标系建在内联块上，主坐标是**内容哈希**而非行号【objectarchive】 |
 
 无论走哪个分支，**"坐标系是全项目唯一溯源坐标"的制度不变**——唯一、贯穿四处引用（§1.3）、笔记先行（§2）、取证钉版本（§3）、假设先证否（§4）全部照旧；变的只是坐标落在哪份字节上、以什么做主键（行号 / 内容哈希）。

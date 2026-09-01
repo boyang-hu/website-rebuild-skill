@@ -97,7 +97,11 @@ for (const f of all.filter((f) => TEXT.test(f))) {
   for (const esc of ESCAPES) {
     lines.forEach((l, i) => {
       // A gate's own prose describing what it forbids is not a violation.
-      if (/^\s*(?:\/\/|\*|#|<!--)/.test(l)) return;
+      // `/*` included: a Compass/SASS build stamps `/* line N, ../../x.scss */`
+      // provenance comments into its CSS output, and those are content bytes a
+      // rebuild must not edit — prose, not a resolvable reference (measured on
+      // a 2013 hand-written target: 5 false positives, all inside comments).
+      if (/^\s*(?:\/\/|\/?\*|#|<!--)/.test(l)) return;
       // Prose is not a dependency. A README pointing at ../REBUILD_PLAN.md
       // describes where things live in the development repo; it cannot make the
       // copied directory fail to run. Only code can actually reach for a path.

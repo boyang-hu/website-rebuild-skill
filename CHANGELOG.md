@@ -1,5 +1,40 @@
 # 更新记录
 
+## v0.3.4 — X 类的成人礼：死站第一次走完 L3 全程（first-launch）
+
+此前三个死站抢救止于 L1。first-launch.com（2013 Awwwards Honorable Mention,
+jQuery + skrollr 七幕滚动叙事,约 2022 死亡、域名被停车页夺舍）从 Wayback 锚点
+2015-01 重建后,**整条下游管线原样跑通**:策略 A 外壳(T-LOCALIZE=4/T-NOINDEX=1,
+verify-shell 全 hunk 可重放)、数值门 32 检查点 × 146 选择器 **9,856 样本全等**、
+像素巡航在 0.1 自比带宽内(7/9 检查点精确零)、src/ 自包含交付物复制出 repo 断网
+CLEAN——没有一道门为"参照是档案"改语义。"标准镜像"从口号变成实测。
+
+**X 类新经验入 archival-rescue.md**:§1.6 验尸三件套(停车页 CDX 签名:
+`.well-known/*`/`ads.txt` 冒 text/html 200;根页 digest 断代;同 digest 交叉鉴伪——
+mobile.html 孤本与停车页根页同 digest,伪身不采)、§1.7 锚点偏置一次罩住别时代孤本、
+§1.8 Google Fonts 两跳种子(CSS→TTF 都问档案要当年字节)、§4.5 CLEAN 门死站语义
+(**失败 ⊆ 洞账**,且源站生产环境自己的 404 不是洞,照抄即保真)。
+
+**三个被数据抓住的工具缺陷,全部修复 + 自检钉死(33→36)**:
+
+1. ⛔ **wayback-mirror 的 off-host 普查从第一天起静默失效**——extract-refs 合同是
+   `onOffHost(host, href)` 传裸主机名,消费侧拿它 `new URL()` 必抛、`catch {}` 吞掉,
+   普查恒空:引用 Google Fonts 和 Vimeo 播放器的页面报"无 off-host"。**沉默的 catch
+   包住一个接口,是普查死亡的标准姿势**;selftest 现在钉着这份合同。
+2. verify-standalone 把 Compass 盖进 CSS 的 `/* line N, ../../x.scss */` 出处注释当
+   逃逸引用(注释跳过正则不认 `/*` 开头的行)——5 个假阳性全落在**神圣不可改的内容
+   字节**上。修门不修字节;自检双向断言(注释不报 + 真逃逸照报)。
+3. pixelcompare 的 pump 协议要求 `?__probe` 但没人自动补,裸 URL 报
+   "__pump never appeared" 且 pixel-walk 的 60 字符截断把提示裁掉、指向 serve 配置。
+   现在 pixelcompare 自动补参。
+
+**首个"源码已可读"的目标**(reverse-engineering / readable-source / dom-shell 各补):
+手写多文件站跳过 beautify 要**显式登记**;vendor 逐字节鉴真(skrollr 与上游 tag diff
+为空、jquery sha1 官方一致)一次杀掉整棵"魔改库"假设树;L3 不拆不重命名,等价门退化
+为一条 suffix 断言(src = 出处头 + 镜像字节的精确拼接);"可读"不是"可改写"的许可。
+verify-crossside 同步合同的边界立此存照(§0.26.1):rAF 循环引擎走 async 采样——
+force-jump 语义先读源码、jQuery trigger 同步驱动命令式层、三重 rAF 后采 inline style。
+
 ## v0.3.3 — turbopack 的三个暗形态：闭包不再对场景失明（basement C2 坐标系）
 
 basement 的 3D 场景在静态 require 图里**完全不存在**——CanvasLayer 经

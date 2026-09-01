@@ -85,8 +85,19 @@ const flag = (name, dflt) => {
   return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : dflt;
 };
 
-const URL_A = flag('a', null);
-const URL_B = flag('b', null);
+// ⭐ The pump protocol REQUIRES the shim, and serve.mjs only injects it when the
+// request carries ?__probe — so a URL without it is never what the caller meant.
+// Measured: a bare URL produced "window.__pump never appeared within 30s" nine
+// times in a row, and the truncated error (relayed through pixel-walk's 60-char
+// slice) pointed at the serve config, which was fine all along. Append it here,
+// once, instead of asking every caller to remember.
+const withProbe = (u) => {
+  if (!u) return u;
+  try { const x = new URL(u); if (!x.searchParams.has('__probe')) { x.searchParams.set('__probe', ''); return x.href; } return u; }
+  catch { return u; }
+};
+const URL_A = withProbe(flag('a', null));
+const URL_B = withProbe(flag('b', null));
 if (!URL_A || !URL_B) {
   console.error('usage: pixelcompare.mjs --a <urlA> --b <urlB> [--name home] [--out docs/pixelcompare] [--width 1280] [--height 800] [--settle 6000] [--ready expr] [--seed expr] [--label-a A] [--label-b B] [--format png|jpeg] [--quality 92] [--max-mean N] [--self] [--pump dt,frames]');
   process.exit(2);

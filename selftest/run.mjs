@@ -270,6 +270,43 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
   } catch (e) { bad("module graph — turbopack shapes", String(e.stderr || e.stdout || e.message).split("\n")[0]); }
 }
 
+// ----------------------------------------- 5b. off-host census contract (v0.3.4)
+// extract-refs reports off-list hosts as onOffHost(host, href) — a BARE host.
+// wayback-mirror consumed it as a URL: new URL("fonts.googleapis.com") throws,
+// the catch {} swallowed every call, and the census printed nothing for a page
+// that references Google Fonts and a Vimeo player. This pins the contract the
+// way the fixed consumer uses it: first arg counts as a host, no URL parse.
+{
+  const { createRefExtractor } = await import(path.join(SKILL, "scripts/lib/extract-refs.mjs"));
+  const census = new Map();
+  const extract = createRefExtractor({
+    origin: "http://x.com", originHost: "x.com", assetHosts: new Set(["x.com"]),
+    onOffHost: (host) => census.set(host, (census.get(host) || 0) + 1),
+  });
+  [...extract('<link href="http://fonts.googleapis.com/css?family=F"><iframe src="//player.vimeo.com/video/1"></iframe>', "http://x.com/")];
+  truthy("extract-refs — onOffHost hands a bare host and the census counts it (v0.3.4)",
+    census.get("fonts.googleapis.com") === 1 && census.get("player.vimeo.com") === 1,
+    `census=${JSON.stringify([...census])}`);
+}
+
+// ---------------------------------- 5c. standalone gate: comments are prose (v0.3.4)
+// A Compass/SASS build stamps `/* line N, ../../x.scss */` provenance comments
+// into its CSS output — content bytes a rebuild must not edit. The gate's
+// comment-skip regex missed lines OPENING a block comment, so a 2013 target
+// produced 5 false positives; meanwhile a real escaping import must still red.
+{
+  const FX = path.join(TMP, "standalone-fx");
+  mkdirSync(path.join(FX, "css"), { recursive: true });
+  writeFileSync(path.join(FX, "package.json"), JSON.stringify({ name: "fx", private: true }));
+  writeFileSync(path.join(FX, "css", "screen.css"), "/* line 17, ../../../../Applications/Fire.app/lib/compass/_utilities.scss */\nbody { color: red; }\n");
+  writeFileSync(path.join(FX, "app.mjs"), 'import x from "../outside-the-tree.js";\n');
+  let out = "";
+  try { out = execFileSync(process.execPath, [path.join(SKILL, "scripts/verify-standalone.mjs"), "--src", FX], { cwd: SKILL, stdio: "pipe" }).toString(); }
+  catch (e) { out = String(e.stdout || ""); }
+  truthy("verify-standalone — block-comment prose is not an escape (v0.3.4)", !out.includes("screen.css"), "flagged the Compass comment");
+  truthy("verify-standalone — a real ../ import outside src still reds (v0.3.4)", out.includes("app.mjs") && /FAIL/.test(out), "missed the real escape");
+}
+
 // -------------------------------------------------------- 6. doc integrity
 {
   let dangling = 0;

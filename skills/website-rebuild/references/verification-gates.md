@@ -193,6 +193,18 @@ const b = await evalOn(B, EXPR_JS(EXPRS));
 
 ⚠ 设计跨侧门时先问一句：**这个量在两侧的定义域一样吗？** 凡是答案为否的（页面尺寸、滚动量、时间戳、随机种子、设备像素比），要么归一化成比值，要么降级成 info。
 
+### 0.26.1 ⭐ verify-crossside 的同步合同边界：rAF 循环引擎要走异步采样【firstlaunch】
+
+`verify-crossside` 的 `build()` 合同是**同步表达式**（WRAP 直接 `JSON.stringify(IIFE())`）。凡引擎在 **rAF 常驻循环里渲染**（skrollr 型：`setScrollTop` 只改输入，样式在下一帧的 `_render` 里落地），同步表达式采到的是**上一帧**——这类站的跨侧门要自己写，沿用 §0.26 的三条防护（串行 / 双侧指纹 / 同 URL FATAL），把采样表达式改成 async、走 `probe.mjs --eval` 的 awaitPromise 通道（spawn，不 import——§2.1.2）。
+
+实测可复用的驱动模式（first-launch，9,856 样本全等）：
+
+1. **用引擎自己的强制跳转 API，且先读源码确认其语义**：skrollr 的 `setScrollTop(S, true)` 里 force=true 置 `_lastTop = S`，令平滑滚动的 `topDiff = 0` 即瞬跳——不确认这一步，采样会落在 200ms smooth-scrolling 补间的中途，样本非确定；
+2. 命令式层（`$(window).scroll` 处理器）用 `jQuery(window).trigger('scroll')` **同步**驱动——幂等、纯 scrollTop 函数，双保险不怕真事件再来一次；
+3. **三重 rAF** 之后再采样（引擎一帧 + 浏览器一帧 + 余量）；
+4. 采样面选 **inline style 属性串**（`el.getAttribute('style')`）：skrollr 与 jQuery `.css()` 都写内联，一个读数覆盖两层引擎，且 CSS 动画（跑在浏览器动画时间线上）不会污染它——这类站因此**不用冻结就有确定性数值门**。
+
+⭐ 这类门比像素门早、失败自带产生它的输入 `(scrollTop, selector, index)`；检查点按引擎魔数选（每幕起止、精灵图 start、clamp 两侧、正放/倒放分界），不按等分。
 
 ## 0. 总原则
 

@@ -293,7 +293,13 @@ const extract = createRefExtractor({
   origin: ORIGIN,
   originHost: ORIGIN_HOST,
   assetHosts: LEDGER_HOSTS,
-  onOffHost: (u) => { try { const h = new URL(u).host; offHostCensus.set(h, (offHostCensus.get(h) || 0) + 1); } catch {} },
+  // ⛔ The extractor's contract is onOffHost(host, href) — a BARE host, not a
+  // URL. The first version here did `new URL(u).host` on it, which THROWS on a
+  // bare host, and the catch {} swallowed every call: the census printed
+  // nothing for a page that references fonts.googleapis.com and player.vimeo.com
+  // (measured on first-launch.com — the fonts were only caught by reading the
+  // HTML by hand). A silent catch around an interface is how a census dies.
+  onOffHost: (host) => { offHostCensus.set(host, (offHostCensus.get(host) || 0) + 1); },
 });
 const holeRefs = new Map(); // url -> [referrers]
 for (const [u, m] of Object.entries(manifest)) {

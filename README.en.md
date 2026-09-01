@@ -38,7 +38,7 @@ It follows the [Agent Skills open standard](https://agentskills.io/) and is buil
 - **Quantified acceptance** — five automated comparison layers: console / network / DOM / geometry / **pixel-by-pixel**; every difference is either fixed or registered, never glossed over
 - **Source-form delivery** — the verbatim port is rewritten into a human-readable project (split into modules, named from evidence, provenance headers added) that **runs offline anywhere you copy it**
 - **Zero-dependency toolchain** — 59 Node scripts (47 stage scripts and gates + 7 shared libs + 5 sourcification/reconstruction tools); until the final stage, the pipeline installs no npm packages
-- **Dead sites can be rescued** — Wayback archive salvage: anchor + time-window selection of a coherent moment, raw bytes landed as a standard mirror, permanent holes honestly registered; three dead sites revived in practice
+- **Dead sites can be rescued** — Wayback archive salvage: anchor + time-window selection of a coherent moment, raw bytes landed as a standard mirror, permanent holes honestly registered; four dead sites revived in practice (one taken all the way to L3)
 - **Even RSC sites can be reconstructed** — server component source is never shipped (React Server Components / Next.js App Router), but its complete output (the flight stream) inlined in every page's HTML *is* the spec: reconstruct a buildable Next project from it and close with flight-semantics gates. Measured on a Next 16/Turbopack blog: 18/18 routes semantically identical; blind reverse-engineering graded against the public source scored ≈95% structure / ≈98% behavior
 - **Legal decisions belong to the user** — the skill only collects evidence and presents it; output defaults to private + noindex + not deployed
 
@@ -142,7 +142,7 @@ These are not style preferences. Each was learned by collision, and violating an
 | **Class B: platform-layer separation** | Shopify (platform / apps / upstream theme / site-specific code as four layers) | two Shopify stores, one a theme-fork custom shop |
 | **Class B: third-party asset buckets / headless CMS** | Storyblok (`/m/` transform endpoints), full Strapi upload-bucket mirroring | a ~1,800-image CMS bucket + an 864 MB Strapi bucket |
 | **Class B: serialized data-blob expansion** | Nuxt-style SSG data encoded into the page | a 63.5 KB blob (54% of the document) expanded to 566 KB of structured data, compared item by item |
-| **Class X: dead-site archive salvage** | Wayback CDX enumeration → anchor + time-window coherent capture → `id_` raw bytes → standard mirror; permanent holes honestly registered, alias backfills listed, parked-page autopsy blocks 200-type body-snatching | three dead sites, three causes of death, all revived: domain takeover (8/15 routes), platform reclamation (9/9 clean), in-place parking replacement (0 holes, 0/0/0) |
+| **Class X: dead-site archive salvage** | Wayback CDX enumeration → anchor + time-window coherent capture → `id_` raw bytes → standard mirror; permanent holes honestly registered, alias backfills listed, parked-page autopsy blocks 200-type body-snatching | four dead sites, four causes of death, all revived: domain takeover (8/15 routes), platform reclamation (9/9 clean), in-place parking replacement (0 holes, 0/0/0), DNS death + parking body-snatch (first-launch, full L3 pipeline) |
 | **Class C2: declaratively organized modern full-stack sites** | Next.js App Router (webpack / Turbopack), Nuxt 3 + Vite, R3F, Theatre.js — RSC flight and devalue payloads, server image endpoints, session-state prefetch all handled | six C2 targets: a 115-route full site (115/115 cross-side identical), a Three r182 WebGPU/TSL site, a Theatre.js WebGL long-take site, a product page (4 checkpoints pixel-zero), and more |
 
 ### Conditional or out of scope
@@ -205,10 +205,11 @@ The origin and proving ground of the methodology — every entry in the [changel
 | Overworld Audio | [overworldaudio.com](https://overworldaudio.com/) | Game-audio studio site (Nuxt 3 + THREE/Theatre + **Howler**), ⭐ **sound became an acceptance surface for the first time** — 98/98 sound pool fully loaded, zero audio 404s; birthplace of "the pool is the ledger" capture |
 | Guillermo Rauch's blog | [rauchg.com](https://rauchg.com/) | ⭐ **First C1 (RSC) reconstructive reverse engineering** — a buildable Next project reconstructed from the flight stream, **18/18 routes pass the semantics gate**; also the birthplace of **blind reverse-engineering graded against the answer key**: ≈95% structure, ≈98% behavior, 7 dependency versions pinned exactly from byte evidence |
 | basement.studio | [basement.studio](https://basement.studio/) | Heavy-WebGL design studio site (Next 16.3 + React 19 streaming + three/R3F + Sanity), a C1+C2 hybrid week-scale campaign **in progress**; flight semantics gate **PASS 144/144**, module bijection 50 pairs zero violations, a `staticSiblings` fossil pinned an unlinked dark route |
+| First Launch 七點半的太空人 | — (gone) | ⭐ **First class-X dead site taken through the full L3 pipeline** — a 2013 Awwwards site (jQuery + skrollr scroll narrative) rebuilt from a Wayback anchor at 2015-01: 27 permanent holes honestly registered, numeric gate **9,856 samples identical**, pixels exact-zero at 7/9 checkpoints, self-contained deliverable runs offline |
 
 ### Boundary samples and dead-site salvage
 
-Representatives from 43 probed sites that drew the boundary — **the boundary is measured, not declared**; three dead sites have been salvaged back to life (L1 mirror archives).
+Representatives from 43 probed sites that drew the boundary — **the boundary is measured, not declared**; four dead sites have been salvaged back to life (three stopped at L1 mirror archives; first-launch went through the full L3 pipeline, see the table above).
 
 | Site | URL | Class | One-liner |
 |---|---|---|---|
@@ -258,7 +259,7 @@ Before anything goes public, per-asset copyright **forensics** must be completed
 
 Versions advance with real rebuild projects: every feature and fix shipped was first validated on at least one complete project.
 
-Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.2** — the semantics gate tempered on a heavy site: basement.studio (144 routes, React 19 streaming, Vercel dynamic streams) **144/144 semantically identical, module bijection 50 pairs zero violations**; six new normalizations, the bijection audit rewritten as parallel equal-tree pairing (it had been silently idling), a `staticSiblings` fossil pinned an unlinked dark route.
+Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.4** — class X comes of age: dead site first-launch taken through the full L3 pipeline for the first time (numeric gate 9,856 samples identical, pixels inside the self-band, self-contained deliverable revives offline); parked-page autopsy kit, anchor biasing and dead-site CLEAN semantics enter the book; three tool defects caught by data and fixed (off-host census silently dead from an interface drift, Compass-comment false positives, ?__probe auto-append), selftest 33→36.
 
 ## Contributing
 

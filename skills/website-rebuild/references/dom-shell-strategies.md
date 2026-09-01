@@ -22,6 +22,10 @@
 再问：原站 DOM 由谁生成？
 ├── 平台导出物（Webflow 等：镜像 HTML 即最终产物，含 webflow.js、平台 data-* 体系）
 │     → 策略 A：零重写 shells（镜像 HTML 经登记变换直接生成页面）【lando】
+├── 手写静态站（无构建器或仅 CoffeeScript/Compass 级编译；HTML/CSS/JS 即作者源码）
+│     → 策略 A，且站点自定义变换常为 0——只剩内置 T-LOCALIZE/T-NOINDEX。
+│       实测 2013 年 skrollr 站：4+1 变换、verify-shell 全 hunk 可重放；
+│       目录模板的 port/ 层可不设（登记！）："逐字移植"与镜像重合【firstlaunch】
 ├── 静态单页（单个 index.html 巨页，构建器产物但结构可直接切分）
 │     → 策略 B：脚本切组件（生成脚本保守切分，验收 diff 为空）【oryzo】
 └── 框架编译产物（Vue SPA / Next RSC / Nuxt SSR 等，DOM 由运行时/服务端渲染）
