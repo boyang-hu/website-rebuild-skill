@@ -5,6 +5,8 @@
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-brightgreen.svg)](https://agentskills.io/)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522-339933.svg)](#快速开始)
 
+**中文** | [English](README.en.md)
+
 给一个网址，让你的 AI agent 把那个网站**逐行复刻**出来，并且能**证明**复刻得对。
 
 它不是"做一个看起来很像的页面"。它把源站的实现当作规格书：先把整站抓成只读证据，再从压缩过的代码里逐行还原逻辑，最后用一整套自动验收门证明"复刻侧和源站在做同一件事"——包括逐像素比对。
@@ -14,6 +16,7 @@
 ## 目录
 
 - [特性](#特性)
+- [效果对比：源站 vs 复刻](#效果对比源站-vs-复刻)
 - [快速开始](#快速开始)
 - [它怎么工作](#它怎么工作)
 - [适用范围](#适用范围)
@@ -38,6 +41,28 @@
 - **死站也能救**——Wayback 存档抢救：锚点+时间窗选一个连贯时刻、原始字节落成标准镜像、永久洞如实登记；三个死站实测复活
 - **连 RSC 站也能重构**——服务端组件源不下发（React Server Components / Next.js App Router），但它的完整输出（flight 流）内联在每页 HTML 里就是规格书：从中重构一个可构建的 Next 工程，用 flight 语义门收口。实测一个 Next 16/Turbopack 博客站 18/18 路由语义一致；盲逆向对公开源码判卷，结构 ≈95%、行为 ≈98%
 - **法务决定权归用户**——skill 只取证与呈交，产出默认私有 + noindex + 不部署
+
+## 效果对比：源站 vs 复刻
+
+每张图**左半是源站的只读镜像，右半是复刻侧**，均取自各项目验收时的对拍截图：同视口、同滚动位置、同动画时刻。除注明者外，所示帧均为**逐像素一致**（meanAbsDiff 0.00）。
+
+![Lusion：源站与复刻对比](docs/showcase/lusion.jpg)
+**[lusion.co](https://lusion.co/)** —— 1.25 MB 自研 WebGL 引擎 + 156 个 shader。3D 物理堆叠的姿态来自模拟本身，钉死模拟随机态后两侧逐像素一致。
+
+![AirPods Pro：源站与复刻对比](docs/showcase/airpodspro.jpg)
+**[apple.com/airpods-pro](https://www.apple.com/airpods-pro/)** —— 565 个 webpack 模块逐字移植，9 个滚动检查点逐像素一致，此为首屏。
+
+![Hubtown：源站与复刻对比](docs/showcase/hubtown.jpg)
+**[hubtown.co.in](https://hubtown.co.in/)** —— Theatre.js 驱动的全屏 WebGL 长镜头（Nuxt 3 + three.js）。实时渲染帧，像素差落在同侧噪声带内（meanAbsDiff 0.96）。
+
+![Samsy：源站与复刻对比](docs/showcase/samsy.jpg)
+**[samsy.ninja](https://samsy.ninja/)** —— 赛博朋克 WebGPU 实时场景，238 MB 重资产。两侧各自实时渲染同一时刻，胶片颗粒噪声为场景自带。
+
+![ON.energy：源站与复刻对比](docs/showcase/onenergy.jpg)
+**[www.on.energy](https://www.on.energy/)** —— Nuxt 3 + WebGL GLB 场景 + Storyblok headless CMS。页顶视频两侧钉到同一帧后，逐像素一致。
+
+![Raycast Keyboard：源站与复刻对比](docs/showcase/raycastkbd.jpg)
+**[raycast.com/keyboard](https://www.raycast.com/keyboard)** —— 判级到源码化单次会话跑完。注意键盘上方那条未加载的懒加载占位条：**两侧一模一样**——bug 与怪状态照抄不修，这正是纪律第 4 条。
 
 ## 快速开始
 
@@ -168,18 +193,18 @@ cp -R skills/website-rebuild ~/.claude/skills/website-rebuild
 | Object & Archive | [objectandarchive.com](https://objectandarchive.com/) | Shopify 主题 fork 定制店，逻辑住在模板内联块里；催生了"无 bundle"分支与整个版权取证流程 |
 | AIM Services 50th | [aimservices.co.jp/50th](https://www.aimservices.co.jp/50th/) | 日文企业周年微站，第一次**全程无人介入**的实测目标 |
 | ChungiYoo | [chungiyoo.com](https://chungiyoo.com/) | 设计师作品集，Nuxt 2 SSG，页面里的数据块占文档 54%、展开后膨胀 8.9 倍 |
-| Apple AirPods Pro | [apple.com/airpods-pro](https://www.apple.com/airpods-pro/) | 判级的基准物种，也是第一个 webpack 模块容器目标。565 个模块逐字移植，**9 个滚动检查点逐像素一致**，源码化为 565 个文件并做到 token 级等价——仓库外断网重建后仍是 0.00 |
-| Optimus（v0 生成） | [v0-optimus-delta.vercel.app](https://v0-optimus-delta.vercel.app/) | Next.js + **Turbopack** 容器，第二种模块打包形态。⭐ 打包器自带导出名，命名从推断变成转写（16/20 tier-1）；移植产物仍是一个 Turbopack chunk，**全程没有转写任何运行时** |
+| Apple AirPods Pro | [apple.com/airpods-pro](https://www.apple.com/airpods-pro/) | 判级的基准物种，第一个 webpack 模块容器目标；565 个模块逐字移植，**9 个滚动检查点逐像素一致**，仓库外断网重建仍是 0.00 |
+| Optimus（v0 生成） | [v0-optimus-delta.vercel.app](https://v0-optimus-delta.vercel.app/) | Next.js + **Turbopack** 容器，第二种模块打包形态；⭐ 打包器自带导出名，命名从推断变成转写（16/20 tier-1） |
 | Lusion | [lusion.co](https://lusion.co/) | 创意工作室官网，1.25 MB 自研 WebGL 引擎 + 156 个 shader；三条路由**逐像素一致**，并走完了**源码化**——389 个模块、可独立复制运行 |
-| EIGHT DESIGN | [eightdesign.co.jp](https://eightdesign.co.jp/) | 日本设计公司**115 路由全站**（Next.js App Router + Turbopack），第一个 C2 类目标：23 个 chunk / 278 个模块逐字移植，**115/115 路由跨侧渲染一致**，载荷门逐叶比对 60.9 万条 |
+| EIGHT DESIGN | [eightdesign.co.jp](https://eightdesign.co.jp/) | 日本设计公司**115 路由全站**（Next.js App Router + Turbopack），第一个 C2 类目标；278 个模块逐字移植，**115/115 路由跨侧渲染一致** |
 | Raycast Keyboard | [raycast.com/keyboard](https://www.raycast.com/keyboard) | Raycast × NuPhy 联名产品页（Turbopack + DRACO 3D 模型），判级到源码化**单次会话跑完**，4 个检查点**像素精确全零** |
 | Hubtown | [hubtown.co.in](https://hubtown.co.in/) | Unseen Studio 出品的全屏 WebGL 长镜头站（Nuxt 3 + three.js + **Theatre.js**），授权动画状态随包下发的 C2 范本；landing 像素差落在同侧噪声带内 |
-| ON.energy | [www.on.energy](https://www.on.energy/) | 能源公司官网（Nuxt 3 + WebGL GLB 场景 + **Storyblok headless CMS**），首个 CMS 资产桶全量镜像样本（原图 + `/m/` 变换变体约 1,800 图）；55/55 路由零报错，滚动 9 档对拍 8 档精确零、页顶视频钉帧后归零 |
-| Milk Network | [milknetwork.com](https://milknetwork.com/) | 沙特品牌代理官网（webpack + GSAP + swup PJAX + **Strapi CMS 桶**），首个**双语 RTL** 站（en/ar 122 路由成对）；main 的 15 模块全量源码化并以 **chunk 形交付**（原 runtime/vendor 原件不动）；滚动对拍 cross 与 band 逐档数值全同，动画完结态精确零 |
-| Hashgraph VC | [hashgraphvc.com](https://hashgraphvc.com/) | 风投官网（Nuxt 3 + Three r182 **WebGPU/TSL** + Theatre + Sanity CMS），⭐ **首个由非 Claude runtime（Codex）全程执行**的复刻——验证了 Agent Skills 跨运行时可移植性；166/166 响应字节一致、6 路由载荷 10,458 叶一致、多检查点像素差 0，交付以逐文件 sha256 钉死、构建时逐字节复核；也是 **v0.2.0 拼接式分解**的诞生地——44.9 万行 / 33 chunk 切成 **2,043 个语义命名部件，逐字节重拼一致** |
-| Overworld Audio | [overworldaudio.com](https://overworldaudio.com/) | 游戏音频工作室官网（Nuxt 3 + THREE/Theatre + **Howler**），⭐ **声音第一次成为验收面**——入场后 **98/98 音效池全量 loaded、零音频 404**（运行时拼 URL 的音频族对静态提取整类不可见，"池子即账本"采集法的诞生地）；拼接式分解通过压缩形态考验（20 chunk / 435 部件重拼一致），交付物 379/379 字节自证；robots 为 Content-Signal 形态，已呈交用户裁决 |
-| Guillermo Rauch's blog | [rauchg.com](https://rauchg.com/) | ⭐ **首个 C1（RSC）重构式逆向**——服务端组件源不下发，从 flight 流重构一个可构建的 Next 16.1.1/Turbopack 工程：**18/18 路由 flight 语义门一致、模块 id 双射 19 对、运行时 sweep 18/18**。这也是**盲逆向对答案**的诞生地（目标源码 MIT 公开，全程不看、收口后判卷）：结构 ≈95%/行为 ≈98%/字面 ≈90%，7 个依赖版本从字节证据精确命中，`withHeadingId` 连函数名都对上；顺带定位线上 React #418 水合错误的根因是 Vercel 边缘的 `/`→`/index` 重写。催生 flight-decode / verify-flight / flight-to-mdx 三件工具与 `rsc-reconstruction.md` |
-| basement.studio | [basement.studio](https://basement.studio/) | 重 WebGL 设计工作室官网(Next 16.3 + React 19 流式 + three/R3F + Sanity + Mux HLS + DOSBox 彩蛋),C1+C2 混合周级战役**进行中**:L1 镜像收口(74/74 sitemap 路由、Sanity 722 图 + 26 GLB 场景全抓),**C1 内容层收口——flight 语义门 PASS 144/144、模块双射 50 对零违背**;门在此淬出 v0.3.2 六条规范化与并行配对审计;`staticSiblings` 化石钉出未链接暗路由 `/showcase/showcase-list`;three.js 场景逐字切片(C2)为下一阶段 |
+| ON.energy | [www.on.energy](https://www.on.energy/) | 能源公司官网（Nuxt 3 + WebGL GLB 场景 + **Storyblok headless CMS**），首个 CMS 资产桶全量镜像样本（约 1,800 图）；55/55 路由零报错，页顶视频钉帧后像素归零 |
+| Milk Network | [milknetwork.com](https://milknetwork.com/) | 沙特品牌代理官网（webpack + GSAP + **Strapi CMS 桶**），首个**双语 RTL** 站（en/ar 122 路由成对）；main 15 模块全量源码化、chunk 形交付，动画完结态像素精确零 |
+| Hashgraph VC | [hashgraphvc.com](https://hashgraphvc.com/) | 风投官网（Nuxt 3 + Three r182 **WebGPU/TSL** + Sanity CMS），⭐ **首个由非 Claude runtime（Codex）全程执行**的复刻——166/166 响应字节一致；也是**拼接式分解**的诞生地：44.9 万行切成 2,043 个语义命名部件、逐字节重拼一致 |
+| Overworld Audio | [overworldaudio.com](https://overworldaudio.com/) | 游戏音频工作室官网（Nuxt 3 + THREE/Theatre + **Howler**），⭐ **声音第一次成为验收面**——98/98 音效池全量 loaded、零音频 404；"池子即账本"采集法的诞生地 |
+| Guillermo Rauch's blog | [rauchg.com](https://rauchg.com/) | ⭐ **首个 C1（RSC）重构式逆向**——从 flight 流重构一个可构建的 Next 工程，**18/18 路由语义门一致**；也是**盲逆向对答案**的诞生地：结构 ≈95%、行为 ≈98%，7 个依赖版本从字节证据精确命中 |
+| basement.studio | [basement.studio](https://basement.studio/) | 重 WebGL 设计工作室官网（Next 16.3 + React 19 流式 + three/R3F + Sanity），C1+C2 混合周级战役**进行中**；flight 语义门 **PASS 144/144**、模块双射 50 对零违背，`staticSiblings` 化石钉出未链接暗路由 |
 
 ### 边界样本与死站抢救
 
@@ -191,9 +216,9 @@ cp -R skills/website-rebuild ~/.claude/skills/website-rebuild
 | Duolingo | [duolingo.com](https://www.duolingo.com/) | **C1** | 同上——RSC 流不下发源码，但内联的 flight 输出可对拍重构 |
 | TechCrunch | [techcrunch.com](https://techcrunch.com/) | **D** | WordPress 内容站，行为主体在服务端 |
 | Airbnb | [airbnb.com](https://www.airbnb.com/) | **D** | 个性化注水 + 服务端数据，没有确定性的验收基准 |
-| darknetflix.io | — | **X→已抢救** | 域名易主;⭐ 已从 Wayback 救回(锚点 2020-07,8/15 路由复活,92 永久洞如实登记) |
-| umamiland | — | **X→已抢救** | 平台回收;⭐ 已从 Wayback 救回(**sweep 9/9 路由全清**,探针→种子迭代收敛) |
-| jiouhe.com | — | **X→已抢救** | 原地替换(域名活着,应答停车页);⭐ 锚 2018 救回,**0 永久洞、0/0/0**,滚轮帧动画完整复活——停车页验尸与拼写孪生归一的诞生地 |
+| darknetflix.io | — | **X→已抢救** | 域名易主；⭐ 已从 Wayback 救回（锚点 2020-07，8/15 路由复活，92 永久洞如实登记） |
+| umamiland | — | **X→已抢救** | 平台回收；⭐ 已从 Wayback 救回（**sweep 9/9 路由全清**，探针→种子迭代收敛） |
+| jiouhe.com | — | **X→已抢救** | 原地替换（域名活着，应答停车页）；⭐ 锚 2018 救回，**0 永久洞、0/0/0**，滚轮帧动画完整复活——停车页验尸与拼写孪生归一的诞生地 |
 
 ## 仓库结构
 
@@ -209,6 +234,7 @@ selftest/                  # 仓库冒烟自检（npm test；不随 skill 分发
 .github/workflows/         # CI：push/PR 自动跑 npm test
 CHANGELOG.md               # 更新记录
 README.md                  # 本文件
+README.en.md               # 英文版 README
 ```
 
 ⭐ **两个目录的分界是阶段，不是角色**：源码化之前整条流水线**零依赖**——复刻项目要到最后一步才装东西。前面的工序需要真正的 parser 时，`spawn` 一个钉死版本的 npx（`js-beautify` / `acorn`），脚本自身仍然零依赖、仍然可被独立审查。这条线由 `scripts/verify-zerodep.mjs` 看着，因为它曾经**只写在文档里、被违反了八个版本没人发现**。
@@ -223,16 +249,16 @@ README.md                  # 本文件
 
 ## 路线图
 
-- **v0.3 已落地**:C1（RSC）重构式逆向——flight 坐标系（flight-decode）、语义门（verify-flight，模块 id 全局双射）、正文反推器（flight-to-mdx）、运行时缺口对账器（reconcile-gaps）、指南 `rsc-reconstruction.md`;实测 rauchg.com 18/18 路由语义一致,盲逆向对答案判卷。
-- **v0.2 已全部落地**:拼接式分解(v0.2.0)及其目录分组与 chunk 图谱(v0.2.8)、三级终点与交接边界(v0.2.1)、声音验收面(v0.2.2)、渲染广度门(v0.2.3)、存档抢救(v0.2.4–0.2.6)、冒烟自检 CI(v0.2.7)。
+- **v0.3 已落地**：C1（RSC）重构式逆向——flight 坐标系（flight-decode）、语义门（verify-flight，模块 id 全局双射）、正文反推器（flight-to-mdx）、运行时缺口对账器（reconcile-gaps）、指南 `rsc-reconstruction.md`；实测 rauchg.com 18/18 路由语义一致，盲逆向对答案判卷。
+- **v0.2 已全部落地**：拼接式分解（v0.2.0）及其目录分组与 chunk 图谱（v0.2.8）、三级终点与交接边界（v0.2.1）、声音验收面（v0.2.2）、渲染广度门（v0.2.3）、存档抢救（v0.2.4–0.2.6）、冒烟自检 CI（v0.2.7）。
 - **源码化的两块空白**：命名的还原率取决于代码本身留下多少线索——实测一个扁平站有 63% 的局部变量没有任何可依据的证据，一个模块化站有 27/46 个模块只能保留哈希 id。这不是欠账，**错名比哈希更糟，因为哈希会让人去看**。另一块是模块头目前只写事实与溯源，**"这个模块是干什么的"仍然需要人来写**——工具写不出，而写错比留白更糟。
-- **远期**：C1 的更难形态——服务端**逻辑**（不只是渲染结果）的推断深度、隐藏路由空间的枚举、动态图片/OG 生成器的重建;以及 D 类（个性化注水、无确定性验收基准）是否存在可对拍的子集。
+- **远期**：C1 的更难形态——服务端**逻辑**（不只是渲染结果）的推断深度、隐藏路由空间的枚举、动态图片/OG 生成器的重建；以及 D 类（个性化注水、无确定性验收基准）是否存在可对拍的子集。
 
 ## 更新记录
 
 版本随真实复刻项目递进：每个版本发布的功能与修复，都先在至少一个完整项目上验证过。
 
-完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.2**:语义门在重站上淬火——basement.studio(144 路由、React 19 流式、Vercel 动态流)**144/144 语义一致、模块双射 50 对零违背**;六条新规范化、双射审计改等树并行配对(曾静默空转),staticSiblings 化石钉出未链接暗路由。
+完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.2**：语义门在重站上淬火——basement.studio（144 路由、React 19 流式、Vercel 动态流）**144/144 语义一致、模块双射 50 对零违背**；六条新规范化、双射审计改等树并行配对（曾静默空转），staticSiblings 化石钉出未链接暗路由。
 
 ## 贡献
 
@@ -240,7 +266,7 @@ README.md                  # 本文件
 
 - **每条功能与修复都要有实测出处**——本仓的版本历史全部来自真实复刻项目里撞出来的问题，PR 请说明它在哪个目标上被验证过；
 - **`scripts/` 保持零依赖**（`node:` 之外不许 import，门不许 import 生产者）——`scripts/verify-zerodep.mjs` 会在评审时执行这条纪律；
-- 提交前跑 **`npm test`**（秒级冒烟:语法 / 零依赖 / 共享库实测教训 fixture / 微型镜像端到端）——CI 会在 PR 上自动执行同一套。
+- 提交前跑 **`npm test`**（秒级冒烟：语法 / 零依赖 / 共享库实测教训 fixture / 微型镜像端到端）——CI 会在 PR 上自动执行同一套。
 
 ## 许可
 
