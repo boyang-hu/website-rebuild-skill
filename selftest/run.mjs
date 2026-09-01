@@ -125,6 +125,10 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
     imageAcceptFor("https://x.com/_next/image?url=https%3A%2F%2Fcdn.sanity.io%2Fimages%2Fp%2Fd%2Fa.jpg&w=1200&q=75"), IMG_ACCEPT);
   eq("negotiate — CDP type hint outranks extensionless URL (v0.3.9)",
     imageAcceptFor("https://cdn.x.com/asset/4711", "Image"), IMG_ACCEPT);
+  eq("negotiate — MIME-form hint also counts (14islands TSV carries image/png)",
+    imageAcceptFor("https://cdn.x.com/asset/4711", "image/png"), IMG_ACCEPT);
+  eq("negotiate — video MIME hint stays */*",
+    imageAcceptFor("https://cdn.x.com/asset/4711", "video/mp4"), "*/*");
   eq("negotiate — non-image keeps */* (allergy rung untouched)",
     imageAcceptFor("https://x.com/chunk.js"), "*/*");
   truthy("negotiate — Vary: origin, accept detected (v0.3.9)", isNegotiated("origin, accept"));

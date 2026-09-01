@@ -28,7 +28,9 @@ export const IMG_ACCEPT =
  * 图片 → IMG_ACCEPT（浏览器同款），其余 → "*" + "/*"（既有行为不变）。
  */
 export function imageAcceptFor(url, typeHint = "") {
-  if (/^image$/i.test(String(typeHint).trim())) return IMG_ACCEPT;
+  // typeHint 两种来源都要认：CDP 资源类型（"Image"）与 netcapture TSV 第 5 列的
+  // MIME（"image/png"）——实测 14islands 的 TSV 是后者，只认前者会静默漏判。
+  if (/^image(\/|$)/i.test(String(typeHint).trim())) return IMG_ACCEPT;
   try {
     const u = new URL(url);
     if (/\.(avif|webp|png|jpe?g|gif|svg|ico)$/i.test(u.pathname)) return IMG_ACCEPT;
