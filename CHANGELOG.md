@@ -39,6 +39,13 @@ sanity-platform.md §1.2 同步改写(处置第一条"已内置");SKILL.md versi
   (App Router vs pages router × Sanity 三种接法)、--hosts 预设、协商面三族、
   运行时资源族清单(darkroom 实测 well-known 五件套含 openapi.json)、
   verify-flight 常用旗标。四站实测素材(basement/hashgraphvc/darkroom/14islands)。
+- **verify-mirror 弱标记误伤 404 模板**(darkroom M0 实撞):weak "refusal wording"
+  匹配到的是 flight 错误边界槽位名 `"forbidden":"$undefined"`——404 模板是全站
+  最小 HTML,唯独它躲不过 WEAK_MAX。修法有边界:**模板对弱标记豁免、强标记保留**
+  (WAF 拦下 404 探针把 Cloudflare 体写进模板的真场景仍然报红,那是要登记的镜像
+  失败)。selftest 双向钉住(46→48)。darkroom M0/M0.5 全绿收口(L1),顺带实测
+  "引用在案而源站不提供"族的闭包门表现:chunk 内嵌纹理目录表 71 个 .bmp 全 404,
+  逐 URL 进 external.txt 而非静默漏抓。
 
 ## v0.3.8 — 门看不见的债：CSS 对账与 worker 供片链（basement 用户实测四连修回哺)
 

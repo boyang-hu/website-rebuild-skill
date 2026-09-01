@@ -593,6 +593,17 @@ if (!SKIP.has("authenticity")) {
       // ⭐ Strong markers still apply to every text file: a challenge body
       // served at a .js path is precisely the case they exist for.
       if (weak && (st.size > WEAK_MAX || !looksLikeDocument(text))) continue;
+      // ⛔ The DELIBERATELY captured 404 template is exempt from WEAK markers
+      // only: it is definitionally a refusal-semantics page, so refusal wording
+      // carries zero signal there — and on a Next App Router origin its flight
+      // payload contains `"forbidden":"$undefined"` (the error-boundary slot
+      // names notFound/forbidden/unauthorized) which matched "refusal wording"
+      // as the smallest HTML on the site (measured: darkroom, 8437 B template,
+      // every real page 100 KB+ escaped via WEAK_MAX). Strong vendor markers
+      // still apply: a WAF that answered the /no-such-page probe writes a
+      // Cloudflare/Akamai body into 404.html and THAT is a mirroring failure —
+      // serve.mjs would replay the wrong 404 semantics.
+      if (weak && rel === "404.html") continue;
       if (re.test(text)) {
         hits.push(`${rel} — ${what}${weak ? ` (weak marker, ${st.size} B document)` : ""}`);
         break;

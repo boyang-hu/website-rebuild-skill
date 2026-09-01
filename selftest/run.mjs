@@ -172,6 +172,22 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
     catch { return false; }
   };
   truthy("verify-mirror — consistent mini mirror passes", run());
+  // v0.3.9/darkroom: the DELIBERATE 404 template carries flight slot names
+  // (`"forbidden":"$undefined"`) and is the smallest HTML on a Next site —
+  // weak "refusal wording" must NOT fire on it; a strong WAF body there must.
+  const t404 = `<html><body>not found<script>self.__next_f.push("\\"notFound\\":\\"$undefined\\",\\"forbidden\\":\\"$undefined\\"")</script></body></html>`;
+  writeFileSync(path.join(M, "a.png"), img); // restore
+  writeFileSync(path.join(M, "404.html"), t404);
+  files["https://mini.test/__404probe"] = { path: "404.html", bytes: Buffer.byteLength(t404), sha256: sha(Buffer.from(t404)), type: "text/html (404 template)" };
+  writeFileSync(path.join(M, "mirror-manifest.json"), JSON.stringify({ origin: "https://mini.test", files }, null, 2));
+  writeFileSync(path.join(M, "inventory.tsv"), "SHA256\tBYTES\tPATH\tURL\n" + Object.entries(files).map(([u, r]) => [r.sha256, r.bytes, r.path, u].join("\t")).join("\n") + "\n");
+  truthy("verify-mirror — 404 template flight slot names not a weak interstitial (v0.3.9)", run());
+  const waf404 = `<html><body><h1>Attention Required! | Cloudflare</h1></body></html>`;
+  writeFileSync(path.join(M, "404.html"), waf404);
+  files["https://mini.test/__404probe"] = { path: "404.html", bytes: Buffer.byteLength(waf404), sha256: sha(Buffer.from(waf404)), type: "text/html (404 template)" };
+  writeFileSync(path.join(M, "mirror-manifest.json"), JSON.stringify({ origin: "https://mini.test", files }, null, 2));
+  writeFileSync(path.join(M, "inventory.tsv"), "SHA256\tBYTES\tPATH\tURL\n" + Object.entries(files).map(([u, r]) => [r.sha256, r.bytes, r.path, u].join("\t")).join("\n") + "\n");
+  truthy("verify-mirror — WAF body in the 404 template still reds (strong marker)", !run());
   writeFileSync(path.join(M, "a.png"), Buffer.concat([img, Buffer.from([9])]));
   truthy("verify-mirror — one corrupted byte goes red (v0.1.14)", !run());
 }
