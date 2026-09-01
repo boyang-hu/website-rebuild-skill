@@ -140,6 +140,12 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
     ev.projects.map((p) => `${p.projectId}:${p.n}`).sort(), ["9syto90m:2", "diak0tmr:1"]);
   eq("negotiate — sanityEvidence apicdn host seen", ev.apiHosts.map((h) => h.host), ["diak0tmr.apicdn.sanity.io"]);
   eq("negotiate — sanityEvidence counts", [ev.autoFormat, ev.keyFields], [1, 2]);
+  // darkroom.engineering (v0.3.9): a flight :HC preconnect names the bare host
+  // with NO asset path — Sanity is in the stack while the page shows zero
+  // project refs. cdnRefs must catch it or the fingerprint prints "无".
+  const hc = sanityEvidence(`:HC\\"https:\\/\\/cdn.sanity.io\\"`);
+  truthy("negotiate — bare :HC preconnect counted, no fake project (v0.3.9)",
+    hc.cdnRefs === 1 && hc.projects.length === 0, JSON.stringify(hc));
 }
 
 // ------------------------------------- 5. verify-mirror end-to-end fixture

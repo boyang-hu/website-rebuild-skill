@@ -26,6 +26,20 @@ v0.3.6 入册的 `auto=format` 协商陷阱，本版从"文档警告"落成"工�
 sanity-platform.md §1.2 同步改写(处置第一条"已内置");SKILL.md version 与脚本表
 同步(0.3.7/0.3.8 期间 metadata 停在 0.3.6,本版归位)。
 
+**同日实弹回哺(darkroom / 14islands 双站开工)**:
+
+- fingerprint 的 Sanity 采集器首战即暴露覆盖缺口:darkroom 的 flight 只有
+  `:HC"https://cdn.sanity.io"` **preconnect 提示、零资产路径**——Sanity 在栈里
+  (Satus 脚手架)而页面不用其 CDN。sanityEvidence 增 `cdnRefs`(裸主机计数),
+  "有主机引用但无资产路径 = 去深层路由取证 projectId",selftest 45→46。
+- **协商面不止图片**:darkroom 全部路由有 `.md` 孪生 + `llms.txt`(`Vary: Accept`,
+  同 URL 按 Accept 返回 HTML/markdown),部分路由 `Vary: rsc, next-router-*`
+  (flight 的 header 协商形态)——账本 `vary` 字段第一天就把三族协商面照全了。
+- **Next + Vercel + Sanity 栈开工速查卡**入 sanity-platform.md §4:指纹速判
+  (App Router vs pages router × Sanity 三种接法)、--hosts 预设、协商面三族、
+  运行时资源族清单(darkroom 实测 well-known 五件套含 openapi.json)、
+  verify-flight 常用旗标。四站实测素材(basement/hashgraphvc/darkroom/14islands)。
+
 ## v0.3.8 — 门看不见的债：CSS 对账与 worker 供片链（basement 用户实测四连修回哺)
 
 basement 功能面收口后,用户在真浏览器里连报四障:顶栏无 logo 且换行、machine

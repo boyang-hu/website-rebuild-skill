@@ -239,8 +239,9 @@ async function main() {
   );
   // Sanity 证据采集（lib/negotiate.mjs；三种拼写归一后计数——裸写/\/ 转义/%2F 编码）
   const sanity = sanityEvidence(aText);
-  if (sanity.projects.length || sanity.apiHosts.length) {
+  if (sanity.projects.length || sanity.apiHosts.length || sanity.cdnRefs) {
     say(`- Sanity CMS 指纹（命中 → 加载 references/sanity-platform.md；判级看内容烘焙时点 §0，不看库名）：`);
+    say(`  - cdn.sanity.io 出现 ×${sanity.cdnRefs}${sanity.cdnRefs && !sanity.projects.length ? " —— ⚠ 有主机引用（如 flight :HC preconnect）但本页无资产路径：在栈里但首页未用，projectId 去深层路由取证" : ""}`);
     for (const p of sanity.projects)
       say(`  - projectId=${p.projectId} dataset=${p.dataset}（引用 ×${p.n}）`);
     for (const h of sanity.apiHosts)

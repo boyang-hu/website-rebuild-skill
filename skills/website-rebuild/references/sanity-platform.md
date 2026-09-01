@@ -138,7 +138,44 @@ endpoint），应答按**完整 query 字符串为键**返回镜像实测的那�
   `legal-and-deploy.md` 的呈交材料，决定归用户。
 - 版权取证照常逐资产：Sanity 上的图/视频是站主（或其客户）的内容资产，CDN 只是载体。
 
-## 4. 关账 checklist（Sanity 场景）
+## 4. 开工速查卡：Next + Vercel + Sanity 创意栈
+
+> 这个圈子的栈是模板化的（Next/Nuxt + Vercel + Sanity + three/GSAP/Lenis——Satus 一类
+> starter 的直接后代）。本卡把四个实测站（basement / hashgraphvc / darkroom / 14islands）
+> 每次开工都要现场重推的东西固化成预设。Vercel 平台层工件另见 `rsc-reconstruction.md` §5。
+
+**指纹速判**（Step 0，`fingerprint.mjs` 全部自动报）：
+
+| 看什么 | App Router 形态 | pages router 形态 |
+|---|---|---|
+| 框架标记 | `self.__next_f`（flight 流；C1 路线） | `__NEXT_DATA__` + `"buildId"`（payload 路线，走 verify-payload） |
+| chunk 命名 | `/_next/static/immutable/chunks/`（Turbopack 另带 `turbopack-*.js`） | `/_next/static/chunks/` + 内容哈希 |
+| Sanity 接法 | 直连（basement）或仅 `:HC` preconnect（darkroom——**在栈里但资产同源**，别硬找 projectId） | next/image 代理（14islands：`/_next/image?url=<编码的 sanity url 含 rect=>&w=&q=`） |
+
+**M0 `--hosts` 预设**（按指纹删减）：`cdn.sanity.io`、`<projectId>.api.sanity.io`、
+`<projectId>.apicdn.sanity.io`、`fonts.googleapis.com` + `fonts.gstatic.com`、
+`*.mux.com` 族（视频，basement）、`www.googletagmanager.com`（遥测，通常 D5 登记不抓）。
+
+**⛔ 协商面三族**（全部实测；镜像账本 v0.3.9 起记 `vary`，关账前对账本 Vary 普查一遍即得全景）：
+
+1. **图片**：Sanity `auto=format`（§1.2）与 **Vercel `/_next/image` 优化器**（同样按 Accept
+   返回 webp/avif）——两层都可能协商，`lib/negotiate.mjs` 的浏览器 Accept 覆盖两者；
+2. **`.md` 孪生路由**：同一路由按 Accept 返回 HTML 或 markdown（darkroom：全部路由有
+   `.md` 孪生 + `llms.txt`，响应 `Vary: Accept`）——llms.txt 时代的新常态，镜像两份都收；
+3. **flight**：`Vary: rsc, next-router-state-tree, next-router-prefetch,
+   next-router-segment-prefetch`——同 URL 按 header 返回 HTML 或 flight 载荷（`?_rsc=`
+   的 header 形态），镜像收 HTML 形态、flight 走 `?_rsc=` 变体入镜（rsc-reconstruction §2）。
+
+**运行时资源族清单**（BFS 看不见、netcapture/推导要补的）：`?_rsc=` 预取载荷、
+next/image srcset 阶梯（§1.3 两层展开）、动态 OG 图（`og:image`/`twitter-image` 指向的
+爬虫专供路由）、well-known 探测（`/sitemap.xml` `/robots.txt` `/llms.txt` `/openapi.json`
+`/*.md` 孪生——darkroom 实测五种都有）、`/_vercel/insights`（快照入 public/，登记）。
+
+**verify-flight 常用旗标**（C1 收口）：`--normalize-props` 收 ISR 纪元字段（Sanity 站
+内容漂移的投影，§2）；Vercel 动态流 vs 本地静态构建的 row-0 平台字段差由 N11 内建
+（v0.3.2）；`_key` **永不进 normalize**。
+
+## 5. 关账 checklist（Sanity 场景）
 
 - [ ] projectId / dataset / 内容烘焙时点（§0 三形态之一）钉入 `engine-notes.md`，判据留痕
 - [ ] `--hosts` 含 cdn / api / apicdn 三主机；next/image 代理 URL 解码后计入 off-host 普查

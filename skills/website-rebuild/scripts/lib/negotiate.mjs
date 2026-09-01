@@ -76,6 +76,12 @@ export function sanityEvidence(text) {
       return { projectId, dataset, n };
     }),
     apiHosts: [...apiHosts].map(([host, n]) => ({ host, n })),
+    // 裸主机引用（含路径引用在内的全部出现）：flight 的 :HC preconnect 提示只写
+    // `"https://cdn.sanity.io"`，不带 /images/<projectId>/ 路径——首页可以零资产
+    // 引用而栈里有 Sanity（实测 darkroom.engineering：HC 提示在、projectId 要到
+    // 深层路由才见）。cdnRefs>0 且 projects 空 = "在栈里但本页未见资产"，去深层
+    // 路由取证 projectId。
+    cdnRefs: (norm.match(/cdn\.sanity\.io/g) || []).length,
     autoFormat: (norm.match(/auto=format/g) || []).length,
     keyFields: (norm.match(/"_key"/g) || []).length,
   };
