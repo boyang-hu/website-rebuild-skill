@@ -14,9 +14,12 @@
 // Usage:  node scripts/reconcile-gaps.mjs --out mirror --urls docs/netcapture.tsv,docs/next-image-urls.txt
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
-import { createHash } from "node:crypto";
+import { sha256 } from "./lib/hash.mjs";
 import { localRelPath, loadPolicy } from "./lib/urlpath.mjs";
-import { imageAcceptFor } from "./lib/negotiate.mjs";
+import { fetchProfiles } from "./lib/negotiate.mjs";
+// The ledgers are read and written through lib/ledger.mjs — mirror-site's row
+// format and sort, not a second spelling of them.
+import { readManifest, writeManifest, writeInventory } from "./lib/ledger.mjs";
 import { cli } from "./lib/cli.mjs";
 
 cli({ known: ["out", "urls"], file: import.meta.url });
@@ -33,14 +36,17 @@ if (!LISTS.length) {
   process.exit(2);
 }
 
-const manifestFile = join(OUT, "mirror-manifest.json");
-const doc = JSON.parse(await readFile(manifestFile, "utf8"));
+// The whole document is kept and written back as-is (shape unchanged); a
+// missing manifest is fatal — there is nothing to reconcile INTO.
+const doc = await readManifest(OUT);
+if (!doc) {
+  console.error(`FATAL: no mirror-manifest.json under ${OUT} — reconcile-gaps appends to an existing mirror's ledger`);
+  process.exit(1);
+}
 const manifest = doc.files;
 const ORIGIN = doc.origin;
 const ORIGIN_HOST = new URL(ORIGIN).host;
 const POLICY = await loadPolicy(OUT);
-const UA =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36";
 
 const urls = new Set();
 const typeHints = new Map(); // url -> CDP resource type (netcapture TSV col 5)
@@ -62,32 +68,15 @@ console.log(`candidate urls: ${urls.size}`);
 // CDNs negotiate the format on it, and `accept: */*` lands the FALLBACK bytes
 // (basement D5 — 391 variants all fallback, sampled 6/6 divergent from what a
 // browser receives, every gate green). The bare rung keeps `*/*`: it exists
-// for header allergies, and staying minimal is its job.
-const profilesFor = (url) => [
-  {
-    name: "std",
-    headers: {
-      "user-agent": UA,
-      accept: imageAcceptFor(url, typeHints.get(url) || ""),
-      referer: ORIGIN + "/",
-    },
-  },
-  { name: "bare", headers: { "user-agent": "curl/8.6.0", accept: "*/*" } },
-];
+// for header allergies, and staying minimal is its job. The rungs are
+// lib/negotiate.mjs `fetchProfiles` (same UA and headers as the crawler); the
+// climb below stays local because it differs from `fetchLadder` — a 3xx is a
+// failure here, and any non-2xx (not only 401/403) falls through to bare.
+const profilesFor = (url) => fetchProfiles(url, { origin: ORIGIN, typeHint: typeHints.get(url) || "" });
 
 async function flush() {
-  await writeFile(manifestFile, JSON.stringify(doc, null, 2));
-  await writeFile(
-    join(OUT, "inventory.tsv"),
-    ["SHA256", "BYTES", "PATH", "URL"].join("\t") +
-      "\n" +
-      Object.entries(manifest)
-        .filter(([, f]) => f.path && f.sha256)
-        .sort((a, b) => a[1].path.localeCompare(b[1].path))
-        .map(([url, f]) => [f.sha256, f.bytes, f.path, url].join("\t"))
-        .join("\n") +
-      "\n"
-  );
+  await writeManifest(OUT, doc);
+  await writeInventory(OUT, manifest);
 }
 
 let saved = 0, had = 0, failed = 0, n = 0;
@@ -127,7 +116,7 @@ for (const url of [...urls].sort()) {
   manifest[url] = {
     path: rel,
     bytes: buf.length,
-    sha256: createHash("sha256").update(buf).digest("hex"),
+    sha256: sha256(buf),
     type: (res.headers.get("content-type") || "").split(";")[0] || "",
     // Profile + Vary on record: a negotiated response (Vary: accept) is
     // otherwise indistinguishable from a plain one in the ledger (basement D5).

@@ -16,9 +16,9 @@
 //
 //   node scripts/emit-webpack-chunk.mjs --in <pretty.js> --map <lines.json> --out <gen.js> --parts <dir> [--raw <min.js> --raw-bounds <bounds.json>] [--check]
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from "node:fs";
-import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { cli } from "./lib/cli.mjs";
+import { sha256Short } from "./lib/hash.mjs";
 
 cli({ known: ["in", "map", "out", "parts", "raw", "raw-bounds"], bools: ["check"], file: import.meta.url });
 
@@ -40,7 +40,6 @@ const map = JSON.parse(readFileSync(MAP, "utf8"));
 const mods = map.modules
   .map((m) => ({ ...m, start: m.start ?? m.startLine, end: m.end ?? m.endLine, exports: m.exports ?? m.exportNames ?? [] }))
   .sort((a, b) => a.start - b.start);
-const sha = (s) => createHash("sha256").update(s).digest("hex").slice(0, 12);
 
 // 部件切分：头（第 1 行到首模块前一行）、每个模块（start..end，含模块间的空行归前一个模块的尾部？
 // ——不：模块间若有间隔行，归入下一部件的头部，保证覆盖无缝）、尾（末模块后到文件末尾）。
@@ -81,7 +80,7 @@ if (!CHECK) {
   rmSync(PARTS, { recursive: true, force: true }); mkdirSync(PARTS, { recursive: true });
   for (const p of parts) writeFileSync(join(PARTS, p.name + ".js"), p.text);
   writeFileSync(OUT, joined);
-  writeFileSync(join(PARTS, "MANIFEST.tsv"), "PART\tMODULE\tLINES\tEXPORTS\tSHA12\n" + parts.map((p) => [p.name, p.id || "-", p.lines || p.text.split("\n").length, (p.exports || []).join(",") || "-", sha(p.text)].join("\t")).join("\n") + "\n");
+  writeFileSync(join(PARTS, "MANIFEST.tsv"), "PART\tMODULE\tLINES\tEXPORTS\tSHA12\n" + parts.map((p) => [p.name, p.id || "-", p.lines || p.text.split("\n").length, (p.exports || []).join(",") || "-", sha256Short(p.text, 12)].join("\t")).join("\n") + "\n");
 } else {
   // --check：盘上部件重拼必须仍等于原件，且等于已写出的拼接件
   const onDisk = readdirSync(PARTS).filter((f) => f.endsWith(".js")).sort().map((f) => readFileSync(join(PARTS, f), "utf8")).join("");
@@ -89,4 +88,4 @@ if (!CHECK) {
   if (onDisk !== joined || outNow !== joined) { console.log("FATAL — on-disk parts or gen file drifted from the emitted assembly"); process.exit(1); }
 }
 const nraw = parts.filter((p) => p.raw).length;
-console.log(`${CHECK ? "check " : ""}ok — ${mods.length} module part(s) + head + tail; reassembly === ${IN} (${src.length} bytes, sha12 ${sha(src)})${nraw ? `; ${nraw} raw part(s) = exact minified substrings` : ""}`);
+console.log(`${CHECK ? "check " : ""}ok — ${mods.length} module part(s) + head + tail; reassembly === ${IN} (${src.length} bytes, sha12 ${sha256Short(src, 12)})${nraw ? `; ${nraw} raw part(s) = exact minified substrings` : ""}`);

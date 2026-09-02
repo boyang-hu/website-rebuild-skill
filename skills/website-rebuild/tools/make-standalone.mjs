@@ -19,8 +19,11 @@
  */
 import { readFile, writeFile, mkdir, readdir, cp, stat } from "node:fs/promises";
 import * as fssync from "node:fs";
-import { createHash } from "node:crypto";
 import path from "node:path";
+import { sha256, sha256File } from "../scripts/lib/hash.mjs";
+// The ledgers are read through the module that writes them, and LEDGER_FILES
+// is the one list of what is bookkeeping rather than mirror content.
+import { readManifest, readInventory, LEDGER_FILES } from "../scripts/lib/ledger.mjs";
 import { localRelPath, loadPolicy } from "../scripts/lib/urlpath.mjs";
 import { cli } from "../scripts/lib/cli.mjs";
 
@@ -134,7 +137,9 @@ const html = htmls.join("\n");   // one view, for the reference report only
 // deliverable takes every mirrored file except the forensic material — the
 // beautified bundles, the ledgers themselves, and the origin bundle this port
 // replaces, which must not travel back alongside its own replacement.
-const EXCLUDE = [/^_pretty\//, /^mirror-manifest\.json$/, /^inventory\.tsv$/, /^netcapture\.tsv$/, /^redirects\.tsv$/, /^urlpath-policy\.json$/, /^external\.txt$/];
+// The ledger files themselves come from lib/ledger.mjs LEDGER_FILES (root-level names).
+const EXCLUDE = [/^_pretty\//];
+const isExcluded = (rel) => LEDGER_FILES.has(rel) || EXCLUDE.some((re) => re.test(rel));
 
 // The document's own references are still collected — not to decide what to
 // copy, but to report what it names that the mirror does not have.
@@ -163,11 +168,12 @@ for (const m of html.matchAll(/(?:srcset|data-srcset)="([^"]+)"/g)) {
 const MANIFEST = { files: {} };
 const OWNER = new Map(); // rel path -> root dir that holds it (first wins)
 for (const root of MIRRORS) {
-  const mf = JSON.parse(await readFile(path.join(root, "mirror-manifest.json"), "utf8").catch(() => "{}"));
+  // A root without a manifest is allowed (readManifest -> null); one whose
+  // manifest cannot be parsed still throws, as it always did.
+  const mf = (await readManifest(root)) || {};
   if (mf.origin && !MANIFEST.origin) MANIFEST.origin = mf.origin;
   for (const [u, rec] of Object.entries(mf.files || {})) if (!(u in MANIFEST.files)) MANIFEST.files[u] = rec;
-  const inv = await readFile(path.join(root, "inventory.tsv"), "utf8").catch(() => "");
-  for (const l of inv.split("\n").slice(1)) { const rel = l.split("\t")[2]; if (rel && !OWNER.has(rel)) OWNER.set(rel, root); }
+  for (const { path: rel } of await readInventory(root)) if (rel && !OWNER.has(rel)) OWNER.set(rel, root);
 }
 const ORIGIN_URL = (MANIFEST.origin || "https://example.invalid").replace(/\/$/, "") + "/";
 const ORIGIN_HOST = new URL(ORIGIN_URL).hostname;
@@ -191,10 +197,8 @@ const BYTE_MANIFEST = {};
 // checker report a phantom "own-build path" on every verbatim-only project.
 const UNVERIFIED = new Set((OWN.length ? (KEEP_OWN ? OWN : OWN.concat(BUILD_OUT)) : []).map((p2) => "public" + (p2.startsWith("/") ? p2 : "/" + p2)));
 const posixRel = (rel) => rel.split(path.sep).join("/");
-const hashFile = (p2) => new Promise((res, rej) => {
-  const h = createHash("sha256");
-  fssync.createReadStream(p2).on("data", (c) => h.update(c)).on("end", () => res(h.digest("hex"))).on("error", rej);
-});
+// Streamed (lib/hash.mjs sha256File): the deliverable can carry movie-sized media.
+const hashFile = sha256File;
 const recordCopy = async (to, relUnderPublic, size) => {
   const key = "public/" + posixRel(relUnderPublic);
   // The port's own build output is REBUILT by `npm run build` — pinning its
@@ -205,7 +209,7 @@ const recordCopy = async (to, relUnderPublic, size) => {
 
 let copied = 0, bytes = 0, skipped = 0;
 for (const rel of ledger) {
-  if (EXCLUDE.some((re) => re.test(rel))) { skipped++; continue; }
+  if (isExcluded(rel)) { skipped++; continue; }
   if (rel === REPLACED.replace(/^\//, "")) { skipped++; continue; }
   const from = path.join(OWNER.get(rel) || MIRROR, rel);
   const st = await stat(from).catch(() => null);
@@ -312,7 +316,7 @@ for (let i = 0; i < SHELLS.length; i++) {
   await mkdir(path.dirname(to), { recursive: true });
   await writeFile(to, doc);
   const buf = Buffer.from(doc);
-  BYTE_MANIFEST["public/" + posixRel(rel)] = { sha256: createHash("sha256").update(buf).digest("hex"), bytes: buf.length };
+  BYTE_MANIFEST["public/" + posixRel(rel)] = { sha256: sha256(buf), bytes: buf.length };
 }
 
 // The manifest and its checker travel WITH the deliverable. The checker is

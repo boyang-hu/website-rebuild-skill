@@ -41,7 +41,11 @@
  */
 import { mkdir, writeFile, readFile, access } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
-import { createHash } from 'node:crypto';
+import { sha256 } from './lib/hash.mjs';
+// The three ledgers are read and written by lib/ledger.mjs — one row format,
+// one merge, shared with netcapture / reconcile-gaps / wayback-mirror and every
+// gate that reads them back.
+import { readManifest, readRedirects, writeLedgers as writeLedgerFiles } from './lib/ledger.mjs';
 // The url -> local-path mapping is QUERY-AWARE and lives in one module shared
 // with netcapture.mjs, serve.mjs and verify-mirror.mjs. Read its header once:
 // a pathname-only mapping collapses `x.jpg?width=320|600|1200` into one file on
@@ -63,7 +67,7 @@ import {
 // gate could not report it because the blind spot was shared (objectarchive
 // N13: 16 feeds, reference set 3,109 -> 3,521).
 import { createRefExtractor, isTextRefSource } from './lib/extract-refs.mjs';
-import { imageAcceptFor } from './lib/negotiate.mjs';
+import { BROWSER_UA, fetchLadder } from './lib/negotiate.mjs';
 import { cli } from './lib/cli.mjs';
 
 cli({
@@ -89,9 +93,8 @@ const DEFAULT_ASSET_HOSTS = [
 // reverse-proxy blobs (landonorris had Webflow GA proxies at /nvhc, /avljl).
 const SKIP_PAGE_PREFIXES = [];
 
-// Desktop UA for all requests; some origins vary or block on UA.
-const UA =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
+// Desktop UA for all requests (some origins vary or block on UA): the one
+// string in lib/negotiate.mjs, so every fetcher's ledger describes the same UA.
 
 // ---------------------------------------------------------------------------
 
@@ -157,9 +160,9 @@ const offHostRefs = new Map(); // host -> {n, sample} for hosts NOT on ASSET_HOS
 // Rows are preloaded but NOT marked fetched: a full re-crawl still re-fetches
 // and OVERWRITES each row, so a stale row can never survive a run that visits
 // its URL. Only rows this run never visits are carried over.
-const manifest = await readFile(join(OUT, 'mirror-manifest.json'), 'utf8')
-  .then((t) => JSON.parse(t).files || {})
-  .catch(() => ({}));
+// ⛔ A manifest that EXISTS but cannot be read is fatal (lib/ledger.mjs throws),
+// not an empty ledger: starting fresh over it would overwrite it at the end.
+const manifest = ((await readManifest(OUT)) || { files: {} }).files;
 const carriedOver = Object.keys(manifest).length;
 if (carriedOver) console.log(`[ledger] carrying over ${carriedOver} row(s) from the existing manifest`);
 const fetched = new Set();
@@ -173,11 +176,7 @@ const redirects = []; // {from, status, to}
 // on /work (14islands F6). Same promise as the manifest carry-over above — a
 // ledger that forgets what it is being added to is not the same ledger.
 {
-  const prior = await readFile(join(OUT, 'redirects.tsv'), 'utf8').catch(() => '');
-  for (const line of prior.split('\n').slice(1)) {
-    const [status, from, to] = line.split('\t');
-    if (status && from) redirects.push({ from, status: Number(status), to: to || '' });
-  }
+  for (const r of await readRedirects(OUT)) redirects.push(r);
   if (redirects.length) console.log(`[ledger] carrying over ${redirects.length} redirect row(s) from the existing redirects.tsv`);
 }
 
@@ -195,7 +194,7 @@ async function save(url, buf, contentType, extra = {}) {
   manifest[url] = {
     path: relative(OUT, p),
     bytes: buf.length,
-    sha256: createHash('sha256').update(buf).digest('hex'),
+    sha256: sha256(buf),
     type: contentType || '',
     // Ledger blind spot closed (basement D5): without the fetch profile and
     // the Vary header on record, a negotiated response is indistinguishable
@@ -212,30 +211,10 @@ async function save(url, buf, contentType, extra = {}) {
 // The three ledgers, written from the SAME merged state every time: carried-over
 // rows plus this run's rows in `manifest`, prior plus new rows in `redirects`.
 // One function for the periodic flush, the SIGINT flush and the final write, so
-// the three cannot drift on merge semantics.
+// the three cannot drift on merge semantics. Row formats, redirect dedupe and
+// the CODE FROM TO column order serve.mjs replays live in lib/ledger.mjs.
 async function writeLedgersNow() {
-  await writeFile(
-    join(OUT, 'mirror-manifest.json'),
-    JSON.stringify({ origin: ORIGIN, mirroredAt: new Date().toISOString(), files: manifest }, null, 2)
-  );
-  await writeFile(
-    join(OUT, 'redirects.tsv'),
-    // Column order is CODE FROM TO because serve.mjs's replay reader destructures
-    // in that order; a FROM-first ledger silently replays nothing.
-    ['CODE', 'FROM', 'TO'].join('\t') + '\n' +
-      // dedupe: a re-visited redirect is the same source behaviour, not a new row
-      [...new Map(redirects.map((r) => [`${r.status}\t${r.from}\t${r.to}`, r])).values()]
-        .map((r) => [r.status, r.from, r.to].join('\t')).join('\n') + (redirects.length ? '\n' : '')
-  );
-  await writeFile(
-    join(OUT, 'inventory.tsv'),
-    ['SHA256', 'BYTES', 'PATH', 'URL'].join('\t') + '\n' +
-      Object.entries(manifest)
-        .filter(([, f]) => f.path && f.sha256)
-        .sort((a, b) => a[1].path.localeCompare(b[1].path))
-        .map(([url, f]) => [f.sha256, f.bytes, f.path, url].join('\t'))
-        .join('\n') + '\n'
-  );
+  await writeLedgerFiles(OUT, { origin: ORIGIN, files: manifest, redirects });
 }
 // Serialised: a periodic flush and a SIGINT flush must never interleave two
 // truncating writes to one file.
@@ -265,56 +244,35 @@ process.once('SIGINT', () => {
 // bare curl and 403'd the polite profile — measured on rauchg). So a 4xx on
 // the standard profile gets ONE retry on a minimal profile before the URL is
 // declared failed. Redirects are handled before any retry: they are source
-// behavior, not a header allergy.
-const HEADER_PROFILES = [
-  { name: 'std', headers: { 'user-agent': null /* filled below */, accept: '*/*', referer: null } },
-  { name: 'bare', headers: { 'user-agent': 'curl/8.6.0', accept: '*/*' } },
-];
-
+// behavior, not a header allergy. The rungs, their headers (browser UA, the
+// browser's own image Accept, same-origin Referer) and the climb rules are
+// lib/negotiate.mjs `fetchLadder` — the same ladder netcapture --fetch and
+// reconcile-gaps climb, so their rows are indistinguishable from this one's.
 async function get(url) {
-  let lastStatus = 0;
-  for (const profile of HEADER_PROFILES) {
-    const headers =
-      profile.name === 'std'
-        ? // Some asset CDNs require a same-origin Referer and return 403
-          // without one (landonorris lesson); supply it so legitimate
-          // requests are served. Image URLs get the browser's own image
-          // Accept: `auto=format` CDNs negotiate the response format on it,
-          // and `accept: */*` lands the FALLBACK bytes, not what a browser
-          // would receive (basement D5: 391 variants, webp transcoded back
-          // to JPEG, every downstream gate green). lib/negotiate.mjs holds
-          // the one yardstick.
-          { 'user-agent': UA, accept: imageAcceptFor(url), referer: ORIGIN + '/' }
-        : profile.headers;
-    const res = await fetch(url, {
-      headers,
-      // RED LINE (references/mirroring.md §2): never follow. A followed 301
-      // writes the target's body at the source path and fabricates a file the
-      // origin never served at that URL. Record it and re-queue the target so
-      // it lands at its own place in URL space instead.
-      redirect: 'manual',
-    });
-    if (res.status >= 300 && res.status < 400) {
-      const to = res.headers.get('location') || '';
-      redirects.push({ from: url, status: res.status, to });
-      return { redirectTo: to ? new URL(to, url).href : null };
-    }
-    if (res.ok) {
-      const buf = Buffer.from(await res.arrayBuffer());
-      // Vary:accept in the ledger = this URL's bytes depend on the request
-      // profile; the census in sanity-platform.md §1.2 reads it back.
-      return {
-        buf,
-        type: res.headers.get('content-type') || '',
-        vary: res.headers.get('vary') || '',
-        profile: profile.name,
-      };
-    }
-    lastStatus = res.status;
-    // Only auth-ish refusals suggest a header allergy; a 404 is a 404.
-    if (res.status !== 401 && res.status !== 403) break;
+  // RED LINE (references/mirroring.md §2): never follow. A followed 301
+  // writes the target's body at the source path and fabricates a file the
+  // origin never served at that URL. fetchLadder defaults to redirect:
+  // 'manual' and hands a 3xx back as-is; record it and re-queue the target so
+  // it lands at its own place in URL space instead.
+  const { res, profile, error } = await fetchLadder(url, { origin: ORIGIN });
+  // Failed rows keep the `HTTP <status>` spelling every earlier ledger carries;
+  // the rung stays in the message only for transport errors.
+  if (!res) throw new Error(error.replace(/^(HTTP \d+) \((?:std|bare)\)$/, '$1'));
+  if (res.status >= 300 && res.status < 400) {
+    const to = res.headers.get('location') || '';
+    redirects.push({ from: url, status: res.status, to });
+    return { redirectTo: to ? new URL(to, url).href : null };
   }
-  throw new Error(`HTTP ${lastStatus}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  // Vary:accept in the ledger = this URL's bytes depend on the request
+  // profile; the census in sanity-platform.md §1.2 reads it back.
+  return {
+    buf,
+    type: res.headers.get('content-type') || '',
+    vary: res.headers.get('vary') || '',
+    profile,
+  };
 }
 
 // Absolute / protocol-relative / root-relative / srcset-candidate / css-url()
@@ -422,7 +380,7 @@ async function crawlPages() {
     pagesDone.add(path);
     const url = ORIGIN + (path === '/' ? '/' : path);
     try {
-      const res = await fetch(url, { headers: { 'user-agent': UA }, redirect: 'manual' });
+      const res = await fetch(url, { headers: { 'user-agent': BROWSER_UA }, redirect: 'manual' });
       if (res.status >= 300 && res.status < 400) {
         const to = res.headers.get('location') || '';
         redirects.push({ from: url, status: res.status, to });
@@ -443,7 +401,7 @@ async function crawlPages() {
         manifest[url] = {
           path: '404.html',
           bytes: buf.length,
-          sha256: createHash('sha256').update(buf).digest('hex'),
+          sha256: sha256(buf),
           type: 'text/html (404 template)',
         };
       } else {

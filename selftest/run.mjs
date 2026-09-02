@@ -865,6 +865,116 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
   truthy("cli — every flag on a script's usage line is in its known set", undocumented.length === 0, undocumented.slice(0, 8).join("; "));
 }
 
+// ------------------------------- v0.3.18: lib/hash — the one sha256 spelling
+// 23 hand-rolled `createHash("sha256")…` sites collapsed into one module. The
+// digest, the streamed digest and the short id must agree byte for byte with
+// what those sites used to print (emit-webpack-chunk's sha12 column, the
+// 64-hex pin in every slice header) — a ledger row and the gate that reads it
+// cannot disagree about what "the sha256 of this file" means.
+{
+  const { sha256, sha256Short, sha256File } = await import(path.join(SKILL, "scripts/lib/hash.mjs"));
+  eq("hash — sha256 of hello is the known digest (v0.3.18)", sha256("hello"), "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
+  const hp = path.join(TMP, "hash-me.bin");
+  const hbytes = Buffer.from("the quick brown fox\n".repeat(4096));
+  writeFileSync(hp, hbytes);
+  eq("hash — sha256File streams to the same digest sha256 gives the bytes (v0.3.18)", await sha256File(hp), sha256(hbytes));
+  eq("hash — sha256Short(x, 12) is the first 12 hex chars (v0.3.18)", sha256Short("hello", 12), sha256("hello").slice(0, 12));
+}
+
+// ------------------------------- v0.3.18: lib/ledger — the three ledgers, written and read by one hand
+// mirror-manifest.json / inventory.tsv / redirects.tsv. serve.mjs destructures
+// CODE\tFROM\tTO in that order, wayback-mirror writes an empty redirects ledger
+// as the bare header, and a corrupt manifest must THROW — mirror-site used to
+// start a fresh ledger over it and overwrite it at the end.
+{
+  const L = await import(path.join(SKILL, "scripts/lib/ledger.mjs"));
+  const dir = path.join(TMP, "ledger");
+  const files = {
+    "https://x.com/b.js": { path: "b.js", bytes: 22, sha256: "b".repeat(64) },
+    "https://x.com/a.css": { path: "a.css", bytes: 11, sha256: "a".repeat(64) },
+    "https://x.com/gone.png": { error: "HTTP 404" }, // no bytes on disk: a manifest row, never an inventory row
+  };
+  const redirects = [{ status: 301, from: "/old", to: "/new" }, { status: 301, from: "/old", to: "/new" }];
+  await L.writeLedgers(dir, { origin: "https://x.com", files, redirects });
+  const mf = await L.readManifest(dir);
+  eq("ledger — manifest round-trips origin and files (v0.3.18)", [mf.origin, mf.files], ["https://x.com", files]);
+  eq("ledger — inventory: only rows with path+sha256, sorted by path, bytes as Number (v0.3.18)", await L.readInventory(dir),
+    [{ sha256: "a".repeat(64), bytes: 11, path: "a.css", url: "https://x.com/a.css" }, { sha256: "b".repeat(64), bytes: 22, path: "b.js", url: "https://x.com/b.js" }]);
+  truthy("ledger — inventoryText opens with the SHA256/BYTES/PATH/URL header (v0.3.18)", L.inventoryText(files).startsWith("SHA256\tBYTES\tPATH\tURL\n"));
+  eq("ledger — redirectsText dedupes identical rows and ends with a newline (v0.3.18)", L.redirectsText(redirects), "CODE\tFROM\tTO\n301\t/old\t/new\n");
+  eq("ledger — redirectsText([]) is exactly the header, as wayback-mirror writes it (v0.3.18)", L.redirectsText([]), "CODE\tFROM\tTO\n");
+  eq("ledger — redirects round-trip (v0.3.18)", await L.readRedirects(dir), [{ status: 301, from: "/old", to: "/new" }]);
+  const added = await L.appendInventory(dir, [
+    { sha256: "a".repeat(64), bytes: 11, path: "a.css", url: "https://x.com/a.css" },
+    { sha256: "c".repeat(64), bytes: 33, path: "c.png", url: "https://x.com/c.png" },
+  ]);
+  eq("ledger — appendInventory adds only unknown paths and returns them (v0.3.18)", added.map((r) => r.path), ["c.png"]);
+  eq("ledger — the appended row reads back with the rest (v0.3.18)", (await L.readInventory(dir)).map((r) => `${r.path}:${r.bytes}`), ["a.css:11", "b.js:22", "c.png:33"]);
+  eq("ledger — readManifest on a missing dir is null, a fresh mirror (v0.3.18)", await L.readManifest(path.join(TMP, "no-such-mirror")), null);
+  const corrupt = path.join(TMP, "ledger-corrupt");
+  mkdirSync(corrupt, { recursive: true });
+  writeFileSync(path.join(corrupt, L.MANIFEST_FILE), '{ "origin": "https://x.com", "files": ');
+  truthy("ledger — readManifest on a corrupt manifest THROWS, never reads as empty (v0.3.18)", await L.readManifest(corrupt).then(() => false, () => true));
+  eq("ledger — isBookkeeping: ledgers, tool dirs and dotfiles yes; mirror content no (v0.3.18)",
+    ["inventory.tsv", "_pretty/x.js", ".DS_Store", "_next/x.js"].map((p) => L.isBookkeeping(p)), [true, true, true, false]);
+}
+
+// ------------------------------- v0.3.18: lib/negotiate — the std→bare ladder against loopback origins
+// Four fetchers carried their own retry ladder. The rungs and the stop rules are
+// source behaviour — a 403 has two opposite cures, a 404 is a 404, a 3xx is
+// recorded not chased — so each is exercised against a tiny origin that answers
+// one way, counting which rungs it saw.
+{
+  const { fetchProfiles, fetchLadder, BROWSER_UA, BARE_UA } = await import(path.join(SKILL, "scripts/lib/negotiate.mjs"));
+  const http = await import("node:http");
+  const rungs = fetchProfiles("https://cdn/x.jpg", { origin: "https://x.com" });
+  eq("negotiate — the ladder is std then bare (v0.3.18)", rungs.map((r) => r.name), ["std", "bare"]);
+  const [std, bare] = rungs;
+  truthy("negotiate — std: BROWSER_UA, the browser's image Accept, a same-origin Referer (v0.3.18)",
+    std.headers["user-agent"] === BROWSER_UA && std.headers.accept.startsWith("image/") && std.headers.referer === "https://x.com/", JSON.stringify(std.headers));
+  eq("negotiate — bare: BARE_UA and */* only (v0.3.18)", bare.headers, { "user-agent": BARE_UA, accept: "*/*" });
+  const origin = async (handler) => {
+    const srv = http.createServer(handler);
+    await new Promise((r) => srv.listen(0, "127.0.0.1", r));
+    return { srv, url: `http://127.0.0.1:${srv.address().port}/x.jpg`, stop: () => new Promise((r) => { srv.closeAllConnections(); srv.close(r); }) };
+  };
+  // one origin per behaviour; the body is drained so the server can close
+  const climb = async (handler, seen) => {
+    const o = await origin((req, res) => { seen.push(req.headers["user-agent"]); handler(req, res); });
+    try { const r = await fetchLadder(o.url, { origin: "http://127.0.0.1" }); if (r.res) await r.res.arrayBuffer(); return r; }
+    finally { await o.stop(); }
+  };
+  const seen403 = [];
+  const allergic = await climb((req, res) => { res.writeHead(/Mozilla/.test(req.headers["user-agent"]) ? 403 : 200); res.end("x"); }, seen403);
+  truthy("negotiate — a 403 on std climbs to bare and wins (v0.3.18)", allergic.profile === "bare" && allergic.res && allergic.res.ok && allergic.error === "", JSON.stringify([allergic.profile, allergic.error]));
+  eq("negotiate — the header-allergic origin saw both rungs, in order (v0.3.18)", seen403, [BROWSER_UA, BARE_UA]);
+  const seen404 = [];
+  const missing = await climb((req, res) => { res.writeHead(404); res.end("nf"); }, seen404);
+  eq("negotiate — a 404 is a 404: std's answer, no bare retry (v0.3.18)", [missing.res.status, missing.profile, seen404.length], [404, "std", 1]);
+  const seen302 = [];
+  const moved = await climb((req, res) => { res.writeHead(302, { location: "/elsewhere.jpg" }); res.end(); }, seen302);
+  eq("negotiate — a 302 comes back as-is with its Location, not chased, not retried (v0.3.18)", [moved.res.status, moved.res.headers.get("location"), moved.profile, seen302.length], [302, "/elsewhere.jpg", "std", 1]);
+  const dead = await origin(() => {});
+  await dead.stop();
+  const unreachable = await fetchLadder(dead.url, { origin: "http://127.0.0.1" });
+  truthy("negotiate — an unreachable origin yields res null and names the failure (v0.3.18)", unreachable.res === null && unreachable.error.length > 0, JSON.stringify(unreachable));
+}
+
+// ------------------------------- v0.3.18: lib/chrome — one flag set, one candidate list; lib/cdp — a dead port fails loudly
+{
+  const { headlessArgs, CHROME_CANDIDATES } = await import(path.join(SKILL, "scripts/lib/chrome.mjs"));
+  const args = headlessArgs({ port: 21012, width: 100, height: 50, sentinelUrl: "about:blank" });
+  truthy("chrome — headlessArgs carries the debug port and window size, sentinel URL last (v0.3.18)",
+    args.includes("--remote-debugging-port=21012") && args.includes("--window-size=100,50") && args[args.length - 1] === "about:blank", args.join(" "));
+  truthy("chrome — CHROME_CANDIDATES is a non-empty list of paths (v0.3.18)",
+    Array.isArray(CHROME_CANDIDATES) && CHROME_CANDIDATES.length > 0 && CHROME_CANDIDATES.every((c) => typeof c === "string"));
+  const { connectCdp, cdpUrlFor } = await import(path.join(SKILL, "scripts/lib/cdp.mjs"));
+  const open = await connectCdp("ws://127.0.0.1:1/").then(() => "", (e) => e.message);
+  truthy("cdp — connectCdp against a closed port rejects instead of hanging (v0.3.18)", /CDP websocket failed to open/.test(open), open);
+  const reach = await cdpUrlFor(1, { attempts: 2, intervalMs: 10 }).then(() => "", (e) => e.message);
+  truthy("cdp — cdpUrlFor gives up and says so (v0.3.18)", /could not reach CDP/.test(reach), reach);
+}
+
 // ---------------------------------------------------------------- summary
 rmSync(TMP, { recursive: true, force: true });
 console.log(`\n${fail ? "FAIL" : "PASS"} — ${pass} passed, ${fail} failed.`);

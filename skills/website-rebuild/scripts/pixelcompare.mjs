@@ -73,11 +73,14 @@ import {
   resolvePort,
 } from './lib/ports.mjs';
 import {
+  findChrome,
+  headlessArgs,
   launchChrome,
   preflightChrome,
   shotCeilingAdvice,
   shotLikelyTooBig,
 } from './lib/chrome.mjs';
+import { connectCdp } from './lib/cdp.mjs';
 import { cli } from './lib/cli.mjs';
 
 cli({
@@ -219,10 +222,9 @@ const { port: CDP_PORT, label: CDP_LABEL } = resolvePort({
   envName: 'CDP_PORT',
 });
 
-const CHROME =
-  process.env.CHROME_BIN ||
-  process.env.CHROME_PATH ||
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+// CHROME_BIN stays as this script's own override; the candidate list and
+// CHROME_PATH live in lib/chrome.mjs (the old hardcoded macOS path ENOENT'd on Linux).
+const CHROME = process.env.CHROME_BIN || await findChrome();
 
 const waitFor = (fn, ms, label) => new Promise((resolve, reject) => {
   const t0 = Date.now();
@@ -291,10 +293,11 @@ const chrome = launchChrome({
   role: 'pixelcompare',
   port: CDP_PORT,
   tool: 'pixelcompare.mjs',
+  // The shared headless set (anti-throttling, sentinel) plus autoplay, so both
+  // sides' videos are at the same frame without a gesture.
   args: [
-    '--headless=new', `--remote-debugging-port=${CDP_PORT}`,
-    '--no-first-run', '--disable-background-timer-throttling', '--disable-renderer-backgrounding',
-    '--mute-audio', `--window-size=${W},${H}`, '--autoplay-policy=no-user-gesture-required', sentinel.url,
+    ...headlessArgs({ port: CDP_PORT, width: W, height: H, sentinelUrl: sentinel.url }),
+    '--autoplay-policy=no-user-gesture-required',
   ],
 });
 // Our own page or nothing: attaching to a browser this script did not start
@@ -303,62 +306,24 @@ const target = await assertOwnBrowser({
   port: CDP_PORT, sentinel, tool: 'pixelcompare.mjs', pid: chrome.pid,
 });
 
-const ws = new WebSocket(target.webSocketDebuggerUrl);
-await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = reject; });
-let msgId = 0;
-const pending = new Map();
-ws.onmessage = (event) => {
-  const msg = JSON.parse(event.data);
-  if (msg.id && pending.has(msg.id)) {
-    const p = pending.get(msg.id);
-    pending.delete(msg.id);
-    msg.error ? p.reject(new Error(msg.error.message)) : p.resolve(msg.result);
-  }
-};
-// THE loud-failure hook. An oversized screenshot does not return an error, it
-// kills the connection (close 1006); with no onclose handler and no timeout the
-// in-flight call never settles and the script hangs forever, printing nothing.
-// A silent timeout is the worst failure shape there is, so both are handled.
-let socketClose = null;
-ws.onclose = (ev) => {
-  socketClose = ev?.code ?? 1006;
-  const err = new Error(
-    `CDP socket closed (${socketClose}) with ${pending.size} call(s) in flight — ` +
-      `on a screenshot this means the frame exceeded Node's WebSocket payload ceiling`,
-  );
-  for (const p of pending.values()) p.reject(err);
-  pending.clear();
-};
-const cdp = (method, params = {}, timeoutMs = 120000) => new Promise((resolve, reject) => {
-  if (socketClose !== null) {
-    reject(new Error(`CDP socket already closed (${socketClose}); cannot send ${method}`));
-    return;
-  }
-  const id = ++msgId;
-  const timer = setTimeout(() => {
-    pending.delete(id);
-    reject(new Error(`CDP timeout after ${timeoutMs}ms: ${method}`));
-  }, timeoutMs);
-  pending.set(id, {
-    resolve: (v) => { clearTimeout(timer); resolve(v); },
-    reject: (e) => { clearTimeout(timer); reject(e); },
-  });
-  ws.send(JSON.stringify({ id, method, params }));
-});
+// THE loud-failure hook (an oversized screenshot kills the connection with
+// close 1006 instead of returning an error) and the per-call timeout both live
+// in lib/cdp.mjs; a silent hang is the worst failure shape there is.
+const cdp = await connectCdp(target.webSocketDebuggerUrl, { defaultTimeoutMs: 120000 });
 const evalJs = async (expression) => {
-  const res = await cdp('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+  const res = await cdp.send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
   if (res.exceptionDetails) throw new Error(res.exceptionDetails.exception?.description || 'eval failed');
   return res.result.value;
 };
 
-await cdp('Runtime.enable');
-await cdp('Page.enable');
-await cdp('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
-if (SEED) await cdp('Page.addScriptToEvaluateOnNewDocument', { source: SEED });
+await cdp.send('Runtime.enable');
+await cdp.send('Page.enable');
+await cdp.send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
+if (SEED) await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: SEED });
 if (FREEZE_CSS) {
   // Injected on new document so it applies before first paint, and re-applied
   // after settle (below) for anything mounted later.
-  await cdp('Page.addScriptToEvaluateOnNewDocument', {
+  await cdp.send('Page.addScriptToEvaluateOnNewDocument', {
     source: `(() => {
       const css = \`*, *::before, *::after {
         animation-play-state: paused !important;
@@ -386,7 +351,7 @@ function shotFatal(label, err) {
     w: W, h: H,
     format: FORMAT,
     quality: FORMAT === 'png' ? null : QUALITY,
-    closeCode: socketClose,
+    closeCode: cdp.closed,
   })) console.error(`[pixel] ${l}`);
   chrome.reap();
   process.exit(4);
@@ -394,7 +359,7 @@ function shotFatal(label, err) {
 
 let landA = null, landB = null;
 async function capture(url, label) {
-  await cdp('Page.navigate', { url });
+  await cdp.send('Page.navigate', { url });
   // ⛔ --ready is NOT a pre-pump wait. Checking it before the pump can only ever
   // express "ready without any driving", and on a frozen page the states worth
   // waiting for are exactly the ones the pump has to produce: a preloader that
@@ -512,7 +477,7 @@ async function capture(url, label) {
   }
   let data;
   try {
-    ({ data } = await cdp('Page.captureScreenshot', {
+    ({ data } = await cdp.send('Page.captureScreenshot', {
       format: FORMAT,
       ...(FORMAT === 'png' ? {} : { quality: QUALITY }),
     }));
@@ -551,7 +516,7 @@ const inlineFatal = (step, err) => {
   console.error(`[pixel]   it inlines BOTH frames into one CDP message (${INLINE_B64.toLocaleString()} base64 chars) and reads the result back.`);
   for (const l of shotCeilingAdvice({
     w: W, h: H, format: FORMAT, quality: FORMAT === 'png' ? null : QUALITY,
-    sizeB64: INLINE_B64, closeCode: socketClose,
+    sizeB64: INLINE_B64, closeCode: cdp.closed,
   })) console.error(`[pixel] ${l}`);
   chrome.reap();
   process.exit(4);
@@ -700,7 +665,7 @@ metrics[NAME] = metric;
 writeFileSync(join(OUT, 'metric.json'), JSON.stringify({ kind: KIND, ...metrics }, null, 2));
 console.log('[pixel] wrote', OUT);
 
-ws.close();
+cdp.close();
 // Reap the whole process group and only then delete the profile — a live Chrome
 // keeps writing into that directory, so removing it first throws ENOTEMPTY and a
 // passing comparison exits non-zero on a failure that says nothing about the

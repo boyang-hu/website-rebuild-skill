@@ -43,6 +43,7 @@
  */
 import { mkdir, readFile, writeFile, stat } from 'node:fs/promises';
 import { dirname, join, relative, extname } from 'node:path';
+import { BROWSER_UA } from './lib/negotiate.mjs';
 import { cli } from './lib/cli.mjs';
 
 cli({
@@ -55,9 +56,8 @@ cli({
 // CONFIG — per-project constants; site specifics come from the CLI instead.
 // ---------------------------------------------------------------------------
 
-// Desktop UA for all requests; some media CDNs vary or block on UA.
-const UA =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
+// Desktop UA for all requests (some media CDNs vary or block on UA): the one
+// string in lib/negotiate.mjs, same as the crawler's.
 
 // How deep to follow playlist -> playlist references. A normal ladder is 2
 // levels (master -> variants); the guard only exists to stop pathological or
@@ -126,7 +126,7 @@ async function exists(p) {
 async function get(url) {
   const res = await fetch(url, {
     // Media CDNs commonly 403 without a same-origin Referer.
-    headers: { 'user-agent': UA, accept: '*/*', referer: REFERER },
+    headers: { 'user-agent': BROWSER_UA, accept: '*/*', referer: REFERER },
     redirect: 'follow',
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);

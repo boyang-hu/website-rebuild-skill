@@ -42,8 +42,10 @@
  *        [--limit N] [--seeds urls.txt]
  */
 import { mkdir, writeFile, readFile } from "node:fs/promises";
-import { createHash } from "node:crypto";
 import path from "node:path";
+import { sha256 } from "./lib/hash.mjs";
+// Same three ledgers as mirror-site.mjs, written by the same code (lib/ledger.mjs).
+import { readManifest, writeManifest, writeInventory, writeRedirects } from "./lib/ledger.mjs";
 import { localRelPath, canonicalUrl } from "./lib/urlpath.mjs";
 import { createRefExtractor, isTextRefSource } from "./lib/extract-refs.mjs";
 import { cli } from "./lib/cli.mjs";
@@ -70,7 +72,6 @@ const INCLUDE_3XX = args.includes("--include-3xx");
 const LIMIT = Number(flag("limit", "0")); // 0 = no limit; for dry recon runs
 const SEEDS_FILE = flag("seeds", null);
 
-const sha256 = (buf) => createHash("sha256").update(buf).digest("hex");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const tsToMs = (ts) => Date.parse(`${ts.slice(0, 4)}-${ts.slice(4, 6)}-${ts.slice(6, 8)}T${ts.slice(8, 10) || "00"}:${ts.slice(10, 12) || "00"}:${ts.slice(12, 14) || "00"}Z`);
 
@@ -92,8 +93,9 @@ async function politeFetch(url, { tries = 5 } = {}) {
 
 // Carry over an existing ledger (same promise as mirror-site.mjs: a gap-fill
 // that forgets what it is being added to is not the same ledger).
-let carried = {};
-try { carried = JSON.parse(await readFile(path.join(OUT, "mirror-manifest.json"), "utf8")).files || {}; } catch {}
+// (lib/ledger.mjs: absent -> null; a manifest that exists but is not one throws
+// rather than being silently replaced.)
+const carried = ((await readManifest(OUT)) || { files: {} }).files;
 let carriedProv = {};
 try { carriedProv = JSON.parse(await readFile(path.join(OUT, "wayback-provenance.json"), "utf8")); } catch {}
 
@@ -142,8 +144,8 @@ if (args.includes("--window-days")) { carriedProv.seedWindowDays = WINDOW_DAYS; 
     carriedProv.files = carriedProv.files || {}; carriedProv.files[u] = { timestamp: landedTs, digest: null, seeded: true };
     got++;
   }
-  await writeFile(path.join(OUT, "mirror-manifest.json"), JSON.stringify({ origin: ORIGIN, mirroredAt: new Date().toISOString(), waybackAnchor: anchor, waybackWindowDays: carriedProv.windowDays || WINDOW_DAYS, files: manifest2 }, null, 2));
-  await writeFile(path.join(OUT, "inventory.tsv"), ["SHA256", "BYTES", "PATH", "URL"].join("\t") + "\n" + Object.entries(manifest2).map(([u, m]) => [m.sha256, m.bytes, m.path, u].join("\t")).join("\n") + "\n");
+  await writeManifest(OUT, { origin: ORIGIN, waybackAnchor: anchor, waybackWindowDays: carriedProv.windowDays || WINDOW_DAYS, files: manifest2 });
+  await writeInventory(OUT, manifest2);
   await writeFile(path.join(OUT, "wayback-provenance.json"), JSON.stringify(carriedProv, null, 2));
   console.log(`Done (seeds): ${got}/${seeds.length} rescued from the archive; ${seeds.length - got} have no in-window capture (register as holes).`);
   process.exit(0);
@@ -266,14 +268,13 @@ console.log(`  fetched ${done}/${chosen.length}; ${failures.length} failure(s)`)
 
 // ---- 5. ledgers (same shape as mirror-site.mjs) ----------------------------
 await mkdir(OUT, { recursive: true });
-await writeFile(path.join(OUT, "mirror-manifest.json"), JSON.stringify({
-  origin: ORIGIN, mirroredAt: new Date().toISOString(),
-  waybackAnchor: ANCHOR, waybackWindowDays: WINDOW_DAYS,
-  files: Object.fromEntries(Object.entries(manifest).map(([u, m]) => [u, { path: m.path, bytes: m.bytes, sha256: m.sha256, type: m.type }])),
-}, null, 2));
-await writeFile(path.join(OUT, "inventory.tsv"),
-  ["SHA256", "BYTES", "PATH", "URL"].join("\t") + "\n" + Object.entries(manifest).map(([u, m]) => [m.sha256, m.bytes, m.path, u].join("\t")).join("\n") + "\n");
-await writeFile(path.join(OUT, "redirects.tsv"), "CODE\tFROM\tTO\n");
+// The manifest rows carry only the crawler's fields; capture provenance goes
+// to wayback-provenance.json below.
+const ledgerFiles = () => Object.fromEntries(Object.entries(manifest).map(([u, m]) => [u, { path: m.path, bytes: m.bytes, sha256: m.sha256, type: m.type }]));
+await writeManifest(OUT, { origin: ORIGIN, waybackAnchor: ANCHOR, waybackWindowDays: WINDOW_DAYS, files: ledgerFiles() });
+await writeInventory(OUT, manifest);
+// An archive rescue records no redirects: header only, so serve's reader finds the ledger it expects.
+await writeRedirects(OUT, []);
 await writeFile(path.join(OUT, "wayback-provenance.json"), JSON.stringify({
   anchor: ANCHOR, windowDays: WINDOW_DAYS, hosts: HOSTS,
   files: Object.fromEntries(Object.entries(manifest).map(([u, m]) => [u, m.wayback])),
@@ -379,13 +380,8 @@ for (const [holeUrl] of [...holeRefs]) {
 if (aliasFilled.size) {
   console.log(`  alias-filled ${aliasFilled.size} hole(s) from same-basename in-window captures`);
   // Re-write the ledgers with the filled entries included.
-  await writeFile(path.join(OUT, "mirror-manifest.json"), JSON.stringify({
-    origin: ORIGIN, mirroredAt: new Date().toISOString(),
-    waybackAnchor: ANCHOR, waybackWindowDays: WINDOW_DAYS,
-    files: Object.fromEntries(Object.entries(manifest).map(([u, m]) => [u, { path: m.path, bytes: m.bytes, sha256: m.sha256, type: m.type }])),
-  }, null, 2));
-  await writeFile(path.join(OUT, "inventory.tsv"),
-    ["SHA256", "BYTES", "PATH", "URL"].join("\t") + "\n" + Object.entries(manifest).map(([u, m]) => [m.sha256, m.bytes, m.path, u].join("\t")).join("\n") + "\n");
+  await writeManifest(OUT, { origin: ORIGIN, waybackAnchor: ANCHOR, waybackWindowDays: WINDOW_DAYS, files: ledgerFiles() });
+  await writeInventory(OUT, manifest);
   await writeFile(path.join(OUT, "wayback-provenance.json"), JSON.stringify({
     anchor: ANCHOR, windowDays: WINDOW_DAYS, hosts: HOSTS,
     files: Object.fromEntries(Object.entries(manifest).map(([u, m]) => [u, m.wayback])),

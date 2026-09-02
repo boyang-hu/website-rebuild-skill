@@ -535,3 +535,42 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   console.log(left.length ? `${left.length} survived SIGKILL: ${left.map((l) => l.pid).join(", ")}` : "all orphans reaped.");
   process.exit(left.length ? 1 : 0);
 }
+
+// ---- where Chrome is, once ------------------------------------------------------
+// probe, netcapture and sweep-routes each carried this list; pixelcompare had a
+// hardcoded macOS path and ENOENT'd on Linux. CHROME_PATH wins when set.
+export const CHROME_CANDIDATES = [
+  process.env.CHROME_PATH,
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "/Applications/Chromium.app/Contents/MacOS/Chromium",
+  "/usr/bin/google-chrome",
+  "/usr/bin/google-chrome-stable",
+  "/usr/bin/chromium",
+  "/usr/bin/chromium-browser",
+].filter(Boolean);
+
+/** First candidate that exists, or throws "Chrome not found. Set CHROME_PATH." */
+export async function findChrome() {
+  for (const c of CHROME_CANDIDATES) {
+    try { statSync(c); return c; } catch {}
+  }
+  throw new Error("Chrome not found. Set CHROME_PATH.");
+}
+
+/**
+ * The headless flag set every CDP script starts from. Tools add their own on top
+ * (viewport, autoplay, GL backend); these are the ones that must never differ
+ * between the two sides of a comparison — throttling and backgrounding flags
+ * change what a frame contains.
+ */
+export const headlessArgs = ({ port, width = 1280, height = 800, sentinelUrl }) => [
+  "--headless=new",
+  `--remote-debugging-port=${port}`,
+  "--no-first-run",
+  "--disable-background-timer-throttling",
+  "--disable-renderer-backgrounding",
+  "--disable-backgrounding-occluded-windows",
+  "--mute-audio",
+  `--window-size=${width},${height}`,
+  ...(sentinelUrl ? [sentinelUrl] : []),
+];

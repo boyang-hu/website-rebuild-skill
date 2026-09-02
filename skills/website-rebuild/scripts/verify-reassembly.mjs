@@ -20,9 +20,9 @@
  *   node scripts/verify-reassembly.mjs --dir src/readable [--against src/site]
  */
 import { readdir, readFile } from "node:fs/promises";
-import { createHash } from "node:crypto";
 import path from "node:path";
 import { cli } from "./lib/cli.mjs";
+import { sha256 } from "./lib/hash.mjs";
 
 cli({ known: ["dir", "against"], bools: [], file: import.meta.url });
 
@@ -32,7 +32,6 @@ const DIR = path.resolve(flag("dir", "src/readable"));
 const AGAINST = flag("against", null) ? path.resolve(flag("against", null)) : null;
 // Unknown flags are rejected by lib/cli.mjs (the one argv contract) before anything here runs.
 
-const sha = (s) => createHash("sha256").update(s).digest("hex");
 const manifests = [];
 const walk = async (d) => {
   for (const e of await readdir(d, { withFileTypes: true })) {
@@ -55,18 +54,18 @@ for (const mf of manifests) {
   for (const p of m.parts) {
     const t = await readFile(path.join(dir, p.file), "utf8").catch(() => null);
     if (t === null) { console.log(`  FAIL ${label}: ${p.file} is missing`); ok = false; bad++; break; }
-    if (sha(t) !== p.sha256) { console.log(`  FAIL ${label}: ${p.file} does not hash to its manifest entry — the part was edited; presentation edits are renames/moves, never content`); ok = false; bad++; break; }
+    if (sha256(t) !== p.sha256) { console.log(`  FAIL ${label}: ${p.file} does not hash to its manifest entry — the part was edited; presentation edits are renames/moves, never content`); ok = false; bad++; break; }
     texts.push(t);
   }
   if (!ok) continue;
   partsTotal += m.parts.length;
   const joined = texts.join("");
-  if (sha(joined) !== m.chunkSha256) { console.log(`  FAIL ${label}: parts verify individually but do not join to the pinned chunk (order or gaps)`); bad++; continue; }
+  if (sha256(joined) !== m.chunkSha256) { console.log(`  FAIL ${label}: parts verify individually but do not join to the pinned chunk (order or gaps)`); bad++; continue; }
   if (AGAINST) {
     const orig = await readFile(path.join(AGAINST, path.basename(m.chunk)), "utf8")
       .catch(async () => await readFile(path.join(AGAINST, m.chunk), "utf8").catch(() => null));
     if (orig === null) { console.log(`  FAIL ${label}: --against given but original ${m.chunk} not found there`); bad++; continue; }
-    if (sha(orig) !== m.chunkSha256) { console.log(`  FAIL ${label}: pinned hash no longer matches the LIVE original — the chunk moved under the decomposition; re-slice`); bad++; continue; }
+    if (sha256(orig) !== m.chunkSha256) { console.log(`  FAIL ${label}: pinned hash no longer matches the LIVE original — the chunk moved under the decomposition; re-slice`); bad++; continue; }
   }
   console.log(`  ok   ${label}: ${m.parts.length} part(s) -> ${m.chunkSha256.slice(0, 12)}…${AGAINST ? " (live original confirmed)" : ""}`);
 }

@@ -1,5 +1,40 @@
 # 更新记录
 
+## v0.3.18 — lib 收拢：一份 CDP 客户端、一份 sha256、一份账本读写、一份请求头梯子、一份 findChrome
+
+评审清单最后一项工具级债。`verification-gates.md` §2.1.1 说"两处以上要算出同一个答案的逻辑必须单一实现"，
+而 scripts/ 自己有四份 CDP 客户端、三份 findChrome、五份 UA（两种 Chrome 版本）、四份请求头梯子、19 个文件 23 处
+sha256、四个账本写入方六个读取方各带一份 TSV 格式。本版把它们各收成一份；scripts + tools 净减 219 行，行为按
+"字节一致"验证（fixture 三本账 before/after 逐字节相同，除 `mirroredAt`）。
+
+**四个新 lib + 两个扩展**：
+- `lib/hash.mjs`：`sha256` / `sha256Short` / `sha256File`（流式）。19 文件 23 处 + 三份流式实现 → 1。
+- `lib/cdp.mjs`：`connectCdp(url)` → `send(m, p, {timeoutMs, sessionId})` / `on(method | "*")` / `evaluate` / `close`；
+  `cdpUrlFor(port)` 轮询 `/json/version`。probe / pixelcompare / netcapture / sweep-routes 四份私有客户端 + ports.mjs
+  迷你客户端 → 1。此前四份里两份没有 onclose：截图超过 WebSocket 载荷硬顶时静默挂死；现在每次调用有界、断连时在途
+  调用全部响亮拒绝。**真 Chrome 冒烟**（本机，不进 CI）：probe `--shot --walk 3 --no-external` CLEAN、sweep 2/2、
+  pixelcompare 跨侧 `meanAbsDiff 0` / `--self` self-band、`chrome.mjs --all` 零残留。
+- `lib/ledger.mjs`：manifest / inventory.tsv / redirects.tsv 的格式、排序、去重、追加、`writeLedgers` 一次写三本；
+  `LEDGER_FILES` + `isBookkeeping` 成为"哪些文件不是镜像"的唯一清单（verify-mirror 与 make-standalone 各存一份且已
+  漂移：后者缺 closure-gap.txt 与 wayback-*；点文件判定统一为任意层级）。⛔ `readManifest` 对**损坏**的账本抛错而不是
+  当空账本——mirror-site 此前会在损坏账本上新建一份并在结束时覆盖它。wayback-mirror 的 inventory 此前按插入序、
+  两个 worker 下不确定且对 carry-over 错误行会写出 `undefined` 单元格，现在与其它写入方同一形状。
+- `lib/negotiate.mjs` 扩展：`BROWSER_UA` / `BARE_UA`（五份 UA、Chrome/126 与 /128 混用 → 1）；`fetchProfiles` /
+  `fetchLadder`（std→bare 梯子：2xx 赢；3xx 原样交回调用方登记；std 上 401/403 才降到 bare；其它状态停）。mirror-site
+  与 netcapture `--fetch` 直接用梯子；reconcile-gaps 的规则不同（任何非 2xx 都降 bare、3xx 即停）——保留它的循环，
+  只从 `fetchProfiles` 取梯级，不改它试哪一级。
+- `lib/chrome.mjs` 扩展：`findChrome` / `CHROME_CANDIDATES`（三份候选表 + pixelcompare 写死的 macOS 路径 → Linux 上
+  ENOENT → 1；`CHROME_PATH` 优先）；`headlessArgs()` 公共无头参数（节流/后台化相关旗标两侧不许不同）。
+
+**可察觉的行为变化**（都是收拢的必然）：mirror-site 在 std 级抛传输异常时现在降到 bare 再试（此前直接抛）；
+`readManifest` 对缺 `files` 的文档抛错（此前 mirror-site / verify-mirror / serve 容忍）；fingerprint UA `126.0.0.0` → `126.0`、
+reconcile-gaps UA 128 → 126；pixelcompare 多了 `--disable-backgrounding-occluded-windows`（只防节流）；
+netcapture `--fetch` 显式 `redirect: "follow"`（此前也跟随，只是没写出来——镜像红线是爬虫的 `manual`，`--fetch` 补漏一直是跟随的）。
+
+**selftest 114 → 140**：hash 往返；ledger 往返（追加只加未知路径、损坏账本必抛、`redirectsText([])` 逐字节 `CODE\tFROM\tTO\n`）；
+negotiate 合同 + 回环服务器上的 403→bare / 404 不重试 / 302 原样 / 端口不通；chrome `headlessArgs`；cdp 两个负例。
+lib/ledger 与 lib/cdp 的正例还由 mirror-site 回环爬取、serve 回落链、真 Chrome 冒烟覆盖。
+
 ## v0.3.17 — 一份 argv 合同：`--help` / `--version` / 未知旗标 FATAL 全覆盖，退出码表，tools 依赖钉版本，历史 tag
 
 上一版评审里"只写在文档里的规矩"又一条落成门：**"未知参数必须 FATAL"** 从 v0.1.x 就写在 verification-gates 里，实现它的脚本 57 个里只有 9 个。

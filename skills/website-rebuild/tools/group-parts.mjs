@@ -23,9 +23,9 @@
  *   node tools/group-parts.mjs --all src-readable [--min-run 2]
  */
 import { readFileSync, writeFileSync, mkdirSync, renameSync, readdirSync, existsSync } from "node:fs";
-import { createHash } from "node:crypto";
 import path from "node:path";
 import { cli } from "../scripts/lib/cli.mjs";
+import { sha256 } from "../scripts/lib/hash.mjs";
 
 // Unknown flags are fatal — the check lives in lib/cli.mjs; this is its known set.
 cli({ known: ["dir", "all", "min-run"], file: import.meta.url });
@@ -47,7 +47,6 @@ if (flag("all", null)) {
   process.exit(2);
 }
 
-const sha = (s) => createHash("sha256").update(s).digest("hex");
 // Leading identifier token of a part name: the first CamelCase word, or the
 // first segment before a separator (`CameraSplineSystem` -> camera).
 const tokensOf = (name) => {
@@ -93,7 +92,7 @@ for (const dir of targets) {
     return { p, from: p.file, to: g ? path.join(g, p.file) : p.file };
   });
   const joined = plan.map(({ p }) => readFileSync(path.join(dir, p.file), "utf8")).join("");
-  if (sha(joined) !== m.chunkSha256) {
+  if (sha256(joined) !== m.chunkSha256) {
     console.error(`FATAL ${label} — parts on disk no longer join to the pinned chunk; refusing to group a broken tree.`);
     process.exit(1);
   }
@@ -110,7 +109,7 @@ for (const dir of targets) {
   writeFileSync(mfPath, JSON.stringify(m, null, 1));
   // Post-move proof from the NEW paths.
   const joined2 = m.parts.map((p) => readFileSync(path.join(dir, p.file), "utf8")).join("");
-  if (sha(joined2) !== m.chunkSha256) {
+  if (sha256(joined2) !== m.chunkSha256) {
     console.error(`FATAL ${label} — post-move reassembly broke. This should be impossible; inspect ${mfPath}.`);
     process.exit(1);
   }

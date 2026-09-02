@@ -3,7 +3,7 @@ name: website-rebuild
 description: 1:1 rebuild of award-winning creative websites (WebGL / scroll-animation / portfolio sites). Evidence-driven pipeline - mirror-first forensics, line-number-traceable reverse engineering of minified bundles, verbatim porting, quantitative verification gates. Use when user asks to "复刻网站", "重建网站", "1:1 rebuild", "clone this site", or provides a URL of a creative/award site to reproduce.
 compatibility: Requires Node 22+ (bundled scripts use built-in WebSocket to talk to CDP), npx, and a local Chrome/Chromium for headless comparison. POSIX shell optional - the Step 0 probe protocol has a zero-dependency Node equivalent (scripts/fingerprint.mjs) for shells without curl/cmp/tr/perl (e.g. Windows PowerShell); everything after Step 0 (headless Chrome process groups, npx spawns, ps) is POSIX-only (macOS / Linux / WSL). Agent-agnostic - works in any Agent Skills-compatible runtime.
 metadata:
-  version: "0.3.17"
+  version: "0.3.18"
 ---
 
 # Website Rebuild（获奖创意站 1:1 复刻）
@@ -212,6 +212,10 @@ Step 0 → M(n) 全程不装任何东西；**复刻项目要到 M(n+1) 才获得
 | `scripts/lib/chrome.mjs` | 无头浏览器生命周期：进程组收割 + 孤儿自检 + CDP 载荷硬顶常量 | lib |
 | `scripts/lib/png.mjs` | 零依赖 PNG 编解码 | lib |
 | `scripts/lib/tokens.mjs` | token 流读法（acorn 钉死 spawn）+ 首分歧定位 | lib |
+| `scripts/lib/cli.mjs` | 唯一的 argv 合同：`--help` / `--version` / 未知旗标 FATAL，`EXIT` 退出码表 | lib |
+| `scripts/lib/hash.mjs` | 唯一的 sha256 拼写（字符串 / Buffer / 流式文件） | lib |
+| `scripts/lib/ledger.mjs` | 镜像三本账（manifest / inventory / redirects）的唯一读写实现 + `LEDGER_FILES` | lib |
+| `scripts/lib/cdp.mjs` | 唯一的 CDP 客户端：逐调用超时、断连响亮失败、事件订阅 | lib |
 | `tools/name-modules.mjs` | 模块提名：按 0–4 级证据给内容哈希 id 起名并记依据，无证据保留 id | M(n+1)（模块化打包产物） |
 | `tools/accept-names.mjs` | 命名的接受步：默认只接受 tier-1（打包器声明的导出名），其余保留 id | M(n+1) |
 | `tools/modules-to-src.mjs` | 按接受后的命名逐模块生成 `src/modules/`（作用域安全的重命名器） | M(n+1)（模块化打包产物） |

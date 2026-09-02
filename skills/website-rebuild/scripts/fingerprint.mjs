@@ -31,15 +31,13 @@
 // 协议内容零发明——每一步的判据与坑都以该文档为准。
 
 import { mkdirSync, writeFileSync } from "node:fs";
-import { createHash } from "node:crypto";
 import path from "node:path";
-import { sanityEvidence } from "./lib/negotiate.mjs";
+import { sha256 } from "./lib/hash.mjs";
+// UA 钉死为协议里的同一字符串——lib/negotiate.mjs 的 BROWSER_UA（抓取侧同款）。
+import { sanityEvidence, BROWSER_UA as UA } from "./lib/negotiate.mjs";
 import { cli } from "./lib/cli.mjs";
 
 cli({ known: ["target", "bundle", "out", "gap-ms"], file: import.meta.url });
-
-const UA =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
 const args = process.argv.slice(2);
 const flag = (name, dflt) => {
@@ -63,7 +61,6 @@ const BUNDLES = (flag("bundle", "") || "")
 mkdirSync(OUT, { recursive: true });
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const sha256 = (buf) => createHash("sha256").update(buf).digest("hex");
 // 出现次数语义（= grep -o | wc -l）。§2 计数硬约束：绝不数"匹配行数"。
 const count = (s, re) => (s.match(re) || []).length;
 const uniq = (arr) => [...new Set(arr)];

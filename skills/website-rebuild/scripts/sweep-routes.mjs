@@ -34,10 +34,10 @@
  *        [--routes /,/about] [--allow-errors <re>] [--allow-failures <re>]
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { access } from "node:fs/promises";
 import path from "node:path";
 import { resolvePort, chromeSentinel, assertOwnBrowser } from "./lib/ports.mjs";
-import { launchChrome, preflightChrome } from "./lib/chrome.mjs";
+import { findChrome, headlessArgs, launchChrome, preflightChrome } from "./lib/chrome.mjs";
+import { connectCdp } from "./lib/cdp.mjs";
 import { cli } from "./lib/cli.mjs";
 
 // Unknown flags are fatal — the check lives in lib/cli.mjs (probe.mjs's header
@@ -47,23 +47,6 @@ cli({
     "allow-errors", "allow-failures", "out", "cdp-port", "width", "height"],
   file: import.meta.url,
 });
-
-// Chrome discovery: first existing candidate wins; override with CHROME_PATH.
-const CHROME_CANDIDATES = [
-  process.env.CHROME_PATH,
-  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-  "/Applications/Chromium.app/Contents/MacOS/Chromium",
-  "/usr/bin/google-chrome",
-  "/usr/bin/chromium",
-  "/usr/bin/chromium-browser",
-].filter(Boolean);
-async function findChrome() {
-  for (const c of CHROME_CANDIDATES) {
-    try { await access(c); return c; } catch {}
-  }
-  console.error("FATAL: Chrome not found. Set CHROME_PATH.");
-  process.exit(3);
-}
 
 const args = process.argv.slice(2);
 const flag = (n, d) => { const i = args.indexOf("--" + n); return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : d; };
@@ -117,25 +100,22 @@ console.log(`=== sweep-routes  ${routes.length} route(s) on ${BASE} ===`);
 console.log(`[sweep] cdp port ${PORT_LABEL}; one browser for the whole sweep`);
 
 await preflightChrome({ role: "sweep", port, tool: "sweep-routes.mjs" });
-const CHROME = await findChrome();
+// Chrome discovery (candidate list, CHROME_PATH override) lives in lib/chrome.mjs.
+const CHROME = await findChrome().catch(() => {
+  console.error("FATAL: Chrome not found. Set CHROME_PATH.");
+  process.exit(3);
+});
 const sentinel = chromeSentinel();
 const chrome = launchChrome({
   bin: CHROME,
   role: "sweep",
   port,
   tool: "sweep-routes.mjs",
+  // The shared headless set (anti-throttling, sentinel) plus this gate's own two.
   args: [
-    "--headless=new",
-    `--remote-debugging-port=${port}`,
-    "--no-first-run",
+    ...headlessArgs({ port, width: W, height: H, sentinelUrl: sentinel.url }),
     "--disable-gpu-sandbox",
     "--hide-scrollbars",
-    "--mute-audio",
-    "--disable-background-timer-throttling",
-    "--disable-renderer-backgrounding",
-    "--disable-backgrounding-occluded-windows",
-    `--window-size=${W},${H}`,
-    sentinel.url,
   ],
 });
 const cleanup = (code) => {
@@ -146,27 +126,8 @@ const cleanup = (code) => {
 };
 
 const target = await assertOwnBrowser({ port, sentinel, tool: "sweep-routes.mjs", pid: chrome.pid });
-const ws = new WebSocket(target.webSocketDebuggerUrl);
-let msgId = 0;
-const pending = new Map();
-let socketClose = null;
-ws.onclose = (ev) => {
-  socketClose = ev?.code ?? 1006;
-  const err = new Error(`CDP socket closed (${socketClose}) with ${pending.size} call(s) in flight`);
-  for (const p of pending.values()) p.reject(err);
-  pending.clear();
-};
-const send = (method, params = {}, timeoutMs = 60000) =>
-  new Promise((resolve, reject) => {
-    if (socketClose !== null) { reject(new Error(`CDP socket already closed (${socketClose}); cannot send ${method}`)); return; }
-    const id = ++msgId;
-    const timer = setTimeout(() => { pending.delete(id); reject(new Error(`CDP timeout after ${timeoutMs}ms: ${method}`)); }, timeoutMs);
-    pending.set(id, {
-      resolve: (v) => { clearTimeout(timer); resolve(v); },
-      reject: (e) => { clearTimeout(timer); reject(e); },
-    });
-    ws.send(JSON.stringify({ id, method, params }));
-  });
+// Bounded calls + loud close on a dead socket: lib/cdp.mjs.
+const cdp = await connectCdp(target.webSocketDebuggerUrl, { defaultTimeoutMs: 60000 });
 
 // Per-route collectors, reset before each navigation. Events between routes
 // (trailing beacons from the previous document) land on whichever route is
@@ -178,14 +139,7 @@ const external = new Map(); // host -> count (disallowed)
 const allowedExternal = new Map(); // host -> count (registered EMBED etc.)
 let loadFired = null;
 
-ws.onmessage = (ev) => {
-  const m = JSON.parse(ev.data);
-  if (m.id && pending.has(m.id)) {
-    const { resolve, reject } = pending.get(m.id);
-    pending.delete(m.id);
-    m.error ? reject(new Error(m.error.message)) : resolve(m.result);
-    return;
-  }
+cdp.on("*", (m) => {
   switch (m.method) {
     case "Runtime.exceptionThrown":
       pageErrors.push(m.params.exceptionDetails.exception?.description ?? m.params.exceptionDetails.text);
@@ -243,15 +197,14 @@ ws.onmessage = (ev) => {
       if (loadFired) loadFired();
       break;
   }
-};
+});
 
-await new Promise((r) => (ws.onopen = r));
-await send("Network.enable");
-await send("Inspector.enable");
-await send("Log.enable");
-await send("Runtime.enable");
-await send("Page.enable");
-await send("Emulation.setDeviceMetricsOverride", { width: W, height: H, deviceScaleFactor: 1, mobile: false });
+await cdp.send("Network.enable");
+await cdp.send("Inspector.enable");
+await cdp.send("Log.enable");
+await cdp.send("Runtime.enable");
+await cdp.send("Page.enable");
+await cdp.send("Emulation.setDeviceMetricsOverride", { width: W, height: H, deviceScaleFactor: 1, mobile: false });
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const rows = [];
@@ -263,19 +216,19 @@ for (const route of routes) {
   requests.clear(); external.clear(); allowedExternal.clear();
 
   const loaded = new Promise((r) => { loadFired = r; });
-  await send("Page.navigate", { url: BASE + route });
+  await cdp.send("Page.navigate", { url: BASE + route });
   await Promise.race([loaded, sleep(30000)]);
   await sleep(WAIT);
 
   let interacted = "";
   if (INTERACT) {
-    const r = await send("Runtime.evaluate", { expression: INTERACT, awaitPromise: true, returnByValue: true }).catch((e) => ({ result: { value: `INTERACT ERROR: ${e.message}` } }));
+    const r = await cdp.send("Runtime.evaluate", { expression: INTERACT, awaitPromise: true, returnByValue: true }).catch((e) => ({ result: { value: `INTERACT ERROR: ${e.message}` } }));
     interacted = String(r?.result?.value ?? "");
     await sleep(INTERACT_WAIT);
   }
   let evalResult = "";
   if (EVAL) {
-    const r = await send("Runtime.evaluate", { expression: EVAL, awaitPromise: true, returnByValue: true }).catch((e) => ({ result: { value: `EVAL ERROR: ${e.message}` } }));
+    const r = await cdp.send("Runtime.evaluate", { expression: EVAL, awaitPromise: true, returnByValue: true }).catch((e) => ({ result: { value: `EVAL ERROR: ${e.message}` } }));
     evalResult = String(r?.result?.value ?? "");
   }
 

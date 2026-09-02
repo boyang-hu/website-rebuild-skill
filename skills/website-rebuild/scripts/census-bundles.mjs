@@ -21,9 +21,9 @@
  *   node scripts/census-bundles.mjs --dir mirror/_nuxt --out docs/bundle-census.json
  */
 import { readdir, readFile, writeFile, mkdir } from "node:fs/promises";
-import { createHash } from "node:crypto";
 import path from "node:path";
 import { cli } from "./lib/cli.mjs";
+import { sha256 } from "./lib/hash.mjs";
 
 cli({ known: ["dir", "out", "md"], bools: [], file: import.meta.url });
 
@@ -60,7 +60,7 @@ for (const name of names) {
   if (/(?:^|[\n;}])export default /.test(src)) exportNames.push("default");
   chunks.push({
     file: name,
-    sha256: createHash("sha256").update(buf).digest("hex"),
+    sha256: sha256(buf),
     bytes: buf.length,
     lines: src.split("\n").length,
     imports,

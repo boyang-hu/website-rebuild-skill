@@ -21,9 +21,9 @@
  *                                [--format esm|classic --entry <id>] [--packer auto|webpack|turbopack]
  */
 import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { createHash } from "node:crypto";
 import path from "node:path";
 import { cli } from "./lib/cli.mjs";
+import { sha256 } from "./lib/hash.mjs";
 
 cli({ known: ["closure", "map", "in", "out", "format", "entry", "packer"], bools: ["check"], file: import.meta.url });
 
@@ -73,7 +73,7 @@ const byId = new Map(map.modules.map((m) => [m.id, m]));
 // ⛔ The map is an input, and an input can go stale. Re-derive the source's
 // sha256 and refuse if it moved — a slice table pointing into a file that has
 // changed is the F26 failure (a recorded green whose input was regenerated).
-const srcHash = createHash("sha256").update(src).digest("hex");
+const srcHash = sha256(src);
 
 const wanted = closure.modules.filter((id) => byId.has(id));
 const missing = closure.modules.filter((id) => !byId.has(id));

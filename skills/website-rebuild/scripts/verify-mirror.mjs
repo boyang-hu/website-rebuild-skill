@@ -90,10 +90,14 @@
  * New in this toolchain (objectandarchive-rebuild M0 wrote the lessons; the
  * TODO list has carried a site-coupled careers-kimi ancestor since the start).
  */
-import { createReadStream } from "node:fs";
 import { open, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { createHash } from "node:crypto";
+import { sha256, sha256File } from "./lib/hash.mjs";
+// The ledger's file names, row parser and "is this bookkeeping, not mirror"
+// test come from the module the WRITERS use — a gate that carries its own copy
+// audits a format it may have drifted from.
+import { readManifest, parseInventory, isBookkeeping, MANIFEST_FILE, INVENTORY_FILE } from "./lib/ledger.mjs";
+import { BROWSER_UA } from "./lib/negotiate.mjs";
 import { localRelPath, loadPolicy, describePolicy, canonicalUrl } from "./lib/urlpath.mjs";
 // Both halves come from the same module on purpose: the SHAPES a reference can
 // take, and WHICH FILES get scanned for them. A gate that carries its own copy
@@ -122,35 +126,15 @@ const RESAMPLE_SEED = Number(flag("resample-seed", 1));
 const RESAMPLE_HTML = args.includes("--resample-html");
 const ALLOW_FILE = flag("allow-missing", null);
 const INTERSTITIAL_FILE = flag("interstitial-extra", null);
-const UA =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
 
 // Files that are the ledger, not the mirror; plus the two TOP-LEVEL toolchain
-// output dirs and dotfiles. The prefixes are matched only at the root on
-// purpose: plenty of origins serve real assets out of `_next/`, `_nuxt/`,
-// `_astro/`, and excluding those would quietly shrink both the coverage check
-// and the set of files the closure gate scans.
-const LEDGER_FILES = new Set([
-  "mirror-manifest.json",
-  // The closure gate WRITES closure-gap.txt into the mirror so --seeds can reach
-  // it - which made the coverage check report the gate own artefact as an orphan
-  // one run later. A gate must not fail on what it itself wrote.
-  "closure-gap.txt",
-  "inventory.tsv",
-  "redirects.tsv",
-  "netcapture.tsv",
-  "external.txt",
-  "urlpath-policy.json",
-  // Archival rescues (wayback-mirror.mjs) add two ledger companions: the
-  // permanent-holes register and the per-file capture provenance.
-  "wayback-holes.txt",
-  "wayback-provenance.json",
-]);
-const TOOL_DIRS = ["_pretty/", "_scripts/"];
-const isBookkeeping = (rel) =>
-  LEDGER_FILES.has(rel) ||
-  TOOL_DIRS.some((d) => rel.startsWith(d)) ||
-  rel.split("/").some((seg) => seg.startsWith("."));
+// output dirs and dotfiles — `isBookkeeping` in lib/ledger.mjs, next to the
+// writers (the closure gate's own closure-gap.txt and wayback-mirror's two
+// companions are on that list for the reasons recorded there). The dir
+// prefixes are matched only at the root on purpose: plenty of origins serve
+// real assets out of `_next/`, `_nuxt/`, `_astro/`, and excluding those would
+// quietly shrink both the coverage check and the set of files the closure
+// gate scans.
 
 // "Which files are worth opening" is NOT defined here — it is defined once, in
 // lib/extract-refs.mjs, next to the shapes, and the crawler uses that same
@@ -193,9 +177,11 @@ const list = (rows, render) => {
 
 let manifest;
 try {
-  manifest = JSON.parse(await readFile(path.join(ROOT, "mirror-manifest.json"), "utf8"));
+  // null = no file (lib/ledger.mjs); a file that is not a manifest throws.
+  manifest = await readManifest(ROOT);
+  if (!manifest) throw new Error("no such file");
 } catch (e) {
-  console.error(`FATAL: cannot read ${path.join(ROOT, "mirror-manifest.json")}: ${e.message}`);
+  console.error(`FATAL: cannot read ${path.join(ROOT, MANIFEST_FILE)}: ${e.message}`);
   console.error("       verify-mirror.mjs audits a mirror produced by mirror-site.mjs.");
   process.exit(2);
 }
@@ -299,16 +285,8 @@ if (!SKIP.has("mapping")) {
 }
 
 // --- gate 2: ledger consistency --------------------------------------------
-
-function sha256File(p) {
-  return new Promise((resolve, reject) => {
-    const h = createHash("sha256");
-    const s = createReadStream(p);
-    s.on("error", reject);
-    s.on("data", (c) => h.update(c));
-    s.on("end", () => resolve(h.digest("hex")));
-  });
-}
+// (sha256File — streamed, so a movie-sized asset is not read into memory — is
+// lib/hash.mjs, the same spelling the writers used to fill the ledger.)
 
 async function* walk(dir) {
   let ents;
@@ -391,12 +369,13 @@ if (!SKIP.has("ledger")) {
   // inventory.tsv is the human-readable half of the same ledger; if the two
   // disagree, every later citation of "the inventory" is citing a fiction.
   try {
-    const tsv = await readFile(path.join(ROOT, "inventory.tsv"), "utf8");
-    const rows = tsv.trim().split("\n").slice(1).filter(Boolean);
+    // Read here rather than readInventory(): an ABSENT file is its own failure
+    // below, and the lib reads absent as empty.
+    const tsv = await readFile(path.join(ROOT, INVENTORY_FILE), "utf8");
+    const rows = parseInventory(tsv);
     const invBad = [];
     const seenUrls = new Set();
-    for (const line of rows) {
-      const [sha, bytes, p, url] = line.split("\t");
+    for (const { sha256: sha, bytes, path: p, url } of rows) {
       seenUrls.add(url);
       const f = FILES[url];
       if (!f || !f.path) invBad.push({ url, why: "not in mirror-manifest.json" });
@@ -977,14 +956,14 @@ if (!SKIP.has("resample") && RESAMPLE > 0) {
   for (const [url, f] of picked) {
     try {
       const res = await fetch(url, {
-        headers: { "user-agent": UA, accept: "*/*", referer: ORIGIN + "/" },
+        headers: { "user-agent": BROWSER_UA, accept: "*/*", referer: ORIGIN + "/" },
         redirect: "manual",
       });
       if (res.status >= 300) {
         errored.push({ url, why: `HTTP ${res.status}` });
       } else {
         const buf = Buffer.from(await res.arrayBuffer());
-        const sha = createHash("sha256").update(buf).digest("hex");
+        const sha = sha256(buf);
         if (sha !== f.sha256) differ.push({ url, ledger: f.sha256, live: sha, bytes: [f.bytes, buf.length] });
       }
     } catch (e) {

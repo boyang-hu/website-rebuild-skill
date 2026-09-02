@@ -55,10 +55,10 @@
  * per-symbol provenance notes and the `--balance-check` boundary test are new.
  */
 import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import path from "node:path";
 import { cli } from "./lib/cli.mjs";
+import { sha256 } from "./lib/hash.mjs";
 
 cli({ known: ["slices", "source", "out", "sha256"], bools: ["check", "balance-check"], file: import.meta.url });
 
@@ -156,7 +156,7 @@ const IMPORTS = (cfg.imports ?? []).map((g, i) => {
 const raw = await readFile(SRC, "utf8").catch((e) =>
   die(2, `FATAL: cannot read source ${SRC}\n       ${e.message}`),
 );
-const sha = createHash("sha256").update(raw).digest("hex");
+const sha = sha256(raw);
 if (sha !== PINNED_SHA256) {
   die(
     3,

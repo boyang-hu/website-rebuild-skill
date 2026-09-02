@@ -61,16 +61,21 @@
 //      knows the assets/<host>/ layout).
 
 import fs from "node:fs/promises";
-import { createHash } from "node:crypto";
 import path from "node:path";
 import { assertOwnBrowser, chromeSentinel, resolvePort } from "./lib/ports.mjs";
-import { launchChrome, preflightChrome } from "./lib/chrome.mjs";
+import { findChrome, launchChrome, preflightChrome } from "./lib/chrome.mjs";
+// The one CDP client (bounded calls, loud close) — lib/cdp.mjs.
+import { connectCdp, cdpUrlFor } from "./lib/cdp.mjs";
 // Shared, query-aware url -> local path. This pass keys its records by url+search
 // but used to resolve disk by pathname alone, so on a query-parameterised image
 // CDN every responsive variant after the first reported HAVE against a file that
 // is a DIFFERENT image — a false GAP=0 with no symptom. See lib/urlpath.mjs.
 import { localRelPath, loadPolicy, describePolicy } from "./lib/urlpath.mjs";
-import { imageAcceptFor } from "./lib/negotiate.mjs";
+import { fetchLadder } from "./lib/negotiate.mjs";
+import { sha256 } from "./lib/hash.mjs";
+// The mirror's ledgers, read and appended through lib/ledger.mjs — the same row
+// format mirror-site.mjs writes and verify-mirror.mjs audits.
+import { readManifest, writeManifest, appendInventory, MANIFEST_FILE as MANIFEST_NAME, INVENTORY_FILE } from "./lib/ledger.mjs";
 import { cli } from "./lib/cli.mjs";
 
 cli({
@@ -94,9 +99,8 @@ const ORIGIN = ORIGIN_RAW.replace(/\/+$/, "");
 const ROOT = path.resolve(flag("mirror", "mirror"));
 // Declared up here, not next to the --fetch helpers at the bottom: the fetch
 // loop is top-level code that runs BEFORE a `const` further down would exist.
-const MANIFEST_FILE = path.join(ROOT, "mirror-manifest.json");
-const FETCH_UA =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
+// (The fetch UA is lib/negotiate.mjs's BROWSER_UA, inside fetchLadder.)
+const MANIFEST_FILE = path.join(ROOT, MANIFEST_NAME);
 const ROUTES = flag("routes", "/").split(",").filter(Boolean);
 const STEPS = Number(flag("steps", 12));
 const DWELL = Number(flag("dwell", 1500));
@@ -130,85 +134,9 @@ const VIEWPORTS = Object.fromEntries(
     .map((v) => [v, VIEWPORT_DEFS[v]]),
 );
 
-const CHROME_CANDIDATES = [
-  process.env.CHROME_PATH,
-  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-  "/Applications/Chromium.app/Contents/MacOS/Chromium",
-  "/usr/bin/google-chrome",
-  "/usr/bin/chromium",
-  "/usr/bin/chromium-browser",
-].filter(Boolean);
-
-async function findChrome() {
-  for (const c of CHROME_CANDIDATES) {
-    try {
-      await fs.access(c);
-      return c;
-    } catch {}
-  }
-  throw new Error("Chrome not found. Set CHROME_PATH.");
-}
-
+// Where Chrome is (CHROME_PATH first) is lib/chrome.mjs `findChrome`; the CDP
+// client — every call bounded, a dead socket failing loudly — is lib/cdp.mjs.
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-async function connect(port) {
-  for (let i = 0; i < 60; i += 1) {
-    try {
-      const res = await fetch(`http://127.0.0.1:${port}/json/version`);
-      const { webSocketDebuggerUrl } = await res.json();
-      const ws = new WebSocket(webSocketDebuggerUrl);
-      await new Promise((resolve, reject) => {
-        ws.onopen = resolve;
-        ws.onerror = reject;
-      });
-      return ws;
-    } catch {
-      await sleep(250);
-    }
-  }
-  throw new Error("could not reach CDP");
-}
-
-function client(ws) {
-  let id = 0;
-  const pending = new Map();
-  const listeners = [];
-  ws.onmessage = (ev) => {
-    const msg = JSON.parse(ev.data);
-    if (msg.id && pending.has(msg.id)) {
-      const { resolve, reject } = pending.get(msg.id);
-      pending.delete(msg.id);
-      msg.error ? reject(new Error(msg.error.message)) : resolve(msg.result);
-    } else if (msg.method) {
-      for (const fn of listeners) fn(msg);
-    }
-  };
-  return {
-    // Every call is bounded. A route whose scene never finishes booting leaves
-    // Page.navigate / Runtime.evaluate pending forever, and an unbounded await
-    // wedges the whole capture on one page.
-    send(method, params = {}, sessionId, timeoutMs = 30000) {
-      id += 1;
-      const payload = { id, method, params };
-      if (sessionId) payload.sessionId = sessionId;
-      ws.send(JSON.stringify(payload));
-      const myId = id;
-      return new Promise((resolve, reject) => {
-        const timer = setTimeout(() => {
-          pending.delete(myId);
-          reject(new Error(`CDP timeout after ${timeoutMs}ms: ${method}`));
-        }, timeoutMs);
-        pending.set(myId, {
-          resolve: (v) => (clearTimeout(timer), resolve(v)),
-          reject: (e) => (clearTimeout(timer), reject(e)),
-        });
-      });
-    },
-    on(fn) {
-      listeners.push(fn);
-    },
-  };
-}
 
 // ---------------------------------------------------------------------------
 
@@ -255,13 +183,15 @@ const chrome = launchChrome({
   ],
 });
 
-// Ownership before protocol: connect() would happily attach to whatever CDP
+// Ownership before protocol: connectCdp() would happily attach to whatever CDP
 // endpoint answers on this port, and every request recorded through a foreign
 // browser would be filed as this origin's traffic.
 await assertOwnBrowser({ port: CDP_PORT, sentinel, tool: "netcapture.mjs", pid: chrome.pid });
 
-const ws = await connect(CDP_PORT);
-const cdp = client(ws);
+// Every call is bounded (30s default). A route whose scene never finishes
+// booting leaves Page.navigate / Runtime.evaluate pending forever, and an
+// unbounded await wedges the whole capture on one page.
+const cdp = await connectCdp(await cdpUrlFor(CDP_PORT, { attempts: 60 }), { defaultTimeoutMs: 30000, closeHint: null });
 
 // requestId -> record, so the response event can complete what the request started
 const inflight = new Map();
@@ -272,7 +202,7 @@ const offHost = new Map(); // host -> count, for hosts not on the allow-list
 // is a real finding about the source program and a candidate quirk-table entry.
 const malformed = new Map();
 
-cdp.on((msg) => {
+cdp.on("*", (msg) => {
   const p = msg.params || {};
   if (msg.method === "Network.requestWillBeSent" && p.request?.url?.startsWith("http")) {
     // startsWith("http") is NOT a parseability test. The browser faithfully
@@ -315,7 +245,7 @@ cdp.on((msg) => {
 
 const { targetId } = await cdp.send("Target.createTarget", { url: "about:blank" });
 const { sessionId } = await cdp.send("Target.attachToTarget", { targetId, flatten: true });
-const send = (m, p, timeoutMs) => cdp.send(m, p, sessionId, timeoutMs);
+const send = (m, p, timeoutMs) => cdp.send(m, p, { sessionId, timeoutMs });
 
 await send("Network.enable");
 await send("Page.enable");
@@ -438,18 +368,15 @@ if (DO_FETCH && missing.length) {
   // HAVE for every one of them and nothing ever ledgers them. So a --fetch into
   // a mirror whose manifest cannot be read is refused up front, loudly, with
   // nothing written.
-  await readManifest();
+  await ledgerOrExit();
   // Image URLs get the browser's own image Accept on the std rung, with the
   // CDP-recorded type as the hint (lib/negotiate.mjs; basement D5: `accept: */*`
   // lands the FALLBACK format on every `auto=format` CDN while every gate stays
-  // green). Same ladder mirror-site.mjs and reconcile-gaps.mjs climb, so a row
-  // this pass writes is indistinguishable from a crawler row — profile and
-  // Vary on record. The bare rung is for header allergies (a CDN that 403s
-  // browser-shaped headers) and stays `*/*` on purpose.
-  const profilesFor = (url, typeHint) => [
-    { name: "std", headers: { "user-agent": FETCH_UA, accept: imageAcceptFor(url, typeHint), referer: ORIGIN + "/" } },
-    { name: "bare", headers: { "user-agent": "curl/8.6.0", accept: "*/*" } },
-  ];
+  // green). Same ladder mirror-site.mjs and reconcile-gaps.mjs climb — it is
+  // lib/negotiate.mjs `fetchLadder`, one implementation — so a row this pass
+  // writes is indistinguishable from a crawler row: profile and Vary on record.
+  // The bare rung is for header allergies (a CDN that 403s browser-shaped
+  // headers) and stays `*/*` on purpose.
   console.log("\nfetching gaps... (bytes AND ledger rows)");
   for (const m of missing) {
     // m.path is an absolute URL (records are keyed by host + path).
@@ -459,19 +386,10 @@ if (DO_FETCH && missing.length) {
     // off-the-books state — the exact condition appendLedger's own comment
     // promises to prevent, one failure mode over. Measured on rauchg: 725
     // /_next/image variants on disk, zero in the manifest.
-    let res = null, lastErr = "", usedProfile = "";
-    for (const p of profilesFor(m.path, m.type)) {
-      try {
-        const r = await fetch(m.path, { headers: p.headers });
-        if (r.ok) { res = r; usedProfile = p.name; break; }
-        lastErr = `HTTP ${r.status} (${p.name})`;
-        // Only auth-ish refusals suggest a header allergy; a 404 is a 404.
-        if (r.status !== 401 && r.status !== 403) break;
-      } catch (e) {
-        lastErr = `${e.message} (${p.name})`;
-      }
-    }
-    if (!res) {
+    // This loop has always FOLLOWED redirects (a gap the browser resolved is
+    // fetched to its final bytes); fetchLadder's default is manual, so say so.
+    const { res, profile: usedProfile, error: lastErr } = await fetchLadder(m.path, { origin: ORIGIN, typeHint: m.type, redirect: "follow" });
+    if (!res || !res.ok) {
       console.log(`  FAIL ${lastErr} ${m.path}`);
       continue;
     }
@@ -484,7 +402,7 @@ if (DO_FETCH && missing.length) {
     // paths (Nuxt server routes) with the manifest's recorded type; a row
     // without one gets extension-guessed into text/html, and ofetch — which
     // parses by content-type — hands the app a string where it awaited JSON.
-    fetched.push({ rel, url: m.path, bytes: body.length, sha: createHash("sha256").update(body).digest("hex"),
+    fetched.push({ path: rel, url: m.path, bytes: body.length, sha256: sha256(body),
       type: (res.headers.get("content-type") || "").split(";")[0] || undefined,
       profile: usedProfile, vary: res.headers.get("vary") || "" });
     console.log(`  OK ${m.path}`);
@@ -511,39 +429,33 @@ async function appendLedger(rows) {
   // disagree about one batch (both carry its rows, or neither does). This was a
   // bare `catch {}`: a missing or corrupt manifest silently skipped the write
   // and produced exactly the off-the-books state described above.
-  const mf = await readManifest();
+  const mf = await ledgerOrExit();
   let n = 0;
   for (const r of rows) {
     if (mf.files[r.url]) continue;
     // Same row shape mirror-site.mjs's save() writes: profile + Vary on record,
     // or a negotiated response is indistinguishable from a plain one.
-    mf.files[r.url] = { path: r.rel, bytes: r.bytes, sha256: r.sha, ...(r.type ? { type: r.type } : {}),
+    mf.files[r.url] = { path: r.path, bytes: r.bytes, sha256: r.sha256, ...(r.type ? { type: r.type } : {}),
       ...(r.profile ? { profile: r.profile } : {}), ...(r.vary ? { vary: r.vary } : {}) };
     n++;
   }
-  if (n) await fs.writeFile(MANIFEST_FILE, JSON.stringify(mf, null, 2));
-  const inv = path.join(ROOT, "inventory.tsv");
-  let text = await fs.readFile(inv, "utf8").catch(() => "");
-  if (!text) text = "SHA256\tBYTES\tPATH\tURL\n";
-  const known = new Set(text.trim().split("\n").slice(1).map((l) => l.split("\t")[2]));
-  const add = rows.filter((r) => !known.has(r.rel));
+  if (n) await writeManifest(ROOT, mf);
+  // appendInventory skips paths already recorded and creates the header if the
+  // file is absent (lib/ledger.mjs — the crawler's row format, not a second one).
+  const add = await appendInventory(ROOT, rows);
   if (!add.length) return void console.log(`  ledger — all ${rows.length} path(s) already recorded`);
-  if (!text.endsWith("\n")) text += "\n";
-  text += add.map((r) => `${r.sha}\t${r.bytes}\t${r.rel}\t${r.url}`).join("\n") + "\n";
-  await fs.writeFile(inv, text);
-  console.log(`  ledger — ${add.length} row(s) appended to ${path.relative(process.cwd(), inv)}`);
+  console.log(`  ledger — ${add.length} row(s) appended to ${path.relative(process.cwd(), path.join(ROOT, INVENTORY_FILE))}`);
 }
 
 /** The mirror's ledger, or a loud exit — never a silent skip (see appendLedger). */
-async function readManifest() {
-  try {
-    const mf = JSON.parse(await fs.readFile(MANIFEST_FILE, "utf8"));
-    if (!mf || typeof mf.files !== "object" || mf.files === null) throw new Error("no `files` map in the document");
-    return mf;
-  } catch (e) {
-    console.error(`FATAL: cannot read ${MANIFEST_FILE}: ${e.message}`);
-    console.error(`       --fetch appends to the mirror's ONE ledger; without it every fetched file is off the books`);
-    console.error(`       (files landed since the last ledger write, if any, are on disk unrecorded — verify-mirror lists them as orphans).`);
-    process.exit(1);
-  }
+async function ledgerOrExit() {
+  let mf = null, why = "";
+  // lib/ledger.mjs: null when the file is absent, throws when it exists but is
+  // not a manifest — both are fatal here, for the reason appendLedger gives.
+  try { mf = await readManifest(ROOT); } catch (e) { why = e.message; }
+  if (mf) return mf;
+  console.error(`FATAL: cannot read ${MANIFEST_FILE}: ${why || "no such file"}`);
+  console.error(`       --fetch appends to the mirror's ONE ledger; without it every fetched file is off the books`);
+  console.error(`       (files landed since the last ledger write, if any, are on disk unrecorded — verify-mirror lists them as orphans).`);
+  process.exit(1);
 }

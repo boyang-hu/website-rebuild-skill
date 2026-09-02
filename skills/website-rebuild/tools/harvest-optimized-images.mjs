@@ -10,6 +10,7 @@
 import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { localRelPath, loadPolicy } from "../scripts/lib/urlpath.mjs";
+import { readManifest } from "../scripts/lib/ledger.mjs";
 import { cli } from "../scripts/lib/cli.mjs";
 cli({ known: ["base", "site", "mirror"], file: import.meta.url });
 const args = process.argv.slice(2);
@@ -29,7 +30,10 @@ for await (const f of htmls(SITE)) {
   for (const m of t.matchAll(/\/_next\/image\?url=[^"'\s,]+/g)) urls.add(m[0]);
 }
 console.log(`optimized image refs: ${urls.size}`);
-const manifest = JSON.parse(await readFile(join(MIRROR, "mirror-manifest.json"), "utf8")).files;
+// 镜像账本必须在（lib/ledger.mjs：缺文件 -> null；坏文件 -> 抛）——没有账本就没有"镜像字节优先"可言。
+const mf = await readManifest(MIRROR);
+if (!mf) { console.error(`FATAL: no mirror-manifest.json under ${MIRROR}`); process.exit(1); }
+const manifest = mf.files;
 const mirrorByKey = new Map();
 for (const [mu, e] of Object.entries(manifest)) {
   if (!mu.includes("/_next/image?") || !e.path) continue;

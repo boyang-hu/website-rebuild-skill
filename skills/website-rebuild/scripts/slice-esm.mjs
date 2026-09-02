@@ -41,9 +41,9 @@
  */
 import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import path from "node:path";
 import { cli } from "./lib/cli.mjs";
+import { sha256 } from "./lib/hash.mjs";
 
 cli({ known: ["in", "out", "fn-lines"], bools: [], file: import.meta.url });
 
@@ -61,8 +61,7 @@ if (!IN || !OUT) {
 // Unknown flags are rejected by lib/cli.mjs (the one argv contract) before anything here runs.
 
 const SRC = await readFile(path.resolve(IN), "utf8");
-const sha = (s) => createHash("sha256").update(s).digest("hex");
-const CHUNK_SHA = sha(SRC);
+const CHUNK_SHA = sha256(SRC);
 
 // Tokenize with the same pinned-npx pattern as module-map.mjs — never a
 // hand-rolled lexer (a regex literal containing a quote once desynced one by
@@ -201,13 +200,13 @@ for (let k = 0; k + 1 < bounds.length; k++) {
   parts.push({
     file: `${String(parts.length).padStart(3, "0")}-${nm}.js`,
     kind: kinds[k], start: s, end: e, startLine: lineOf(s),
-    lines: text.split("\n").length, bytes: Buffer.byteLength(text), sha256: sha(text), text,
+    lines: text.split("\n").length, bytes: Buffer.byteLength(text), sha256: sha256(text), text,
   });
 }
 
 // ⭐ Prove reassembly BEFORE writing: the tool never emits a decomposition it
 // cannot put back together.
-if (sha(parts.map((p) => p.text).join("")) !== CHUNK_SHA) {
+if (sha256(parts.map((p) => p.text).join("")) !== CHUNK_SHA) {
   console.error("FATAL — reassembled slices do not hash back to the input. Nothing written.");
   process.exit(5);
 }

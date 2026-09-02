@@ -88,3 +88,49 @@ export function sanityEvidence(text) {
     keyFields: (norm.match(/"_key"/g) || []).length,
   };
 }
+
+// ---- the one UA, the one header ladder ---------------------------------------------
+// Five scripts carried their own copy of the browser UA — two Chrome versions among
+// them (126 vs 128) — and four carried their own std→bare retry ladder. The ladder
+// is source behaviour (the same 403 has two OPPOSITE cures: one CDN wants a same-
+// origin Referer, another 403s browser-shaped headers and serves curl), so every
+// fetcher must climb the same rungs in the same order or their ledgers disagree
+// about what a URL "returns".
+export const BROWSER_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
+export const BARE_UA = "curl/8.6.0";
+
+/**
+ * The std→bare ladder for one URL. `std` sends the browser UA, the browser's own
+ * image Accept when the URL/typeHint says image (auto=format CDNs negotiate on it;
+ * `*\/*` lands the fallback bytes), and a same-origin Referer. `bare` is the header-
+ * allergy rung and stays minimal on purpose.
+ */
+export function fetchProfiles(url, { origin, typeHint = "" } = {}) {
+  return [
+    { name: "std", headers: { "user-agent": BROWSER_UA, accept: imageAcceptFor(url, typeHint), ...(origin ? { referer: origin.replace(/\/+$/, "") + "/" } : {}) } },
+    { name: "bare", headers: { "user-agent": BARE_UA, accept: "*/*" } },
+  ];
+}
+
+/**
+ * Climb the ladder: first rung that returns 2xx wins. A 3xx is returned as-is
+ * (redirects are source behaviour, never a header allergy — the caller records it;
+ * `redirect` defaults to "manual" per the mirroring red line). A 401/403 on `std`
+ * tries `bare`; any other status stops the climb (a 404 is a 404).
+ * Returns { res, profile, error } — `res` null when every rung failed.
+ */
+export async function fetchLadder(url, { origin, typeHint = "", redirect = "manual", init = {} } = {}) {
+  let lastErr = "";
+  for (const p of fetchProfiles(url, { origin, typeHint })) {
+    try {
+      const res = await fetch(url, { ...init, headers: { ...p.headers, ...(init.headers || {}) }, redirect });
+      if (res.ok || (res.status >= 300 && res.status < 400)) return { res, profile: p.name, error: "" };
+      lastErr = `HTTP ${res.status} (${p.name})`;
+      if (res.status !== 401 && res.status !== 403) return { res, profile: p.name, error: lastErr };
+    } catch (e) {
+      lastErr = `${e.message} (${p.name})`;
+    }
+  }
+  return { res: null, profile: "", error: lastErr };
+}

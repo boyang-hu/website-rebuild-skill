@@ -37,7 +37,7 @@ It follows the [Agent Skills open standard](https://agentskills.io/) and is buil
 - **Line-traceable reverse engineering** — every line in the rebuild points back to a line in the source bundle; bugs and oddities are copied verbatim, never "fixed"
 - **Quantified acceptance** — five automated comparison layers: console / network / DOM / geometry / **pixel-by-pixel**; every difference is either fixed or registered, never glossed over
 - **Source-form delivery** — the verbatim port is rewritten into a human-readable project (split into modules, named from evidence, provenance headers added) that **runs offline anywhere you copy it**
-- **Zero-dependency toolchain** — 72 Node scripts (51 stage scripts and gates + 11 shared libs + 10 sourcification/reconstruction tools); until the final stage, the pipeline installs no npm packages
+- **Zero-dependency toolchain** — 75 Node scripts (51 stage scripts and gates + 14 shared libs + 10 sourcification/reconstruction tools); until the final stage, the pipeline installs no npm packages
 - **Dead sites can be rescued** — Wayback archive salvage: anchor + time-window selection of a coherent moment, raw bytes landed as a standard mirror, permanent holes honestly registered; five dead-site salvages in practice (four revived, one to full L3; one art layer certifiably lost — the failure mode is in the book)
 - **Even RSC sites can be reconstructed** — server component source is never shipped (React Server Components / Next.js App Router), but its complete output (the flight stream) inlined in every page's HTML *is* the spec: reconstruct a buildable Next project from it and close with flight-semantics gates. Measured on a Next 16/Turbopack blog: 18/18 routes semantically identical, and on a 144-route heavyweight: PASS 144/144; blind reverse-engineering graded against the public source scored ≈95% structure / ≈98% behavior
 - **Legal decisions belong to the user** — the skill only collects evidence and presents it; output defaults to private + noindex + not deployed
@@ -260,7 +260,7 @@ Before anything goes public, per-asset copyright **forensics** must be completed
 
 Versions advance with real rebuild projects: every feature and fix shipped was first validated on at least one complete project.
 
-Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.17** — one argv contract: `lib/cli.mjs` gives all 57 scripts `--help` (header + flag inventory + skill version) and `--version`, and makes every unknown flag FATAL (previously 9 of 57); the migration surfaced 30+ flags read in code but absent from the usage headers; exit codes are now a documented table; `tools/package.json` pins the Babel devDependencies for the first time; verify-fresh uses the project's own esbuild; selftest 110→114 (per-script `--help` / unknown-flag / documented⊆known sweep); 98 historical versions tagged locally.
+Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.18** — library consolidation: four CDP clients, three findChrome copies, five UA strings, four header ladders, 23 sha256 spellings and the four-writer/six-reader ledger TSV code each collapse into one module (`lib/cdp` / `lib/hash` / `lib/ledger` / `lib/negotiate` / `lib/chrome`), scripts + tools net −219 lines; ledgers and serve replay byte-identical before/after, live-Chrome smoke probe CLEAN / sweep 2/2 / pixelcompare 0.00; a corrupt ledger is no longer overwritten as if empty; selftest 114→140.
 
 ## Contributing
 

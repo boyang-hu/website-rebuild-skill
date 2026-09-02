@@ -75,6 +75,7 @@ import { existsSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { cli } from "./cli.mjs";
+import { connectCdp } from "./cdp.mjs";
 
 export const PORT_BASE = 21000;
 export const SLOT_COUNT = 9;
@@ -334,15 +335,10 @@ export async function assertOwnBrowser({ port, sentinel, tool, pid = null, timeo
 async function warnOnForeignPid(port, pid, tool) {
   try {
     const v = await (await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(2000) })).json();
-    const ws = new WebSocket(v.webSocketDebuggerUrl);
-    const info = await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("timeout")), 3000);
-      ws.onopen = () => ws.send(JSON.stringify({ id: 1, method: "SystemInfo.getProcessInfo" }));
-      ws.onerror = () => (clearTimeout(timer), reject(new Error("ws")));
-      ws.onmessage = (e) => (clearTimeout(timer), resolve(JSON.parse(e.data)));
-    });
-    ws.close();
-    const browser = info?.result?.processInfo?.find((p) => p.type === "browser");
+    const cdp = await connectCdp(v.webSocketDebuggerUrl, { defaultTimeoutMs: 3000 });
+    let info = null;
+    try { info = await cdp.send("SystemInfo.getProcessInfo", {}, 3000); } finally { cdp.close(); }
+    const browser = info?.processInfo?.find((p) => p.type === "browser");
     if (browser && browser.id !== pid) {
       console.error(
         `[ports] NOTE: ${tool} spawned pid ${pid} but the browser on ${port} reports pid ${browser.id}. ` +
