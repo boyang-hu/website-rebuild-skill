@@ -1,5 +1,53 @@
 # 更新记录
 
+## v0.3.15 — 到达与相位是两种状态：raycastkbd 复审补齐（镜像门的三处失明 + 切片的容器外字节）
+
+raycastkbd（Turbopack / Next 16.3 / R3F，v0.1.69 单会话跑完的 L3）按 v0.3.14 复审：**移植本体
+经得起最新仪器**（module-map 860 模块一致、verify-module-map 54/54、cold-audit 54/54），但证据基座
+按新标尺有四处阻塞——19 个 `/_next/image` 变体是 `*/*` 回退字节且 srcset 阶梯 42 只抓 19（双 Accept
+采样 3/3 分叉、`Vary: Accept`）；13 个懒加载 chunk + 7 个 loader-stub 目标模块从未进镜像；滚动走查触发
+10× `misc-assets.raycast.com` 未登记外联（changelog 路由预取载荷里的 release 图，51 MB）+ Sentry 桩造成
+的 console error；像素自比带宽不为 0（3D 场景到达帧）。同日补齐：懒 chunk 13 + release 图 10 + robots/
+sitemap 入镜像（首轮即闭）、42 条阶梯以浏览器 Accept 进独立记账树 `mirror-negotiated/`（verify-mirror
+两树全绿）、61 chunk / 879 模块重切、**verify-tokens 61/61 对压缩原件不剥前奏**、probe 两侧 CLEAN +
+external 0、像素门 4+4 交错自比带宽 ≤0.11（走查 25% 检查点从 1/3 概率 2.91 归零）+ 跨侧 5 检查点 ≤0.01 PASS。REBUILD_PLAN / engine-notes / DEPLOY 七节 / `docs/gates.sh` 补写。八条工具级 +
+四条文档级回哺：
+
+**镜像门的三处失明（都在"闭包 = ∅ 且五项全绿"底下）**：
+1. `lib/extract-refs`：**srcset 候选按构造是资产，`?url=` 图片代理是资产**——"同源无扩展名 = 页面"
+   规则把 `/_next/image?url=…&w=640` 整族丢掉，srcset 形态找到 42 条、同一函数里全部丢弃。现在 srcset
+   候选带 `{asset:true}` 直通、`[?&]url=` 视为资产、裸 `src=` 属性另有 4a 形态；`/about?tab=2` 仍是页面。
+2. mirroring §8 checklist 新增三行：Turbopack **loader-stub 家族**（`e.v(t=>Promise.all([css,js].map(e.l))
+   .then(()=>t(id)))` 只在交互态请求；从 module-map 聚合"require 全集 − 定义全集"查，路径按 runtime 常量
+   `r="/_next/"` 拼）、**路由预取载荷是外联的载体**（`?_rsc=` 载荷在镜像里、其内绝对 URL 由浏览器直接去要；
+   netcapture 没传 `--hosts` 连同注册域子域也看不见）、**next/image 阶梯按字节穷举且按浏览器 Accept 抓**。
+3. legal §2.6：`GTM-/G-/UA-` 是清单里的一行不是清单——PostHog token / Rewardful id / Sentry DSN / Vercel
+   Insights 各是一条，附 grep 形状。
+
+**切片与服务层**：
+4. `slice-modules`：**容器不是整个文件**——每个 chunk 开头 285 B 的 Sentry `_debugIds` 前奏与 `//# debugId`
+   尾注逐字带走，gen 头写 prologue/epilogue 字符数与**完整**再生成命令行（此前只写 `--closure`，照抄即
+   ENOENT）；verify-tokens 由 0/54（恒差 87 token）直接到 61/61，不加任何对齐旗标（VG §4.20：门不给生产者
+   开豁免口）。
+5. `serve`：`--fallback-root` 成**回落链**（`mirror-negotiated,mirror`，两侧同链）；**桩主机的 DSN 保持是
+   DSN**——`https://<key>@oNNN.ingest.us.sentry.io/<id>` 改写成 `http://<key>@127.0.0.1:<port>/ext/<host>/<id>`，
+   SDK 按源站那样初始化、信封打进桩（此前归一化成裸路径 → 两侧 `Invalid Sentry Dsn`，CLEAN 红而无静态门能见）。
+   `make-standalone --mirror a,b` 同一份链合同（交付物带的是浏览器字节，不是回退字节）。
+6. `pixelcompare --hold <expr> --hold-after N --hold-grace ms` + pixel-walk 透传与诊断转发（determinism §7.1）：
+   **状态分两种——泵到的用 `--ready/--after-ready`，等到的用 `--hold`**。GLB 在 worker 里解码是真实时间事件，
+   轴体动画走虚拟时钟：绝对泵 → 1/3 概率拍到未到达（2.91）；状态相对泵 → 两侧绝对泵数不同、相位错开
+   （恒 1.7）；泵前 hold → 请求永不发出（60s 超时，页面要在泵的世界里才开口要）；`--hold-after 30
+   --hold-grace 1500` + 绝对泵 → 带宽归零。grace 是墙钟 settle，登记为偏差。pixel-walk 此前吞掉
+   pixelcompare 的 "ready after N" 行，READY 没触发的走查与对齐了的走查无法区分——现在逐行转发。
+7. `cold-audit-modules`：认 Turbopack 的**经典单参工厂** `function(C){ C.n(C.i(id)) }`（loader-stub 家族的入口 chunk
+   用它注册 stub 目标的再导出）——此前落在两种签名之外，7 个补抓 chunk 里 6 个报"只查了 2/3"。
+8. selftest 71→86：srcset/代理阶梯 3 条、切片前奏/尾注/命令行/token 往返 5 条、serve 回落链 + DSN 6 条
+   （loopback 起服务，无浏览器）、cold-audit 单参工厂 1 条。
+
+**文档级**：VG §4.20（切片交付的 token 门对整个文件）；determinism §7.1（到达 vs 相位协议表）；
+legal §2.6 标识符清单扩展；mirroring §8 三行。方法论一句话：**"闭包 = ∅"只对提取器看得见的形状成立——
+每次新形状（代理 URL、loader stub、预取载荷）都要追溯重验旧绿。**
+
 ## v0.3.14 — 旧项目对新标尺：点名扁平产物、门订阅的域、活世界的骰子（samsyninja 复审回哺）
 
 samsyninja-rebuild（2026-08，M0–M15，采纳时 skill 还是 v0.1.68）拿 v0.3.12/13 复审：L3 形状成立、

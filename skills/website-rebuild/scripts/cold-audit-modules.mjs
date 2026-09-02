@@ -129,6 +129,17 @@ for (const m of all) {
     else {
       const tsig = head.match(/(?:^|[,[]\s*)(?:\(\s*(\w+)[^)]*\)|(\w+))\s*=>/);
       if (tsig) { R = tsig[1] || tsig[2]; viaCtx = true; }
+      else {
+        // ⛔ Turbopack also emits CLASSIC one-parameter factories — the re-export
+        // shim `function(C) { C.n(C.i(850471)) }` that a loader-stub family's
+        // entry chunk registers under the stub's target id. Not an arrow, not
+        // three-parameter: it fell through both shapes, and the audit reported
+        // "examined only 2 of 3 — silence covers 67%" on every recovered lazy
+        // chunk (raycastkbd, 6 of 7). One parameter + `.i(`/`.r(` through it
+        // is Turbopack's contract in function spelling.
+        const tfn = head.match(/(?:^|[,[]\s*)function\s*\(\s*(\w+)\s*\)\s*\{/);
+        if (tfn) { R = tfn[1]; viaCtx = true; }
+      }
     }
   }
   if (!R) continue;

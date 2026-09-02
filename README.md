@@ -197,7 +197,7 @@ cp -R skills/website-rebuild ~/.claude/skills/website-rebuild
 | Optimus（v0 生成） | [v0-optimus-delta.vercel.app](https://v0-optimus-delta.vercel.app/) | Next.js + **Turbopack** 容器，第二种模块打包形态；⭐ 打包器自带导出名，命名从推断变成转写（16/20 tier-1） |
 | Lusion | [lusion.co](https://lusion.co/) | 创意工作室官网，1.25 MB 自研 WebGL 引擎 + 156 个 shader；三条路由**逐像素一致**，并走完了**源码化**——389 个模块、可独立复制运行 |
 | EIGHT DESIGN | [eightdesign.co.jp](https://eightdesign.co.jp/) | 日本设计公司**115 路由全站**（Next.js App Router + Turbopack），第一个 C2 类目标；278 个模块逐字移植，**115/115 路由跨侧渲染一致** |
-| Raycast Keyboard | [raycast.com/keyboard](https://www.raycast.com/keyboard) | Raycast × NuPhy 联名产品页（Turbopack + DRACO 3D 模型），判级到源码化**单次会话跑完**，4 个检查点**像素精确全零** |
+| Raycast Keyboard | [raycast.com/keyboard](https://www.raycast.com/keyboard) | Raycast × NuPhy 联名产品页（Turbopack + DRACO 3D 模型），判级到源码化**单次会话跑完**；v0.3.15 按新标尺复审补齐：13 个懒加载 chunk + 42 条 next/image 阶梯（浏览器 Accept 独立记账树）+ 预取载荷里 51 MB 内容图入镜像，61 chunk / 879 模块 token 门 61/61，状态对齐像素门 4+4 自比带宽 ≤0.11、跨侧 5 检查点 ≤0.01 |
 | Hubtown | [hubtown.co.in](https://hubtown.co.in/) | Unseen Studio 出品的全屏 WebGL 长镜头站（Nuxt 3 + three.js + **Theatre.js**），授权动画状态随包下发的 C2 范本；landing 像素差落在同侧噪声带内 |
 | ON.energy | [www.on.energy](https://www.on.energy/) | 能源公司官网（Nuxt 3 + WebGL GLB 场景 + **Storyblok headless CMS**），首个 CMS 资产桶全量镜像样本（约 1,800 图）；55/55 路由零报错，页顶视频钉帧后像素归零 |
 | Milk Network | [milknetwork.com](https://milknetwork.com/) | 沙特品牌代理官网（webpack + GSAP + **Strapi CMS 桶**），首个**双语 RTL** 站（en/ar 122 路由成对）；main 15 模块全量源码化、chunk 形交付，动画完结态像素精确零 |
@@ -260,7 +260,7 @@ README.en.md               # 英文版 README
 
 版本随真实复刻项目递进：每个版本发布的功能与修复，都先在至少一个完整项目上验证过。
 
-完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.14**：旧项目对新标尺——samsyninja（v0.1.68 时代的 L3）按 v0.3.13 复审后同日补齐六个里程碑：镜像账本 + 五项镜像门、CDN 字节等价 74/74、CLEAN 门补 Network/Log 域、冻结像素门 4+4 自比带宽三视图 PASS + DOM 文本一致、冷头点名 964/4770 零缺口；新工具 `cold-audit-decls.mjs`（扁平产物的 M(n) 点名，selftest 66→71）；门订阅的 CDP 域、分发面事实、媒体钉帧 / WebSocket 隔离 / reseed 归类、npx 两层进程孤儿入册。
+完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.15**：到达与相位是两种状态——raycastkbd（v0.1.69 时代的 L3）按 v0.3.14 复审：移植本体全绿，但镜像门在"闭包 = ∅"底下有三处失明（`/_next/image?url=` 阶梯被当页面丢弃、Turbopack loader-stub 家族 13 个文件从未请求、路由预取载荷带进 51 MB 未登记外联）；同日补齐并落地八条工具级回哺：extract-refs 认 srcset/代理为资产、slice-modules 逐字带走容器外的 Sentry 前奏（token 门 0/54 → 61/61）、serve 回落链 + 桩主机 DSN 保持是 DSN、`pixelcompare --hold/--hold-after/--hold-grace`（GLB 在 worker 里解码是等到的状态，不是泵到的）、cold-audit 认单参工厂、make-standalone 链；selftest 71→86。
 
 ## 贡献
 

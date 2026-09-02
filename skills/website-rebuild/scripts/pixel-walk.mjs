@@ -46,7 +46,12 @@ const RESCROLL_MS = Number(flag("rescroll-ms", "1500"));
 // frame (canvas sized, preloader removed) are all TOO EARLY.
 const SETTLE = flag("settle", null);
 const READY = flag("ready", null);
-if (!A || !B) { console.error("usage: pixel-walk.mjs --a <rebuild-url> --b <mirror-url> [--steps N] [--pump dt,frames] [--max-mean N] [--self]"); process.exit(2); }
+// --hold / --hold-grace: passed through (pixelcompare: wait in REAL time for an
+// arrival state before the first pump — the GLB-on-a-worker case).
+const HOLD = flag("hold", null);
+const HOLD_GRACE = flag("hold-grace", null);
+const HOLD_AFTER = flag("hold-after", null);
+if (!A || !B) { console.error("usage: pixel-walk.mjs --a <rebuild-url> --b <mirror-url> [--steps N] [--pump dt,frames] [--max-mean N] [--self] [--ready expr] [--hold expr] [--hold-grace ms]"); process.exit(2); }
 if (STEPS < 2) { console.error("FATAL — --steps must be >= 2. One checkpoint is the problem this tool exists to fix."); process.exit(2); }
 
 // ⛔ Scroll TWICE: at load, and again after the page's own init has run.
@@ -158,8 +163,16 @@ for (let i = 0; i < STEPS; i++) {
   a.push("--drive", driveFor(f));
   if (SETTLE) a.push("--settle", SETTLE);
   if (READY) a.push("--ready", READY);
+  if (HOLD) a.push("--hold", HOLD);
+  if (HOLD_GRACE) a.push("--hold-grace", HOLD_GRACE);
+  if (HOLD_AFTER) a.push("--hold-after", HOLD_AFTER);
   if (SELF) a.push("--self");
   const { code, out } = await run(a);
+  // ⭐ Forward the alignment diagnostics. pixelcompare says "ready after N pumped
+  // frame(s)" / "--hold satisfied after N" per side, and swallowing them left a
+  // walk whose READY never fired indistinguishable from one that aligned
+  // (raycastkbd: a constant 1.7 band with no line saying why).
+  for (const line of out.split("\n")) if (/^\[pixel\]\s+(REBUILD|MIRROR|[AB]):.*(ready after|--hold satisfied|never satisfied)/.test(line)) console.log(`  ${line.trim()}`);
   // Landing positions, reported by the seed on each side.
   const m = out.match(/\{"meanAbsDiff":[^}]+\}/);
   const census = out.match(/REBUILD: (\d+) colours/);

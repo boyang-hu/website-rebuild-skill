@@ -318,7 +318,10 @@ export function createRefExtractor({ origin, originHost, assetHosts, onOffHost }
   const offHost = typeof onOffHost === "function" ? onOffHost : () => {};
   const ORIGIN = String(origin || "").replace(/\/+$/, "");
 
-  const addIfAsset = (rawUrl, urls) => {
+  // `asset: true` — the CALLER knows this is an asset (a srcset candidate is an
+  // image by construction), so the page-vs-asset heuristic below must not
+  // second-guess it.
+  const addIfAsset = (rawUrl, urls, { asset = false } = {}) => {
     // ⛔ A TEMPLATE PREFIX IS NOT AN ADDRESS. A URL assembled at runtime —
     //     `https://cdn.jsdelivr.net/npm/${pkg}@${ver}/dist/x.wasm`
     // scans statically as everything up to the first `${`, and that fragment is
@@ -330,8 +333,14 @@ export function createRefExtractor({ origin, originHost, assetHosts, onOffHost }
     try {
       const u = new URL(rawUrl);
       if (!hosts.has(u.hostname)) return void offHost(u.hostname, u.href);
-      // Same-origin URLs without an extension are pages, not assets.
-      if (u.hostname === originHost && !/\.[a-z0-9]{2,5}($|\?)/i.test(u.pathname)) return;
+      // Same-origin URLs without an extension are pages, not assets —
+      // ⛔ UNLESS the caller vouched for it (srcset candidate) or the URL is an
+      // image-optimiser PROXY: `/_next/image?url=…&w=640&q=75` has no extension
+      // and never will, yet it is the byte the browser paints. This rule
+      // silently dropped every such rung for eight versions while the srcset
+      // shape below "found" them — raycastkbd: 42 rungs in the HTML, 19 on
+      // disk, closure ∅ throughout.
+      if (!asset && u.hostname === originHost && !/\.[a-z0-9]{2,5}($|\?)/i.test(u.pathname) && !/[?&]url=/i.test(u.search)) return;
       u.hash = "";
       urls.add(u.href);
     } catch {}
@@ -420,10 +429,19 @@ export function createRefExtractor({ origin, originHost, assetHosts, onOffHost }
       for (const cand of decodeEntities(m[1]).split(",")) {
         const ref = cand.trim().split(/\s+/)[0];
         if (!ref) continue;
-        if (ref.startsWith("//")) addIfAsset("https:" + ref, urls);
-        else if (/^https?:\/\//i.test(ref)) addIfAsset(ref, urls);
-        else if (ref.startsWith("/")) addIfAsset(DOC_ORIGIN + ref, urls);
+        // A srcset candidate is an image by construction — vouch for it, or the
+        // extensionless-proxy rungs (`/_next/image?url=…`) die in addIfAsset.
+        if (ref.startsWith("//")) addIfAsset("https:" + ref, urls, { asset: true });
+        else if (/^https?:\/\//i.test(ref)) addIfAsset(ref, urls, { asset: true });
+        else if (ref.startsWith("/")) addIfAsset(DOC_ORIGIN + ref, urls, { asset: true });
       }
+    }
+    // 4a. The same proxy in a plain src/href/poster attribute (no srcset):
+    // `<img src="/_next/image?url=…&w=1080">`, `<link rel="preload" as="image"
+    // href="/_next/image?…">`. Extensionless, so shape 3 never sees it; the
+    // `url=` rule in addIfAsset admits it and keeps `/about?x=1` a page.
+    for (const m of text.matchAll(/\b(?:src|href|poster|data-src)=["'](\/(?!\/)[^"'\s]*\?[^"'\s]*)["']/gi)) {
+      addIfAsset(DOC_ORIGIN + decodeEntities(m[1]), urls);
     }
     // 4b. A REFERENCE NESTED IN ANOTHER URL'S QUERY. An image-optimisation
     // endpoint names its subject in a parameter:

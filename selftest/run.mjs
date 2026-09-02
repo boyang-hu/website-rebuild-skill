@@ -98,6 +98,17 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
   // v0.1.66: template-literal prefixes are not addresses.
   truthy("extract — ${ prefix rejected (v0.1.66)",
     !refs("`https://cdn.x.com/${pkg}/x.wasm`").some((u) => u.includes("$%7B") || u.includes("${")));
+  // v0.3.15 (raycastkbd): an image-optimiser PROXY has no extension and never
+  // will — `/_next/image?url=…&w=640` in a srcset, in imageSrcSet, or in a
+  // plain src. The page-vs-asset heuristic dropped all of them for eight
+  // versions (42 rungs in the HTML, 19 on disk, closure ∅). A page with a query
+  // string must still be a page.
+  const px = refs(`<link rel="preload" as="image" imageSrcSet="/_next/image?url=%2Fbg.webp&amp;w=640&amp;q=70 640w, /_next/image?url=%2Fbg.webp&amp;w=1080&amp;q=70 1080w">` +
+    `<img srcSet="/_next/image?url=%2Fkb.png&amp;w=828&amp;q=95 828w" src="/_next/image?url=%2Fkb.png&amp;w=1920&amp;q=95"><a href="/about?tab=2">x</a>`);
+  eq("extract — next/image srcset + imageSrcSet + src rungs are assets (v0.3.15)",
+    px.filter((u) => u.includes("/_next/image?")).length, 4);
+  truthy("extract — a page with a query string is still a page (v0.3.15)", !px.some((u) => u.includes("/about?")));
+  truthy("extract — the proxied source image is still extracted alongside (v0.3.15)", px.includes("https://x.com/bg.webp"));
   // v0.2.6 shape 6: document-relative attributes, with both guards.
   truthy("extract — ./relative attr resolved (v0.2.6)",
     refs(`<img src="./content/3.project/1.A/thumb.png">`, "https://x.com/index.html").includes("https://x.com/content/3.project/1.A/thumb.png"));
@@ -556,6 +567,89 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
     if (!existsSync(path.join(SKILL, "scripts", f[1])) && f[1] !== "verify-decls.mjs") { dangling++; bad(`doc script ref ${f[1]}`, "named by SKILL.md but missing"); }
   }
   if (!dangling) ok("docs — SKILL.md references resolve (verify-decls exempt by design)");
+}
+
+// ------------------------------- v0.3.15 (raycastkbd): the container is not the whole file
+// A Turbopack chunk carries bytes OUTSIDE the container (Sentry _debugIds
+// prologue, //# debugId epilogue). slice-modules must carry both verbatim so
+// the re-emitted chunk is token-identical to the original — verify-tokens was
+// 0/54 red on a port whose every module was exact.
+{
+  const PRO = `;!function(){try{var e="undefined"!=typeof globalThis?globalThis:{},n=(new e.Error).stack;n&&((e._debugIds||(e._debugIds={}))[n]="79f61c53-98ea-5a97-2aab-08075fc42529")}catch(e){}}();\n`;
+  const CON = `(globalThis.TURBOPACK || (globalThis.TURBOPACK = [])).push([\n    "object" == typeof document ? document.currentScript : void 0,\n` +
+    `    618507, e => {\n        "use strict";\n        var t = e.i(271645);\n        e.s(["ActionIcon", 0, function() { return t.x }])\n    }\n]);\n`;
+  const EPI = `//# debugId=79f61c53-98ea-5a97-2aab-08075fc42529\n`;
+  const TP = path.join(TMP, "tp-pretty.js"), TPM = path.join(TMP, "tp-map.json"), TPC = path.join(TMP, "tp-closure.json"), TPG = path.join(TMP, "tp-gen.js");
+  writeFileSync(TP, PRO + CON + EPI);
+  const run = (args) => execFileSync(process.execPath, args, { stdio: "pipe" });
+  try {
+    run([path.join(SKILL, "scripts/module-map.mjs"), "--in", TP, "--out", TPM]);
+    const map = JSON.parse(readFileSync(TPM, "utf8"));
+    writeFileSync(TPC, JSON.stringify({ seed: "ALL", modules: map.modules.map((m) => m.id) }));
+    run([path.join(SKILL, "scripts/slice-modules.mjs"), "--in", TP, "--map", TPM, "--closure", TPC, "--out", TPG]);
+    const gen = readFileSync(TPG, "utf8");
+    truthy("slice-modules — Turbopack prologue carried verbatim (v0.3.15)", gen.includes(PRO.trim()));
+    truthy("slice-modules — Turbopack epilogue carried verbatim (v0.3.15)", gen.trimEnd().endsWith(EPI.trim()));
+    truthy("slice-modules — header names the full regenerate command (v0.3.15)", /Regenerate:\s+node scripts\/slice-modules\.mjs --in .* --map .* --closure .* --out /.test(gen));
+    let tok = true; try { run([path.join(SKILL, "scripts/verify-tokens.mjs"), TP, TPG]); } catch { tok = false; }
+    truthy("slice-modules — re-emitted chunk is token-identical to the original incl. prologue (v0.3.15)", tok);
+    run([path.join(SKILL, "scripts/slice-modules.mjs"), "--in", TP, "--map", TPM, "--closure", TPC, "--out", TPG, "--check"]);
+    ok("slice-modules — --check passes on the fresh slice (v0.3.15)");
+  } catch (e) { bad("slice-modules prologue/epilogue", String(e.stderr || e.stdout || e.message).split("\n").slice(-3).join(" | ")); }
+}
+
+// ------------------------------- v0.3.15 (raycastkbd): cold-audit examines Turbopack's classic one-parameter factory
+// A loader-stub family's entry chunk registers the stub's target as
+// `function(C) { C.n(C.i(850471)) }` — not an arrow, not three parameters. It fell
+// through both signature shapes and the audit reported "examined only 2 of 3".
+{
+  const TP2 = path.join(TMP, "tp2-pretty.js"), TP2M = path.join(TMP, "tp2-map.json"), TP2C = path.join(TMP, "tp2-closure.json");
+  writeFileSync(TP2, `(globalThis.TURBOPACK || (globalThis.TURBOPACK = [])).push([\n    "object" == typeof document ? document.currentScript : void 0,\n` +
+    `    850471, C => {\n        "use strict";\n        C.s(["default", 0, function() { return 1 }])\n    },\n` +
+    `    345458, function(C) {\n        C.n(C.i(850471))\n    }\n]);\n`);
+  try {
+    execFileSync(process.execPath, [path.join(SKILL, "scripts/module-map.mjs"), "--in", TP2, "--out", TP2M], { stdio: "pipe" });
+    const map = JSON.parse(readFileSync(TP2M, "utf8"));
+    writeFileSync(TP2C, JSON.stringify({ seed: "ALL", modules: map.modules.map((m) => m.id) }));
+    const out = execFileSync(process.execPath, [path.join(SKILL, "scripts/cold-audit-modules.mjs"), "--map", TP2M, "--closure", TP2C], { stdio: "pipe" }).toString();
+    truthy("cold-audit — Turbopack classic one-parameter factory is examined (v0.3.15)", /\(2\/2 module\(s\) examined\)/.test(out), out.split("\n").filter((l) => /examined/.test(l)).join(" | "));
+  } catch (e) { bad("cold-audit one-parameter factory", String(e.stdout || e.stderr || e.message).split("\n").filter((l) => /FAIL|examined/.test(l)).join(" | ")); }
+}
+
+// ------------------------------- v0.3.15 (raycastkbd): serve — fallback CHAIN and a DSN stays a DSN
+// Spawns serve.mjs on loopback (explicit --port, no browser). Three roots:
+// site/ (top) → negotiated → mirror; the file only the last root holds must be
+// served. And a stub telemetry host's DSN (userinfo URL) must be rewritten to
+// a parseable same-origin DSN, not to a bare path — "Invalid Sentry Dsn" was a
+// CLEAN-gate red on both sides of a byte-exact port.
+{
+  const { spawn } = await import("node:child_process");
+  const R1 = path.join(TMP, "sv-site"), R2 = path.join(TMP, "sv-neg"), R3 = path.join(TMP, "sv-mirror");
+  for (const r of [R1, R2, R3]) mkdirSync(path.join(r, "_next/static/immutable/chunks"), { recursive: true });
+  writeFileSync(path.join(R3, "mirror-manifest.json"), JSON.stringify({ origin: "https://x.com", files: {} }));
+  writeFileSync(path.join(R2, "only-in-neg.webp"), "RIFF");
+  writeFileSync(path.join(R3, "only-in-mirror.txt"), "deep");
+  writeFileSync(path.join(R3, "_next/static/immutable/chunks/app.js"),
+    `init({dsn:"https://abc123@o379433.ingest.us.sentry.io/6624334"});x="https:\\/\\/abc123@o379433.ingest.us.sentry.io\\/6624334";`);
+  const PORT = 29997;
+  const sv = spawn(process.execPath, [path.join(SKILL, "scripts/serve.mjs"), "--root", R1, "--fallback-root", `${R2},${R3}`, "--port", String(PORT),
+    "--stub-ext-hosts", "o379433.ingest.us.sentry.io"], { stdio: "pipe" });
+  const get = async (p) => { const r = await fetch(`http://127.0.0.1:${PORT}${p}`); return { status: r.status, text: await r.text() }; };
+  let up = false;
+  for (let i = 0; i < 40 && !up; i++) { try { await fetch(`http://127.0.0.1:${PORT}/__wrs/identity`); up = true; } catch { await new Promise((r) => setTimeout(r, 100)); } }
+  try {
+    if (!up) throw new Error(`serve.mjs did not come up on ${PORT}`);
+    eq("serve — --fallback-root chain: second fallback answers (v0.3.15)", (await get("/only-in-mirror.txt")).status, 200);
+    eq("serve — --fallback-root chain: first fallback answers (v0.3.15)", (await get("/only-in-neg.webp")).status, 200);
+    const js = (await get("/_next/static/immutable/chunks/app.js")).text;
+    truthy("serve — stub host DSN stays parseable, same-origin (v0.3.15)",
+      js.includes(`dsn:"http://abc123@127.0.0.1:${PORT}/ext/o379433.ingest.us.sentry.io/6624334"`), js.slice(0, 160));
+    truthy("serve — escaped-slash DSN spelling handled too (v0.3.15)",
+      js.includes(`http:\\/\\/abc123@127.0.0.1:${PORT}\\/ext\\/o379433.ingest.us.sentry.io\\/6624334`));
+    truthy("serve — no userinfo URL to the stub host survives (v0.3.15)", !/@o379433\.ingest\.us\.sentry\.io/.test(js));
+    eq("serve — stub host path answers 200 (envelope endpoint) (v0.3.15)", (await get("/ext/o379433.ingest.us.sentry.io/api/6624334/envelope/")).status, 200);
+  } catch (e) { bad("serve chain/DSN", String(e.message).split("\n")[0]); }
+  finally { sv.kill("SIGTERM"); await new Promise((r) => sv.once("exit", r)); }
 }
 
 // ---------------------------------------------------------------- summary

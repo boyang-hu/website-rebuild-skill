@@ -287,6 +287,7 @@
 - 分析与像素 ID：`G-` / `UA-` / GTM 容器 ID、Meta pixel、各 SaaS 的 company id（常直接出现在资产路径里）；
 - 错误上报 DSN、reCAPTCHA / hCaptcha site key；
 - **第三方公司或个人的邮箱、电话、地址**；商户号、结算入口。
+- ⛔ **`GTM-/G-/UA-` 三个前缀不是清单，是清单里的一行**【raycastkbd】：那个项目的 DEPLOY 写"GTM-/G-/UA- 0 命中"就收了工，而产物里实际带着 PostHog 项目 token（`phc_…`，chunk 内 `posthog.init(...)`）、Rewardful 联盟 id（外壳 `data-rewardful=`）、Sentry DSN（`https://<key>@oNNN.ingest.us.sentry.io/<project>`）、Vercel Analytics / Speed Insights 脚本。每一样都会把复刻站访客的数据记进原作者账上。扫法：对 `site/`、`port/`（或 `src/`）与外壳 grep `phc_[A-Za-z0-9]{20,}` / `data-rewardful` / `@o\d+\.ingest` / `_vercel/` / `posthog\.init\(` / `Sentry\.init|dsn:` ，逐条进表。
 
 **为什么危险**（逐条形状不同，处置也不同）：站点验证 meta 挂在**你控制的域名**上，形状上就是一次搜索引擎/社交平台的**验证劫持**；API token 是**别人的配额**；DSN 与 pixel 会把你的流量**记进别人账上**；邮箱地址在新 origin 上是**转发出去的个人信息**。
 

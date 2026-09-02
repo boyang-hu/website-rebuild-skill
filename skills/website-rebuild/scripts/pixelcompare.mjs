@@ -126,6 +126,26 @@ const READY = flag('ready', null);
 // Waiting for an absolute pump count instead differs by one mount phase between the sides (darkroom /work: 1.8–2.5 at
 // pumps 180/210, 0 at 60/90/120/240 — phase noise, not a porting gap). Same-frame means state-relative time.
 const AFTER_READY = Number(flag('after-ready', '0')) || 0;
+// --hold <expr> [--hold-grace ms]: the OTHER half of state alignment. --ready/--after-ready
+// aligns on a state that is reached BY PUMPING (a mount phase in virtual time). But a
+// state reached in REAL time — a GLB decoded on a worker, a texture arriving — must be
+// waited for BEFORE the first pump, with the virtual clock still at 0: then both sides
+// pump the same absolute frames from the same starting state. Aligning such a state
+// with --after-ready instead makes the two sides' absolute pump counts differ by their
+// arrival jitter, and every time-driven animation lands at a different phase (raycastkbd
+// walk-025: exploded switch vs assembled switch, self-band a constant 1.7; with --hold
+// and absolute pumping 0.00). --hold-grace is the real-time tail after the predicate
+// (decode completion has no page-visible signal) — a stated deviation from "settle is a
+// page state", register it.
+const HOLD = flag('hold', null);
+const HOLD_GRACE = Number(flag('hold-grace', '0')) || 0;
+// --hold-after N: pump N frames FIRST, then hold. The arrival you wait for is usually
+// requested from inside the pumped world (an IntersectionObserver record, a mount effect,
+// the scroll drive reaching the section) — with the clock frozen at 0 the request is never
+// issued and the hold times out (measured: 60s, 5/5 checkpoints). N frames of virtual time
+// let the page ask; the hold then waits in real time; the remaining total−N frames pump the
+// same absolute clock on both sides.
+const HOLD_AFTER = Number(flag('hold-after', '0')) || 0;
 // ⛔ A LOAD-TIME SEED CANNOT DRIVE A PAGE WHOSE TARGET DOES NOT EXIST YET.
 // Measured: a site whose scroll container is created only after its preloader
 // finishes. The seed ran at `load`, found `scrollHeight - clientHeight === 0`,
@@ -396,6 +416,24 @@ async function capture(url, label) {
       chrome.reap();
       process.exit(6);
     }
+    // Real-time wait with the virtual clock frozen: nothing the page animates
+    // advances between two __pump calls, so after the hold both sides resume the
+    // same absolute clock from the same (arrived) state.
+    let held = !HOLD;
+    const holdNow = async (done) => {
+      const ok2 = await waitFor(async () => { const r = await evalJs(HOLD); return r === true || r === 'true'; }, 60000, label + ' hold')
+        .then(() => true).catch(() => false);
+      if (!ok2) {
+        console.error(`[pixel] FATAL: ${label} never satisfied --hold within 60s of real time (after ${done} pumped frame(s)) — do NOT compare this frame.`);
+        console.error(`        If the arrival is only REQUESTED from inside the pumped world (IO record, mount effect, scroll drive), raise --hold-after.`);
+        chrome.reap();
+        process.exit(6);
+      }
+      if (HOLD_GRACE > 0) await new Promise((r) => setTimeout(r, HOLD_GRACE));
+      console.log(`[pixel]   ${label}: --hold satisfied after ${done} pumped frame(s)${HOLD_GRACE ? ` (+${HOLD_GRACE}ms grace)` : ''}, resuming the absolute clock`);
+      held = true;
+    };
+    if (HOLD && HOLD_AFTER === 0) await holdNow(0);
     const total = frames || 60;
     // --chunk N: pump granularity. State alignment (--ready) resolves to ONE chunk —
     // a marquee that starts 8–16 frames earlier on the single-bundle rebuild sits
@@ -405,6 +443,7 @@ async function capture(url, label) {
     const gap = Math.max(20, Math.floor(SETTLE / Math.ceil(total / chunk)));
     let readyAt = null;
     for (let done = 0; done < total; done += chunk) {
+      if (!held && done >= HOLD_AFTER) await holdNow(done);
       await evalJs(`(window.__pump(${dt || 16.7}, ${Math.min(chunk, total - done)}), true)`);
       if (DRIVE) await evalJs(`(function(){ try { ${DRIVE} } catch (e) { return "ERR:" + e; } return true; })()`);
       if (READY && readyAt === null) {

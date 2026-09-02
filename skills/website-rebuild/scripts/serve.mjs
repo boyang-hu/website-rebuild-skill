@@ -113,8 +113,17 @@ const ROOT = path.resolve(flag("root", process.env.SERVE_ROOT || "mirror"));
 // mirror. Without this the rebuild side needs a second copy of the mirror — a
 // second place for the bytes to drift. Order matters: anything the build layer
 // rewrote must win over the untransformed original.
-const FALLBACK_ROOT = flag("fallback-root", "") ? path.resolve(flag("fallback-root", "")) : null;
-const ROOTS = [ROOT, ...(FALLBACK_ROOT ? [FALLBACK_ROOT] : [])];
+// ⭐ A CHAIN, not one directory: `--fallback-root mirror-negotiated,mirror`.
+// The independent ledger tree for negotiated variants (sanity-platform.md
+// §1.2 — the browser-Accept re-grab that leaves the read-only mirror untouched)
+// has to sit ABOVE the mirror on BOTH sides, and the rebuild side has already
+// spent its first root on site/. Left to right; the first root that holds the
+// file answers. [raycastkbd: 42 next/image rungs in mirror-negotiated/, the
+// rest of the site in mirror/, site/ on top — three roots, one server]
+const FALLBACK_ROOTS = flag("fallback-root", "")
+  .split(",").map((s) => s.trim()).filter(Boolean).map((p) => path.resolve(p));
+const FALLBACK_ROOT = FALLBACK_ROOTS[0] || null;
+const ROOTS = [ROOT, ...FALLBACK_ROOTS];
 
 // Which side of the comparison this instance is. It selects the port, it is
 // stamped on every response, and it is the thing that makes a two-sided run
@@ -423,6 +432,22 @@ function rewrite(text, ext) {
 }
 
 function rewriteText(text, ext) {
+  // ⛔ A DSN IS A PARSED ADDRESS, NOT A FETCH TARGET. Normalising the userinfo
+  // away (below) and then localising the host turns Sentry's
+  //     https://<key>@o3794….ingest.us.sentry.io/6624334
+  // into `/ext/o3794….ingest.us.sentry.io/6624334`, which `new Dsn()` rejects:
+  // "Invalid Sentry Dsn" on the console of BOTH sides — a CLEAN-gate red that
+  // reads like a port bug and that no static gate can see (raycastkbd). For
+  // STUB hosts keep the DSN a DSN: scheme + userinfo + THIS server +
+  // /ext/<host>/<path>. Sentry parses it, posts its envelopes to
+  // /ext/<host>/api/<project>/envelope/, the stub answers 200 — same-origin,
+  // zero egress, and the SDK initialises exactly as it does on the origin.
+  for (const h of STUB_EXT_HOSTS) {
+    const eh = h.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    text = text
+      .replace(new RegExp(`https?://([\\w.+-]+(?::[^@/\\s"']*)?)@${eh}/`, "gi"), (m, ui) => `http://${ui}@${HOST}:${PORT}/ext/${h}/`)
+      .replace(new RegExp(`https?:\\\\/\\\\/([\\w.+-]+(?::[^@\\s"']*)?)@${eh}\\\\/`, "gi"), (m, ui) => `http:\\/\\/${ui}@${HOST}:${PORT}\\/ext\\/${h}\\/`);
+  }
   // ⛔ A URL CAN CARRY USERINFO, AND EVERY HOST SHAPE BELOW MISSES IT. Sentry's
   // DSN is the canonical case: `https://<key>@o3794….ingest.us.sentry.io/…`
   // sits in a chunk, the stub host is listed, and the request still went out —

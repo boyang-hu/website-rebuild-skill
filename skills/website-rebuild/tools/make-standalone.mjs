@@ -43,7 +43,13 @@ if (!SHELL) {
   console.error("usage: make-standalone.mjs --shell <file|a,b|dir> [--out src] [--own /path,...] [--keep-own] [--no-build] [--build-out /app.js] [--replaced /old.js] [--externals a,b] [--allow mirror/external.txt] [--stub-ext-hosts h,h] [--ext-hosts h,h] [--origin-host h] [--name n] [--serve-port n]");
   process.exit(2);
 }
-const MIRROR = path.resolve(flag("mirror", "mirror"));
+// ⭐ `--mirror a,b,c` is a CHAIN, same contract as serve.mjs --fallback-root:
+// the negotiated-variant tree sits above the read-only mirror, and the copy
+// must take each file from the FIRST root that holds it — otherwise the
+// deliverable ships the `*/*` fallback bytes the browser never sees
+// (raycastkbd: 42 next/image rungs live in mirror-negotiated/).
+const MIRRORS = flag("mirror", "mirror").split(",").map((s) => s.trim()).filter(Boolean).map((p) => path.resolve(p));
+const MIRROR = MIRRORS[0];
 const OUT = path.resolve(flag("out", "src"));
 // The origin bundle this port replaces. ⛔ It must not travel with the
 // deliverable: shipping the thing you replaced next to its replacement makes
@@ -141,14 +147,23 @@ for (const m of html.matchAll(/(?:srcset|data-srcset)="([^"]+)"/g)) {
 }
 
 // --- copy the ledger ---------------------------------------------------------
-const MANIFEST = JSON.parse(await readFile(path.join(MIRROR, "mirror-manifest.json"), "utf8").catch(() => "{}"));
+// Manifests merge FIRST-ROOT-WINS per URL; the ledger is the union of every
+// root's inventory, each rel path remembered with the root that owns it.
+const MANIFEST = { files: {} };
+const OWNER = new Map(); // rel path -> root dir that holds it (first wins)
+for (const root of MIRRORS) {
+  const mf = JSON.parse(await readFile(path.join(root, "mirror-manifest.json"), "utf8").catch(() => "{}"));
+  if (mf.origin && !MANIFEST.origin) MANIFEST.origin = mf.origin;
+  for (const [u, rec] of Object.entries(mf.files || {})) if (!(u in MANIFEST.files)) MANIFEST.files[u] = rec;
+  const inv = await readFile(path.join(root, "inventory.tsv"), "utf8").catch(() => "");
+  for (const l of inv.split("\n").slice(1)) { const rel = l.split("\t")[2]; if (rel && !OWNER.has(rel)) OWNER.set(rel, root); }
+}
 const ORIGIN_URL = (MANIFEST.origin || "https://example.invalid").replace(/\/$/, "") + "/";
 const ORIGIN_HOST = new URL(ORIGIN_URL).hostname;
 const POLICY = await loadPolicy(MIRROR);
+const inRoots = (rel) => MIRRORS.map((r) => path.join(r, rel));
 
-const ledger = (await readFile(path.join(MIRROR, "inventory.tsv"), "utf8"))
-  .split("\n").slice(1).filter(Boolean)
-  .map((l) => l.split("\t")[2]).filter(Boolean);
+const ledger = [...OWNER.keys()];
 
 // ⭐ BYTE MANIFEST — the deliverable carries its own per-file sha256 ledger,
 // and the generated check/build/serve scripts re-verify it EVERY run. Between
@@ -181,7 +196,7 @@ let copied = 0, bytes = 0, skipped = 0;
 for (const rel of ledger) {
   if (EXCLUDE.some((re) => re.test(rel))) { skipped++; continue; }
   if (rel === REPLACED.replace(/^\//, "")) { skipped++; continue; }
-  const from = path.join(MIRROR, rel);
+  const from = path.join(OWNER.get(rel) || MIRROR, rel);
   const st = await stat(from).catch(() => null);
   if (!st || !st.isFile()) continue;
   const to = path.join(PUBLIC, rel);
@@ -227,10 +242,10 @@ for (const ref of refs) {
   // that was deliberately excluded and registered.
   if (extForm && STUB_HOSTS.includes(extForm[1])) continue;
   const candidates = [
-    ...(mapped ? [path.join(MIRROR, mapped), path.join(MIRROR, mapped, "index.html")] : []),
-    ...(ref.endsWith("/") ? [path.join(MIRROR, bare, "index.html")]
-                          : [path.join(MIRROR, bare), path.join(MIRROR, bare, "index.html")]),
-    ...(extForm ? [path.join(MIRROR, "assets", extForm[1], extForm[2])] : []),
+    ...(mapped ? [...inRoots(mapped), ...inRoots(path.join(mapped, "index.html"))] : []),
+    ...(ref.endsWith("/") ? inRoots(path.join(bare, "index.html"))
+                          : [...inRoots(bare), ...inRoots(path.join(bare, "index.html"))]),
+    ...(extForm ? inRoots(path.join("assets", extForm[1], extForm[2])) : []),
   ].flatMap((c) => {
     // ⚠ A reference is PERCENT-ENCODED; the file on disk is not. `Group%20633683.svg`
     // and `Group 633683.svg` are the same asset, and 36 of them were reported
