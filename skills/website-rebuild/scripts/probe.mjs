@@ -10,7 +10,7 @@
  *        [--evalAfter "expr"] [--evalAfterDelay 2000] [--mobile]
  *        [--walk 24] [--walk-dwell 700] [--no-external]
  *        [--format png|jpeg] [--quality 92]
- *        [--side mirror|rebuild] [--cdp-port N]
+ *        [--side mirror|rebuild] [--expect-side mirror|rebuild] [--cdp-port N]
  *
  * BROWSER LIFECYCLE (scripts/lib/chrome.mjs — read its header once):
  *   The browser is spawned as a PROCESS GROUP and the whole group is reaped on
@@ -74,6 +74,31 @@ import {
   shotCeilingAdvice,
   shotLikelyTooBig,
 } from './lib/chrome.mjs';
+import { cli } from './lib/cli.mjs';
+
+// ⛔ AN UNKNOWN FLAG MUST BE FATAL, NOT SILENCE. This tool sat in a toolchain
+// whose sibling (netcapture.mjs) takes --settle; passing --settle HERE was
+// silently ignored and every "long" observation quietly ran at the 6-second
+// default. The cost was a multi-hour ghost hunt: a loader "stuck" at the same
+// 6.2s frame every run, a timer that "never fired" (it was 2s away), a
+// suspected reload loop, a suspected renderer crash, a suspected patched clock
+// — all of it an artifact of one misspelled flag that nothing rejected.
+// The check now lives in lib/cli.mjs (one contract for every script); this is
+// the set it validates against. Bools take no value; every other flag consumes
+// the next argument.
+// ⛔ WALK THE ARGV; do not `find` the first token without dashes. With a flag
+// ahead of the URL (`--wait 9000 http://…`) that token is the flag's VALUE, and
+// the probe died on `new URL('9000')` with a bare TypeError — after the flag
+// check, before saying what it was given. A value a known flag consumes is
+// never inspected as a flag or as the URL; the first bare token left is the URL
+// — cli() does that walk and hands the leftovers back as positionals.
+const { positionals } = cli({
+  known: ['shot', 'format', 'quality', 'wait', 'scroll', 'walk', 'walk-dwell',
+    'eval', 'evalAfter', 'evalAfterDelay', 'side', 'expect-side', 'cdp-port', 'width', 'height'],
+  bools: ['no-external', 'mobile'],
+  file: import.meta.url,
+  positional: '<url>',
+});
 
 // Chrome discovery: first existing candidate wins; override with CHROME_PATH.
 const CHROME_CANDIDATES = [
@@ -102,42 +127,9 @@ const flag = (name, dflt) => {
   return i >= 0 ? args[i + 1] : dflt;
 };
 const has = (name) => args.includes('--' + name);
-// ⛔ AN UNKNOWN FLAG MUST BE FATAL, NOT SILENCE. This tool sat in a toolchain
-// whose sibling (netcapture.mjs) takes --settle; passing --settle HERE was
-// silently ignored and every "long" observation quietly ran at the 6-second
-// default. The cost was a multi-hour ghost hunt: a loader "stuck" at the same
-// 6.2s frame every run, a timer that "never fired" (it was 2s away), a
-// suspected reload loop, a suspected renderer crash, a suspected patched clock
-// — all of it an artifact of one misspelled flag that nothing rejected.
-const KNOWN_FLAGS = new Set(['shot', 'format', 'quality', 'wait', 'scroll', 'walk', 'walk-dwell',
-  'no-external', 'eval', 'evalAfter', 'evalAfterDelay', 'mobile', 'side', 'expect-side', 'cdp-port',
-  'width', 'height']);
-// Flags that take no value; every other known flag consumes the next argument.
-const BOOL_FLAGS = new Set(['no-external', 'mobile']);
-// ⛔ WALK THE ARGV; do not `find` the first token without dashes. With a flag
-// ahead of the URL (`--wait 9000 http://…`) that token is the flag's VALUE, and
-// the probe died on `new URL('9000')` with a bare TypeError — after the flag
-// check, before saying what it was given. A value a known flag consumes is
-// never inspected as a flag or as the URL; the first bare token left is the URL.
-let url = null;
-{
-  const bad = [];
-  for (let i = 0; i < args.length; i++) {
-    const a = args[i];
-    if (a.startsWith('--')) {
-      const name = a.slice(2);
-      if (!KNOWN_FLAGS.has(name)) { bad.push(a); continue; }
-      if (!BOOL_FLAGS.has(name)) i++;
-      continue;
-    }
-    if (url === null) url = a;
-  }
-  if (bad.length) {
-    console.error(`FATAL: unknown flag(s): ${bad.join(' ')}`);
-    console.error('       known: ' + [...KNOWN_FLAGS].map((f) => '--' + f).join(' '));
-    process.exit(2);
-  }
-}
+// The URL is the first bare token cli() left over once every known flag had
+// taken its value (see the walk note at the top).
+const url = positionals[0] ?? null;
 if (!url) {
   console.error('usage: probe.mjs <url> [--shot out.png] [--format png|jpeg] [--quality 92] [--wait ms] [--scroll frac] [--walk steps] [--walk-dwell ms] [--no-external] [--eval expr] [--evalAfter expr] [--mobile] [--side mirror|rebuild] [--cdp-port N]');
   process.exit(2);

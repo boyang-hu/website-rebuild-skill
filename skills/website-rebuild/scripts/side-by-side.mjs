@@ -31,6 +31,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { compare, decodePng, encodePng } from "./lib/png.mjs";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["dir", "out"], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const flag = (name, dflt) => {

@@ -1,9 +1,9 @@
 ---
 name: website-rebuild
 description: 1:1 rebuild of award-winning creative websites (WebGL / scroll-animation / portfolio sites). Evidence-driven pipeline - mirror-first forensics, line-number-traceable reverse engineering of minified bundles, verbatim porting, quantitative verification gates. Use when user asks to "复刻网站", "重建网站", "1:1 rebuild", "clone this site", or provides a URL of a creative/award site to reproduce.
-compatibility: Requires Node 22+ (bundled scripts use built-in WebSocket to talk to CDP), npx, and a local Chrome/Chromium for headless comparison. POSIX shell optional - the Step 0 probe protocol has a zero-dependency Node equivalent (scripts/fingerprint.mjs) for shells without curl/cmp/tr/perl (e.g. Windows PowerShell). Agent-agnostic - works in any Agent Skills-compatible runtime.
+compatibility: Requires Node 22+ (bundled scripts use built-in WebSocket to talk to CDP), npx, and a local Chrome/Chromium for headless comparison. POSIX shell optional - the Step 0 probe protocol has a zero-dependency Node equivalent (scripts/fingerprint.mjs) for shells without curl/cmp/tr/perl (e.g. Windows PowerShell); everything after Step 0 (headless Chrome process groups, npx spawns, ps) is POSIX-only (macOS / Linux / WSL). Agent-agnostic - works in any Agent Skills-compatible runtime.
 metadata:
-  version: "0.3.16"
+  version: "0.3.17"
 ---
 
 # Website Rebuild（获奖创意站 1:1 复刻）
@@ -143,7 +143,7 @@ Step 1 侦察结果决定加载哪些场景指南（按需，不要全量加载�
 
 ## Script Directory
 
-Node 22+，路径相对本 skill 目录。本表只列一句话用途；每个脚本的完整说明、旗标、实证与成熟度见 [scripts/README.md](scripts/README.md) 与 [tools/README.md](tools/README.md)（含自本表迁出的速查表）。
+Node 22+，路径相对本 skill 目录。每个脚本都认 `--help`（打印头注用法 + 旗标清单）与 `--version`（skill 版本），**未知旗标一律 FATAL**（`lib/cli.mjs`）。本表只列一句话用途；每个脚本的完整说明、旗标、实证与成熟度见 [scripts/README.md](scripts/README.md) 与 [tools/README.md](tools/README.md)（含自本表迁出的速查表）。
 
 ⭐⭐ **依赖纪律是按阶段划的，不是按目录划的：源码化之前，整条流水线零依赖。**
 

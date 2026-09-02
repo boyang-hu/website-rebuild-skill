@@ -22,9 +22,14 @@
  *
  * 文本中的 "\n" 是源 markdown 的软换行化石,原样保留;
  * 标题文本尾部空格 + id → 还原为 `text [#id]`。
+ *
+ *   node tools/flight-to-mdx.mjs [--flight docs/flight] [--out rebuild/app] [--mirror mirror] [--only <slug-prefix>]
  */
 import { readFile, writeFile, mkdir, copyFile } from "node:fs/promises";
 import path from "node:path";
+import { cli } from "../scripts/lib/cli.mjs";
+
+cli({ known: ["flight", "out", "mirror", "only"], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const flag = (n, d) => {

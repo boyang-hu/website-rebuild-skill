@@ -26,6 +26,9 @@
 import { writeFile, mkdir, readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["in", "out"], bools: [], file: import.meta.url });
 
 const ACORN_VERSION = "8.14.0"; // PINNED — a version bump can change token shapes.
 

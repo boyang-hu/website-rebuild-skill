@@ -31,12 +31,22 @@
  *        [--eval "<js, result recorded per route>"]
  *        [--allow-external vimeo.com,i.vimeocdn.com]
  *        [--out docs/sweep.tsv] [--cdp-port N] [--width 1280] [--height 800]
+ *        [--routes /,/about] [--allow-errors <re>] [--allow-failures <re>]
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import { resolvePort, chromeSentinel, assertOwnBrowser } from "./lib/ports.mjs";
 import { launchChrome, preflightChrome } from "./lib/chrome.mjs";
+import { cli } from "./lib/cli.mjs";
+
+// Unknown flags are fatal — the check lives in lib/cli.mjs (probe.mjs's header
+// tells why); this is the set it validates against.
+cli({
+  known: ["base", "routes", "pages", "wait", "interact", "interact-wait", "eval", "allow-external",
+    "allow-errors", "allow-failures", "out", "cdp-port", "width", "height"],
+  file: import.meta.url,
+});
 
 // Chrome discovery: first existing candidate wins; override with CHROME_PATH.
 const CHROME_CANDIDATES = [
@@ -57,12 +67,6 @@ async function findChrome() {
 
 const args = process.argv.slice(2);
 const flag = (n, d) => { const i = args.indexOf("--" + n); return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : d; };
-const KNOWN = new Set(["base", "routes", "pages", "wait", "interact", "interact-wait", "eval", "allow-external", "allow-errors", "allow-failures", "out", "cdp-port", "width", "height"]);
-for (const a of args) if (a.startsWith("--") && !KNOWN.has(a.slice(2))) {
-  console.error(`FATAL — unknown flag ${a}. Known: ${[...KNOWN].map((f) => "--" + f).join(" ")}`);
-  process.exit(2);
-}
-
 const BASE = (flag("base", "") || "").replace(/\/$/, "");
 if (!BASE) { console.error("usage: sweep-routes.mjs --base <url> (--routes /,/a | --pages docs/pages.json) [...]"); process.exit(2); }
 const WAIT = Number(flag("wait", "6000"));

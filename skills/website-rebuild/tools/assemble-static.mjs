@@ -15,6 +15,9 @@
 // ⚠ 文件约定的图标/OG 图由 Next 在运行时按路由生成，静态树里没有；像素门不依赖它们。
 import { mkdir, readdir, symlink, copyFile, rm } from "node:fs/promises";
 import path from "node:path";
+import { cli } from "../scripts/lib/cli.mjs";
+
+cli({ known: ["app", "static", "public", "out"], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const flag = (k, d) => { const i = args.indexOf("--" + k); return i >= 0 ? args[i + 1] : d; };

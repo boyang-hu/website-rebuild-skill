@@ -16,6 +16,7 @@
  *     [--probe-404 /no-such-page-mirror-probe]     fetch origin 404 template -> 404.html
  *     [--seeds urls.txt]                           newline-delimited extra asset URLs
  *     [--rounds 4] [--workers 8]
+ *     [--scope /path/]                             restrict the PAGE queue to a path prefix (assets unaffected)
  *     [--query-ignore v,cb]                        params that do NOT change the bytes
  *     [--query-only width,height]                  the only params that do
  *
@@ -63,6 +64,12 @@ import {
 // N13: 16 feeds, reference set 3,109 -> 3,521).
 import { createRefExtractor, isTextRefSource } from './lib/extract-refs.mjs';
 import { imageAcceptFor } from './lib/negotiate.mjs';
+import { cli } from './lib/cli.mjs';
+
+cli({
+  known: ['origin', 'out', 'hosts', 'pages', 'probe-404', 'seeds', 'rounds', 'workers', 'scope', 'query-ignore', 'query-only'],
+  file: import.meta.url,
+});
 
 // ---------------------------------------------------------------------------
 // CONFIG — per-project constants; site specifics come from the CLI instead.

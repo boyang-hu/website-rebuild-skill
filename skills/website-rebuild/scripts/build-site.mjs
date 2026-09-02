@@ -9,6 +9,7 @@
  *
  *   node scripts/build-site.mjs --config scripts/shell-config.mjs
  *   node scripts/build-site.mjs --config scripts/shell-config.mjs --check
+ *   node scripts/build-site.mjs [--config scripts/shell-config.mjs] [--mirror mirror] [--out site] [--check]
  *
  *   --check   rebuild into site.check/ and diff against site/; exits non-zero on
  *             any difference. This is what makes "just regenerate it" a safe
@@ -20,6 +21,9 @@ import { mkdir, readFile, writeFile, rm, readdir } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { transformPage, transformIds } from "./lib/shell-build.mjs";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["config", "mirror", "out"], bools: ["check"], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const flag = (n, d) => {

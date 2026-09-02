@@ -4,6 +4,8 @@
 // 无证据不命名，错名比哈希更糟。同名冲突时后者带 id 后缀。接受理由写回 `why`，可审计。
 //   node tools/accept-names.mjs --in docs/sourcify/names-<chunk>.json [--out <same>] [--max-tier 1]
 import { readFile, writeFile } from "node:fs/promises";
+import { cli } from "../scripts/lib/cli.mjs";
+cli({ known: ["in", "out", "max-tier"], file: import.meta.url });
 const args = process.argv.slice(2);
 const flag = (n, d) => { const i = args.indexOf("--" + n); return i >= 0 ? args[i + 1] : d; };
 const IN = flag("in"), OUT = flag("out", IN), MAX_TIER = Number(flag("max-tier", "1"));

@@ -27,12 +27,15 @@
  *      message — errors name what threw them
  *   5  exported member names, joined            {parse, evaluate, programs}
  *
- *   node tools/name-modules.mjs [--closure docs/slice-closure.json] [--out docs/module-names.json]
+ *   node tools/name-modules.mjs [--map docs/module-map.json] [--closure docs/slice-closure.json]
+ *        [--out docs/module-names.json] [--overrides docs/module-names.overrides.json]
  */
 import fs from "node:fs";
 import path from "node:path";
 import { parse } from "@babel/parser";
 import _traverse from "@babel/traverse";
+import { cli } from "../scripts/lib/cli.mjs";
+cli({ known: ["map", "closure", "out", "overrides"], file: import.meta.url });
 const traverse = _traverse.default ?? _traverse;
 
 const argv = process.argv.slice(2);

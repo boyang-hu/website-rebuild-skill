@@ -11,6 +11,8 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { cli } from "../scripts/lib/cli.mjs";
+cli({ known: ["app", "site"], file: import.meta.url });
 const args = process.argv.slice(2);
 const flag = (k, d) => { const i = args.indexOf("--" + k); return i >= 0 ? args[i + 1] : d; };
 const APP = flag("app", "rebuild"), SITE = flag("site", join(APP, "static-site"));

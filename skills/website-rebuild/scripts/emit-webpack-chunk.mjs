@@ -13,9 +13,14 @@
 // 产出：<parts>/<NNN>-<id>.js 逐模块部件（含首/尾两个非模块部件）+ <out> 按序拼接件。
 // ⛔ 自校（--check 或每次都跑）：拼接件 === `_pretty` 原件逐字节 —— 这就是
 //   readable-source.md §3.0.6 的拼接式分解语义：字节等价成立时全部运行时门的裁决免费转移。
+//
+//   node scripts/emit-webpack-chunk.mjs --in <pretty.js> --map <lines.json> --out <gen.js> --parts <dir> [--raw <min.js> --raw-bounds <bounds.json>] [--check]
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["in", "map", "out", "parts", "raw", "raw-bounds"], bools: ["check"], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const flag = (k, d) => { const i = args.indexOf("--" + k); return i >= 0 ? args[i + 1] : d; };

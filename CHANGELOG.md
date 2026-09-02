@@ -1,5 +1,29 @@
 # 更新记录
 
+## v0.3.17 — 一份 argv 合同：`--help` / `--version` / 未知旗标 FATAL 全覆盖，退出码表，tools 依赖钉版本，历史 tag
+
+上一版评审里"只写在文档里的规矩"又一条落成门：**"未知参数必须 FATAL"** 从 v0.1.x 就写在 verification-gates 里，实现它的脚本 57 个里只有 9 个。
+
+**`scripts/lib/cli.mjs`**：每个脚本（51 个工序脚本 + 10 个 tools + `lib/chrome.mjs` / `lib/ports.mjs` 的 CLI 模式）第一件事是
+`cli({ known, bools, file: import.meta.url })`——`--help`/`-h` 打印文件头注（用法一直住在那里）+ 旗标清单 + skill 版本；`--version`
+打印 skill 版本（`lib/version.mjs`，项目里的 `scripts/` 是拷贝，这个数字是判断它有没有落后的唯一依据，selftest 钉它等于
+SKILL.md frontmatter）；**未知旗标一律 FATAL 退 2 并列出已知集**。它只校验 argv 的形状，各脚本自己的 `flag()` 读法一个字不改；
+此前 9 个脚本各自的 KNOWN 检查删掉归一。迁移时清出 **30 余处"代码读了但头注没写"的旗标**（pixelcompare 一个脚本就有 11 个：
+`--self --pump --after-ready --hold --hold-grace --hold-after --drive --chunk --freeze-css --freeze-at --cdp-port`；make-standalone 13 个；
+probe 的 `--expect-side`；serve 的 `--host --fallback-root --query-ignore --query-only --rewrite`）全部补进头注用法行；
+cold-audit-modules 头注里的 `[--entry 14]` 从未被读取——删掉而不是登记成一个无事可做的旗标；extract-source 的 `--h` 别名退役。
+
+**退出码约定**（`cli.mjs` 的 `EXIT`，表见 scripts/README）：0 绿 / 1 门红 / 2 调用错误 / 3 身份 / 4 CDP 传输 / 5 前置条件不成立 /
+6 状态未到达 / 130 Ctrl-C 已落盘。5 在 pixelcompare 是空帧、在 module-map 是认不出容器，按含义读不按脚本猜；新脚本取常量不写裸数字。
+
+**selftest 110 → 114**：版本常量钉 frontmatter；对 57 个脚本逐个扫 `--help` 退 0 且有 `flags:` 清单、未知旗标退 2、
+**头注用法行里出现的每个旗标都在已知集里**（正是 probe `--expect-side` 那类 bug 的门）。tools 里 import babel 的两个在本仓无依赖，扫描明示跳过。
+
+**其它**：`tools/package.json` 首次声明并钉死 `@babel/parser` / `@babel/traverse`（7.29.8——darkroom 7.25 / raycastkbd 7.26 /
+storytellingnoomo 7.29 实跑过的那条线；basement 在 8.0.4 上跑过一次，一个样本）；`verify-fresh` 不再 `npx esbuild`（本地没装就静默拉最新，
+拉来的和 `dist/` 用的不是同一个 bundler），改用项目自己的 `node_modules/.bin/esbuild` 或 `--esbuild <path>`，缺失退 2；SKILL.md
+compatibility 写明 Step 0 之后 POSIX-only；本地为 v0.1.1–v0.3.16 共 98 个历史版本按 CHANGELOG 打了 git tag（未推送）。
+
 ## v0.3.16 — 瘦身版：拆 verification-gates、重编号、SKILL 表瘦身、八条已核实 bug（全仓冷头评审回哺）
 
 对 v0.3.13–0.3.15 做了一次全仓冷头评审（报告留在 analyses/，不入库），本版只做**减法与修正**，不引入新方法论。

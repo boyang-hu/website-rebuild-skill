@@ -51,6 +51,25 @@
 
 **再往下还有一层，而这一层与上面全部正交：一个 HTTP 200 不是"你拿到了那个资源"的证据。** 上面每一项——单射性、账本 sha256、覆盖度、闭包——校验的都是"**账本与磁盘是否自洽**"，而它们可以在**每一份字节都是 bot 挑战页**的情况下诚实地全绿。实测（objectandarchive M0b）：3 workers 的整站重抓触发源站挑战，**43 份挑战页被写在各自页面的 URL 下**，包括整个逆向工作所依据的那份文档；`verify-mirror` 全程 **PASS 0 而且没有错**——账本记的是"你抓到了什么"，从不记"它是不是你要的那个"。当时唯一的反对者是**构建层的逐条变换命中下限**（挑战页里没有那个平台脚本，命中 4 < 下限 5）。所以现在有第三项断言（AUTHENTICITY）：**挑战正文匹配**（硬红，可 `--interstitial-extra` 扩展）+ **声明类型对魔数字节**（硬红，判据的依据是**源站声明的 content-type**，不是 URL 扩展名）+ **同类体量离群**（只报线索，不判红）。
 
+## 命令行约定（`lib/cli.mjs`，v0.3.17 起全部脚本一致）
+
+每个脚本第一件事是 `cli({ known, bools, file: import.meta.url })`：**`--help`/`-h`** 打印文件头注（用法一直住在那里）+ 旗标清单 + skill 版本，退 0；**`--version`** 打印 skill 版本（项目里的 `scripts/` 是拷贝，这个数字是判断它有没有落后的唯一依据）；**未知旗标一律 FATAL 退 2** 并列出已知集（此前 57 个脚本里只有 9 个这么做，`--settle` 给了只认 `--wait` 的工具、静默跑在 6 秒默认值上买过三小时追凶，`verification-gates.md` §2.1.3）。它只校验 argv 的形状，各脚本自己的 `flag()` 读法一个字不改。selftest 对每个脚本扫 `--help` 退 0 与未知旗标退 2，并断言头注用法行里出现的每个旗标都在已知集里。
+
+## 退出码约定（`lib/cli.mjs` 的 `EXIT`）
+
+| 码 | 含义 | 谁在用 |
+|---|---|---|
+| 0 | 门绿 / 任务完成 | 全部 |
+| 1 | 门红：被测对象不对（或工具读不到自己的账本） | verify-*、make-standalone、netcapture `--fetch` |
+| 2 | 调用错误：缺参 / 参数无效 / 未知旗标 / 配置坏 | 全部（`lib/cli.mjs` + 各脚本 usage） |
+| 3 | 身份：端口被占、side 不符、attach 到别人的浏览器 | `lib/ports.mjs` 家族 |
+| 4 | CDP 传输死了（载荷硬顶、close 1006、超时） | probe / pixelcompare |
+| 5 | 前置条件不成立：认不出容器、一个都没查到、空帧 | module-map / name-modules / cold-audit / pixelcompare 空帧 |
+| 6 | 页面没到达要求的状态（`--ready` / `--hold`） | pixelcompare / pixel-walk |
+| 130 | Ctrl-C，账本已落盘 | mirror-site |
+
+⚠ 5 在 pixelcompare 里是"空帧"、在 module-map 里是"认不出容器"——同为"前置条件不成立"，读退出码时按表里的含义读，不要按脚本名猜。新脚本从 `EXIT` 取常量，不要再写裸数字。
+
 | 脚本 | 用途 | 典型用法 | 出处 | 成熟度 |
 |---|---|---|---|---|
 | `fingerprint.mjs` | Step 0 指纹侦察（`references/scope-and-fingerprint.md` §2 六步 curl 协议）的跨平台等价——无 POSIX 工具链（Windows PowerShell 无 curl/cmp/fold/tr/perl）也能跑：GET 存活 + 手动重定向链与终点域同一性、双抓确定性 diff、物种/年代 grep、HTML 技术指纹（剥注释枚举 `<script src>`/内联 `import()`、框架模式×引擎范式标记，计数一律出现次数语义 = `grep -o \| wc -l`）、bundle 初检（<1KB 自动补 Referer 重试、minification 形态、three 强签名、`/api/` 计数、catch-all content-type 告警）。**只采证据不出判级**；下载物逐个记 sha256，请求间隔 ≥1s | `node fingerprint.mjs --target https://example.com/awarded-path --bundle https://example.com/assets/main.xxx.js` | 新写（把 §2 手工协议脚本化，协议内容零发明） | 中（逐条对照 §2 实现 + 实站冒烟三路：byte-identical / 301 链 / <1KB Referer 重试；未经完整项目实战） |

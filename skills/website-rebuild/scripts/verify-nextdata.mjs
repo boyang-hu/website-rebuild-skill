@@ -13,6 +13,9 @@
 // 两侧同为非 200（源站对该路由本就无 data 载荷）视为一致。不 import 任何生产者。
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["a", "b", "routes", "build", "dump", "normalize"], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const flag = (k, d) => { const i = args.indexOf("--" + k); return i >= 0 ? args[i + 1] : d; };

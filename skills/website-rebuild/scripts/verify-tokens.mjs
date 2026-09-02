@@ -10,6 +10,9 @@
 // 打印首个分歧 token 的序号与两侧值。⛔ 退出码不许经过管道 tail（F10）。
 import { readFileSync } from "node:fs";
 import { tokenStream, firstDivergence, showToken, ACORN_VERSION } from "./lib/tokens.mjs";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["pairs"], file: import.meta.url, positional: "<original.js> <emitted.js>" });
 
 const args = process.argv.slice(2);
 const pi = args.indexOf("--pairs");

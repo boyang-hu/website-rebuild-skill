@@ -16,6 +16,9 @@
 // Adapted from storytellingnoomo-rebuild/scripts/dump-timelines.mjs.
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["out"], bools: [], file: import.meta.url, positional: "<file.glb> [...more.glb]" });
 
 const args = process.argv.slice(2);
 const flag = (name, dflt) => {

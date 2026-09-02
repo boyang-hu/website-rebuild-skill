@@ -22,6 +22,9 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { tokenStream, firstDivergence, showToken } from "./lib/tokens.mjs";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["out"], bools: [], file: import.meta.url, positional: "<bundle.js> [...more files]" });
 
 // The pinned beautifier version. NEVER bump mid-project: regenerate everything
 // and re-verify every recorded line reference if you must change it.

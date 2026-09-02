@@ -58,6 +58,9 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import path from "node:path";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["slices", "source", "out", "sha256"], bools: ["check", "balance-check"], file: import.meta.url });
 
 const USAGE = `usage: extract-source.mjs --slices <config.mjs|config.json> [options]
 
@@ -85,9 +88,11 @@ const die = (code, msg) => {
   process.exit(code);
 };
 
-if (args.length === 0 || has("help") || has("h")) {
+// --help / -h are answered by lib/cli.mjs before this runs; a bare invocation
+// still gets the usage block and exit 2.
+if (args.length === 0) {
   console.error(USAGE);
-  process.exit(args.length === 0 ? 2 : 0);
+  process.exit(2);
 }
 
 const CHECK = has("check");

@@ -1,0 +1,10 @@
+{
+  "name": "website-rebuild-tools",
+  "private": true,
+  "type": "module",
+  "description": "devDependencies the M(n+1) refactorers in tools/ import. Copy these entries into the rebuild project's own package.json when the project reaches M(n+1); scripts/ stays zero-dependency and must never import from here. Pinned to the Babel 7 line the tools were built and re-run against (darkroom 7.25, raycastkbd 7.26, storytellingnoomo 7.29); one project ran them on 8.0.4 (basement) without incident, but that is one sample.",
+  "devDependencies": {
+    "@babel/parser": "7.29.8",
+    "@babel/traverse": "7.29.8"
+  }
+}

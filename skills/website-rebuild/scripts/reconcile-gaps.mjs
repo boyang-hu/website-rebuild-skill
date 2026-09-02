@@ -17,6 +17,9 @@ import { join, dirname } from "node:path";
 import { createHash } from "node:crypto";
 import { localRelPath, loadPolicy } from "./lib/urlpath.mjs";
 import { imageAcceptFor } from "./lib/negotiate.mjs";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["out", "urls"], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const opt = (k, d) => {

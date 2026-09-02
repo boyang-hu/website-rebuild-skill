@@ -31,6 +31,9 @@ import { readFile, readdir, stat, cp, mkdtemp, rm } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["src"], bools: ["full", "keep"], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const has = (n) => args.includes("--" + n);

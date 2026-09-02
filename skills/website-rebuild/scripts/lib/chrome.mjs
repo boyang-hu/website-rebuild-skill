@@ -72,6 +72,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { assertPortFree, labelPort, portSlot } from "./ports.mjs";
+import { cli } from "./cli.mjs";
 
 export const PROFILE_PREFIX = "wrs-chrome";
 
@@ -502,6 +503,8 @@ export function shotLikelyTooBig({ w, h, format }) {
 // --- CLI --------------------------------------------------------------------
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  // Only the CLI mode validates argv; importers never pay for it.
+  cli({ bools: ["all", "reap"], file: import.meta.url });
   const argv = process.argv.slice(2);
   const all = argv.includes("--all");
   const doReap = argv.includes("--reap");

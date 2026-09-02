@@ -27,6 +27,9 @@
  */
 import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["mirror", "out"], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const flag = (n, d) => {

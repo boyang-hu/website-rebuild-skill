@@ -22,12 +22,15 @@
  * duplicates and the mapping is ambiguous; matching none means it is missing.
  *
  *   node scripts/verify-harvest.mjs --baseline docs/case-baseline.json \
- *        --b <port-url> --config scripts/harvest.config.mjs
+ *        --b <port-url> --config scripts/harvest.config.mjs [--probe scripts/probe.mjs]
  */
 import { readFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["baseline", "b", "config", "probe"], bools: [], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const flag = (n, d) => { const i = args.indexOf("--" + n); return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : d; };

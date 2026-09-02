@@ -10,6 +10,8 @@
 import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { localRelPath, loadPolicy } from "../scripts/lib/urlpath.mjs";
+import { cli } from "../scripts/lib/cli.mjs";
+cli({ known: ["base", "site", "mirror"], file: import.meta.url });
 const args = process.argv.slice(2);
 const flag = (k, d) => { const i = args.indexOf("--" + k); return i >= 0 ? args[i + 1] : d; };
 const BASE = flag("base", "http://127.0.0.1:3311"), SITE = flag("site", "rebuild/static-site"), MIRROR = flag("mirror", "mirror");

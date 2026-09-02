@@ -28,13 +28,15 @@
  * a separate gate (verify-symbols.mjs); doing both at once means a failure
  * cannot be attributed.
  *
- *   node tools/modules-to-src.mjs --closure docs/app-closure.json \
+ *   node tools/modules-to-src.mjs [--map docs/module-map.json] --closure docs/app-closure.json \
  *        --names docs/app-names.json --entry 14 --out src
  */
 import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { parse } from "@babel/parser";
 import _traverse from "@babel/traverse";
+import { cli } from "../scripts/lib/cli.mjs";
+cli({ known: ["map", "closure", "names", "entry", "out"], file: import.meta.url });
 const traverse = _traverse.default ?? _traverse;
 
 const args = process.argv.slice(2);

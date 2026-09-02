@@ -28,6 +28,11 @@ import { labelPort, resolvePort } from "./lib/ports.mjs";
 // or worse, silently measures yesterday's build. Ctrl-C during the gate had the
 // same effect, since nothing was registered on SIGINT at all.
 import { spawnReaped } from "./lib/chrome.mjs";
+import { cli } from "./lib/cli.mjs";
+
+// No flags: everything this gate asserts lives in CONFIG below. cli() still
+// runs so --help works and a stray --flag fails loudly instead of being ignored.
+cli({ known: [], file: import.meta.url });
 
 // ---------------------------------------------------------------------------
 // CONFIG — EDIT PER PROJECT. Everything the gate asserts lives here.

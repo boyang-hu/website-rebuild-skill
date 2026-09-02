@@ -32,12 +32,15 @@
  *
  * Zero-dependency: the tokenizer is a PINNED npx spawn, never an import.
  *
- *   node scripts/verify-module-map.mjs --closure docs/app-closure.json --src src
+ *   node scripts/verify-module-map.mjs --closure docs/app-closure.json --src src [--map docs/module-map.json]
  */
 import { readFile, readdir, writeFile, mkdtemp, rm } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["closure", "src", "map"], bools: [], file: import.meta.url });
 
 const ACORN_VERSION = "8.14.0"; // PINNED — token shapes are the contract here.
 

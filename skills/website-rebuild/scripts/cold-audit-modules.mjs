@@ -29,10 +29,13 @@
  * entries you name and says so.
  *
  *   node scripts/cold-audit-modules.mjs --map docs/module-map.json \
- *        --closure docs/app-closure.json [--entry 14]
+ *        --closure docs/app-closure.json
  */
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["map", "closure"], bools: [], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const flag = (n, d) => { const i = args.indexOf("--" + n); return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : d; };

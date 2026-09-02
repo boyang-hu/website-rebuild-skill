@@ -18,10 +18,14 @@
  *                                [--map docs/module-map.json]
  *                                [--in mirror/_pretty/main.built.js]
  *                                [--out port/_gen/tween.gen.js] [--check]
+ *                                [--format esm|classic --entry <id>] [--packer auto|webpack|turbopack]
  */
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["closure", "map", "in", "out", "format", "entry", "packer"], bools: ["check"], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const flag = (n, d) => { const i = args.indexOf("--" + n); return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : d; };

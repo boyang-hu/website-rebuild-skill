@@ -21,10 +21,22 @@
  *
  *   node scripts/pixel-walk.mjs --a <rebuild-url> --b <mirror-url> [--steps 9]
  *                               [--pump 16.7,120] [--max-mean 1.0] [--self]
+ *                               [--out docs/pixelcompare] [--format jpeg] [--quality 92] [--rescroll-ms 1500]
+ *                               [--settle ms] [--ready expr] [--hold expr] [--hold-grace ms] [--hold-after N]
  */
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { cli } from "./lib/cli.mjs";
+
+// ⚠ settle/ready/hold*/format/quality/out/pump are FORWARDED to pixelcompare
+// verbatim — a name it does not know must never be accepted here.
+cli({
+  known: ["a", "b", "steps", "pump", "out", "max-mean", "format", "quality", "rescroll-ms",
+    "settle", "ready", "hold", "hold-grace", "hold-after"],
+  bools: ["self"],
+  file: import.meta.url,
+});
 
 const args = process.argv.slice(2);
 const flag = (n, d) => { const i = args.indexOf("--" + n); return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : d; };

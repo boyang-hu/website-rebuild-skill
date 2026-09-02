@@ -22,11 +22,15 @@
  * (verification-gates.md §2.1.2).
  *
  *   node scripts/verify-shell.mjs --config scripts/shell-config.mjs
+ *   node scripts/verify-shell.mjs [--config scripts/shell-config.mjs] [--mirror mirror] [--site site] [--max-report 8]
  */
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { transformPage, noindexBlock } from "./lib/shell-build.mjs";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["config", "mirror", "site", "max-report"], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const flag = (n, d) => {

@@ -34,6 +34,9 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { sanityEvidence } from "./lib/negotiate.mjs";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["target", "bundle", "out", "gap-ms"], file: import.meta.url });
 
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";

@@ -29,6 +29,7 @@
  *   node scripts/verify-payload.mjs --a http://127.0.0.1:24001 --b http://127.0.0.1:24002 \
  *        --routes /,/works,/about,/contact
  *   node scripts/verify-payload.mjs --a <base> --routes … --dump docs/payload
+ *   node scripts/verify-payload.mjs --a <base> --b <base> --routes … --allow-absent
  *
  * ⛔ It evaluates the payload with `new Function`. That is safe HERE and only
  * here: the input comes from a mirror of a site we are already running in a
@@ -36,6 +37,10 @@
  * substitution — would be a second implementation of somebody else's format,
  * which drifts (verification-gates.md §2.1.1).
  */
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["a", "b", "routes", "dump"], bools: ["allow-absent"], file: import.meta.url });
+
 const args = process.argv.slice(2);
 const flag = (n, d) => {
   const i = args.indexOf("--" + n);

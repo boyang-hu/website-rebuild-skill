@@ -39,20 +39,25 @@
  *   node scripts/wayback-mirror.mjs --origin https://darknetflix.io \
  *        [--hosts cdn.example.com] [--anchor 20200626202014 | auto]
  *        [--window-days 365] [--out mirror] [--workers 2] [--include-3xx]
+ *        [--limit N] [--seeds urls.txt]
  */
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { localRelPath, canonicalUrl } from "./lib/urlpath.mjs";
 import { createRefExtractor, isTextRefSource } from "./lib/extract-refs.mjs";
+import { cli } from "./lib/cli.mjs";
+
+// An unknown flag is FATAL, not ignored; the check (and --help) lives in
+// lib/cli.mjs, the one argv contract every script shares.
+cli({
+  known: ["origin", "hosts", "anchor", "window-days", "out", "workers", "limit", "seeds"],
+  bools: ["include-3xx"],
+  file: import.meta.url,
+});
 
 const args = process.argv.slice(2);
 const flag = (n, d) => { const i = args.indexOf("--" + n); return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : d; };
-const KNOWN = new Set(["origin", "hosts", "anchor", "window-days", "out", "workers", "include-3xx", "limit", "seeds"]);
-for (const a of args) if (a.startsWith("--") && !KNOWN.has(a.slice(2))) {
-  console.error(`FATAL — unknown flag ${a}. Known: ${[...KNOWN].map((f) => "--" + f).join(" ")}`);
-  process.exit(2);
-}
 
 const ORIGIN = (flag("origin", "") || "").replace(/\/$/, "");
 if (!ORIGIN) { console.error("usage: wayback-mirror.mjs --origin https://dead.example [--hosts cdn.x] [--anchor auto] ..."); process.exit(2); }

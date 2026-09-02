@@ -99,6 +99,13 @@ import { localRelPath, loadPolicy, describePolicy, canonicalUrl } from "./lib/ur
 // take, and WHICH FILES get scanned for them. A gate that carries its own copy
 // of either one inherits exactly the blind spot it is auditing.
 import { createRefExtractor, textRefVerdict, sniffTextBytes } from "./lib/extract-refs.mjs";
+import { cli } from "./lib/cli.mjs";
+
+cli({
+  known: ["mirror", "origin", "hosts", "allow-missing", "skip", "interstitial-extra", "resample", "resample-delay", "resample-seed", "max-report"],
+  bools: ["resample-html"],
+  file: import.meta.url,
+});
 
 const args = process.argv.slice(2);
 const flag = (n, d) => {

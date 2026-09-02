@@ -15,6 +15,9 @@
  */
 import { readFile } from "node:fs/promises";
 import { decodePng } from "./lib/png.mjs";
+import { cli } from "./lib/cli.mjs";
+
+cli({ file: import.meta.url, positional: "<frame.png> [...]" });
 
 let worst = null;
 for (const f of process.argv.slice(2)) {

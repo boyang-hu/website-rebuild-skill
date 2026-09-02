@@ -18,6 +18,7 @@
  *     [--force]                    re-download files already on disk
  *     [--dry-run]                  enumerate the ladder, write nothing
  *     [--manifest <path>]          default <out>/mirror-manifest.json
+ *     [--referer <url>]            Referer header sent with every request; default <origin>/
  *
  * Find the master URL the way it surfaced in racingshop: probe.mjs / the
  * browser console reports 404s for the variant playlists, or netcapture.mjs
@@ -42,6 +43,13 @@
  */
 import { mkdir, readFile, writeFile, stat } from 'node:fs/promises';
 import { dirname, join, relative, extname } from 'node:path';
+import { cli } from './lib/cli.mjs';
+
+cli({
+  known: ['master', 'out', 'origin', 'referer', 'manifest', 'workers', 'delay'],
+  bools: ['force', 'dry-run'],
+  file: import.meta.url,
+});
 
 // ---------------------------------------------------------------------------
 // CONFIG — per-project constants; site specifics come from the CLI instead.

@@ -74,6 +74,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
+import { cli } from "./cli.mjs";
 
 export const PORT_BASE = 21000;
 export const SLOT_COUNT = 9;
@@ -417,6 +418,8 @@ export function annotateHost(host) {
 // --- CLI --------------------------------------------------------------------
 
 if (import.meta.url === `file://${process.argv[1]}`) {
+  // Only the CLI mode validates argv; importers never pay for it.
+  cli({ file: import.meta.url, positional: "[port]" });
   const arg = process.argv[2];
   if (arg) {
     const d = describePort(arg);

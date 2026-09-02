@@ -21,12 +21,15 @@
  * need live layout the probe page does not have, and applying the SAME override
  * to both cannot mask a difference between them (REBUILD_PLAN §6 D6).
  *
- *   node scripts/verify-tween.mjs --a <urlA> --b <urlB> [--tol 1e-9]
+ *   node scripts/verify-tween.mjs --a <urlA> --b <urlB> [--tol 1e-9] [--probe scripts/probe.mjs]
  *   node scripts/verify-tween.mjs --a <urlA> --record docs/tween-baseline.json
  */
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["a", "b", "record", "tol", "probe"], bools: [], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const flag = (n, d) => { const i = args.indexOf("--" + n); return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : d; };

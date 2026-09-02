@@ -46,7 +46,7 @@
  * under `info`.
  *
  *   node scripts/verify-crossside.mjs --a <mirror-url> --b <port-url> \
- *        --config scripts/crossside.config.mjs
+ *        --config scripts/crossside.config.mjs [--probe scripts/probe.mjs]
  *
  * The config module supplies what is target-specific:
  *
@@ -60,6 +60,9 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["a", "b", "config", "probe"], bools: [], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const flag = (n, d) => { const i = args.indexOf("--" + n); return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : d; };

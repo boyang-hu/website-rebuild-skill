@@ -23,16 +23,15 @@
 import { readdir, readFile, writeFile, mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["dir", "out", "md"], bools: [], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const flag = (n, d) => { const i = args.indexOf("--" + n); return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : d; };
 const DIR = path.resolve(flag("dir", "mirror/_nuxt"));
 const OUT = path.resolve(flag("out", "docs/bundle-census.json"));
-const KNOWN = new Set(["dir", "out", "md"]);
-for (const a of args) if (a.startsWith("--") && !KNOWN.has(a.slice(2))) {
-  console.error(`FATAL — unknown flag ${a}. Known: ${[...KNOWN].map((f) => "--" + f).join(" ")}`);
-  process.exit(2);
-}
+// Unknown flags are rejected by lib/cli.mjs (the one argv contract) before anything here runs.
 
 const names = (await readdir(DIR)).filter((n) => /\.m?js$/.test(n)).sort();
 if (!names.length) { console.error(`FATAL — no .js chunks under ${DIR}.`); process.exit(2); }

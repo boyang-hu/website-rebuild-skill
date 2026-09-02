@@ -17,6 +17,8 @@
 //     [--label-a REBUILD] [--label-b MIRROR]
 //     [--format png|jpeg] [--quality 92]   frame encoding (see the ceiling below)
 //     [--max-mean 12]                  optional gate: exit 1 if meanAbsDiff exceeds
+//     [--self] [--pump dt,frames] [--after-ready N] [--hold expr] [--hold-grace ms] [--hold-after N]
+//     [--drive expr] [--chunk N] [--freeze-css] [--freeze-at -1s] [--cdp-port N]
 //
 // VIEWPORT SIZE IS LIMITED BY THE TRANSPORT, NOT BY CHROME. CDP hands the whole
 // frame back as ONE base64 WebSocket message and Node's built-in WebSocket dies
@@ -76,6 +78,15 @@ import {
   shotCeilingAdvice,
   shotLikelyTooBig,
 } from './lib/chrome.mjs';
+import { cli } from './lib/cli.mjs';
+
+cli({
+  known: ['a', 'b', 'name', 'out', 'width', 'height', 'format', 'quality', 'settle', 'ready', 'after-ready',
+    'hold', 'hold-grace', 'hold-after', 'drive', 'pump', 'chunk', 'freeze-at', 'seed', 'label-a', 'label-b',
+    'max-mean', 'cdp-port'],
+  bools: ['self', 'freeze-css'],
+  file: import.meta.url,
+});
 
 const args = process.argv.slice(2);
 const flag = (name, dflt) => {

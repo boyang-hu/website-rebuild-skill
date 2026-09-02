@@ -34,6 +34,8 @@
 //     [--hosts cdn.x.com,media.y.net]   extra hosts to record besides the origin
 //     [--out <mirror>/netcapture.tsv]   HAVE/GAP ledger destination
 //     [--fetch]                         also download anything the mirror is missing
+//     [--swiftshader]                   opt-in software GL (see the Chrome flag list below)
+//     [--cdp-port N]                    debug port; default allocated by lib/ports.mjs (CDP_PORT env also honoured)
 //
 // --hosts IS NOT OPTIONAL ON A CDN-BACKED SITE. Records are keyed by absolute
 // URL over an allow-list of hosts, whose semantics match mirror-site.mjs's
@@ -69,6 +71,13 @@ import { launchChrome, preflightChrome } from "./lib/chrome.mjs";
 // is a DIFFERENT image — a false GAP=0 with no symptom. See lib/urlpath.mjs.
 import { localRelPath, loadPolicy, describePolicy } from "./lib/urlpath.mjs";
 import { imageAcceptFor } from "./lib/negotiate.mjs";
+import { cli } from "./lib/cli.mjs";
+
+cli({
+  known: ["origin", "mirror", "routes", "viewports", "steps", "dwell", "settle", "hosts", "out", "cdp-port"],
+  bools: ["swiftshader", "fetch"],
+  file: import.meta.url,
+});
 
 const args = process.argv.slice(2);
 const flag = (name, dflt) => {

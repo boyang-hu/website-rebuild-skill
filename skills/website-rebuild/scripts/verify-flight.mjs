@@ -21,9 +21,13 @@
  *   N6 首页 c 字段 ["","index"] vs ["",""](D6,Vercel 边缘重写工件)
  *
  * 用法: node scripts/verify-flight.mjs --built rebuild/.next/server/app --mirror mirror
+ *       [--normalize-props views,viewsFormatted] [--normalize-class react-tweet-theme]
  */
 import { readFile, readdir, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["built", "mirror", "normalize-props", "normalize-class"], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const flag = (n, d) => {

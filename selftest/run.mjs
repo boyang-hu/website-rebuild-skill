@@ -824,6 +824,47 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
   truthy("docs — SKILL.md References list names every references/*.md (v0.3.16)", unlisted.length === 0, unlisted.join(", "));
 }
 
+// ------------------------------- v0.3.17: one argv contract for every script (lib/cli.mjs)
+// A rule only written in the docs decays: "unknown flags must be FATAL" was
+// written in v0.1.x and implemented by 9 of 57 scripts. Now every script must
+// (a) answer --help with its header + a `flags:` inventory, exit 0, (b) reject an
+// unknown flag with exit 2, (c) list in that inventory every flag its own usage
+// block documents — the probe --expect-side bug was a documented flag that
+// nothing knew.
+{
+  const fm = readFileSync(path.join(SKILL, "SKILL.md"), "utf8").match(/^metadata:\n\s+version:\s*"([^"]+)"/m);
+  const { SKILL_VERSION } = await import(path.join(SKILL, "scripts/lib/version.mjs"));
+  eq("version — lib/version.mjs matches SKILL.md frontmatter (v0.3.17)", SKILL_VERSION, fm && fm[1]);
+  const scripts = [
+    ...readdirSync(path.join(SKILL, "scripts")).filter((f) => /\.mjs$/.test(f) && !/example/.test(f)).map((f) => "scripts/" + f),
+    ...readdirSync(path.join(SKILL, "tools")).filter((f) => /\.mjs$/.test(f)).map((f) => "tools/" + f),
+    "scripts/lib/chrome.mjs", "scripts/lib/ports.mjs",
+  ];
+  const spawn = (rel, args) => { try { return { code: 0, out: execFileSync(process.execPath, [path.join(SKILL, rel), ...args], { cwd: TMP, stdio: "pipe", timeout: 20000 }).toString(), err: "" }; } catch (e) { return { code: e.status, out: String(e.stdout || ""), err: String(e.stderr || "") }; } };
+  const noHelp = [], noReject = [], undocumented = [], skipped = [];
+  for (const rel of scripts) {
+    const h = spawn(rel, ["--help"]);
+    if (/Cannot find package/.test(h.err)) { skipped.push(rel); continue; } // tools/ importing devDependencies not installed in this repo
+    if (h.code !== 0 || !/^flags: /m.test(h.out)) { noHelp.push(`${rel} (exit ${h.code})`); continue; }
+    const known = new Set((h.out.match(/^flags: (.*)$/m)?.[1] || "").match(/--[\w-]+/g) || []);
+    // documented = every --flag on the usage lines of the header (a `node <name>` line and its indented continuations)
+    const base = path.basename(rel);
+    const header = h.out.split(/^flags: /m)[0].split("\n");
+    const doc = new Set();
+    for (let i = 0; i < header.length; i++) {
+      if (!header[i].includes(`node ${base}`) && !header[i].includes(`node scripts/${base}`) && !header[i].includes(`node tools/${base}`)) continue;
+      let j = i;
+      do { for (const m of header[j].matchAll(/--([\w-]+)/g)) doc.add("--" + m[1]); j++; } while (j < header.length && /^\s+[\[<(-]/.test(header[j]));
+    }
+    for (const d of doc) if (!known.has(d) && d !== "--help" && d !== "--version") undocumented.push(`${rel} ${d}`);
+    const u = spawn(rel, ["--zz-unknown-flag-for-selftest"]);
+    if (u.code !== 2 || !/unknown flag/.test(u.err + u.out)) noReject.push(`${rel} (exit ${u.code})`);
+  }
+  truthy(`cli — every script answers --help with a flag inventory (${scripts.length - skipped.length} checked${skipped.length ? `, ${skipped.length} skipped: ${skipped.map((s) => path.basename(s)).join(",")}` : ""})`, noHelp.length === 0, noHelp.join("; "));
+  truthy("cli — every script rejects an unknown flag with exit 2", noReject.length === 0, noReject.join("; "));
+  truthy("cli — every flag on a script's usage line is in its known set", undocumented.length === 0, undocumented.slice(0, 8).join("; "));
+}
+
 // ---------------------------------------------------------------- summary
 rmSync(TMP, { recursive: true, force: true });
 console.log(`\n${fail ? "FAIL" : "PASS"} — ${pass} passed, ${fail} failed.`);

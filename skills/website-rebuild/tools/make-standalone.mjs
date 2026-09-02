@@ -13,12 +13,23 @@
  * the port replaced right back next to it.
  *
  *   node tools/make-standalone.mjs --shell site/airpods-pro/index.html --out src
+ *        [--mirror mirror,mirror-negotiated] [--own /app.js,...] [--keep-own] [--no-build] [--build-out /app.js]
+ *        [--replaced /old.js] [--externals a,b] [--allow mirror/external.txt] [--stub-ext-hosts h,h]
+ *        [--ext-hosts h,h] [--origin-host h] [--name n] [--serve-port 6190]
  */
 import { readFile, writeFile, mkdir, readdir, cp, stat } from "node:fs/promises";
 import * as fssync from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { localRelPath, loadPolicy } from "../scripts/lib/urlpath.mjs";
+import { cli } from "../scripts/lib/cli.mjs";
+
+cli({
+  known: ["shell", "mirror", "out", "replaced", "own", "build-out", "externals", "serve-port",
+    "stub-ext-hosts", "ext-hosts", "origin-host", "name", "allow"],
+  bools: ["no-build", "keep-own"],
+  file: import.meta.url,
+});
 
 const args = process.argv.slice(2);
 const flag = (n, d) => { const i = args.indexOf("--" + n); return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : d; };

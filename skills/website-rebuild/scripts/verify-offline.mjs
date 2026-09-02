@@ -25,6 +25,10 @@
  * Usage:
  *   node scripts/verify-offline.mjs --base http://127.0.0.1:29001 --routes /,/x,/y
  */
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["base", "routes"], file: import.meta.url });
+
 const args = process.argv.slice(2);
 const flag = (n, d) => {
   const i = args.indexOf("--" + n);

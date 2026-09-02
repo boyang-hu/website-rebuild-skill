@@ -10,6 +10,8 @@ parser（`@babel/parser` / `@babel/traverse`）。这里放的就是那个阶段
 ⛔ **`scripts/` 里的任何门都不许 import 这里的任何文件**——检查者不能是生产者
 （`references/verification-gates.md` §2.1.2）。两条纪律都由 `scripts/verify-zerodep.mjs` 守。
 
+⭐ **这里的依赖钉在 `tools/package.json`**（`@babel/parser` / `@babel/traverse`，精确版本）：项目到 M(n+1) 时把这两条抄进自己的 `package.json` 再 `npm install`；此前 skill 从未在任何地方声明过它们，版本靠运气。
+
 | 工具 | 用途 |
 |---|---|
 | `name-modules.mjs` | 按 0–4 级证据给模块提名，并记下依据的那句话；无证据保留哈希 id——**错名比哈希更糟，因为哈希会让人去看** |

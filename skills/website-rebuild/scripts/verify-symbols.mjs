@@ -35,6 +35,9 @@
  */
 import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["port", "src", "map"], bools: [], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const flag = (n, d) => {

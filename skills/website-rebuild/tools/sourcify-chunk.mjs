@@ -10,6 +10,9 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { cli } from "../scripts/lib/cli.mjs";
+// ⚠ closure/max-tier feed the spawned name-modules / accept-names / modules-to-src; the rest are this driver's own.
+cli({ known: ["closure", "merged", "modules-dir", "out-root", "work", "max-tier"], file: import.meta.url, positional: "<chunk>" });
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const chunk = process.argv[2];
 if (!chunk || chunk.startsWith("--")) { console.error("usage: sourcify-chunk.mjs <chunk> [--closure f] [--merged f] [--modules-dir d] [--out-root d] [--work d] [--max-tier n]"); process.exit(2); }

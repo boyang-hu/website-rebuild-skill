@@ -43,6 +43,9 @@ import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import path from "node:path";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["in", "out", "fn-lines"], bools: [], file: import.meta.url });
 
 const ACORN_VERSION = "8.14.0"; // PINNED — token shapes are the contract.
 
@@ -55,11 +58,7 @@ if (!IN || !OUT) {
   console.error("usage: slice-esm.mjs --in <chunk.js> --out <dir> [--fn-lines 12]");
   process.exit(2);
 }
-const KNOWN = new Set(["in", "out", "fn-lines"]);
-for (const a of args) if (a.startsWith("--") && !KNOWN.has(a.slice(2))) {
-  console.error(`FATAL — unknown flag ${a}. Known: ${[...KNOWN].map((f) => "--" + f).join(" ")}`);
-  process.exit(2);
-}
+// Unknown flags are rejected by lib/cli.mjs (the one argv contract) before anything here runs.
 
 const SRC = await readFile(path.resolve(IN), "utf8");
 const sha = (s) => createHash("sha256").update(s).digest("hex");

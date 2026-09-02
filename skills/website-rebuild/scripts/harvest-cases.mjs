@@ -24,7 +24,7 @@
  * ran. Both sides can then be compared without re-implementing the parser.
  *
  *   node scripts/harvest-cases.mjs --url <source-url> --config scripts/harvest.config.mjs \
- *        --out docs/case-baseline.json [--steps 9]
+ *        --out docs/case-baseline.json [--steps 9] [--probe scripts/probe.mjs]
  *
  * The config supplies the target-specific part:
  *
@@ -36,6 +36,9 @@ import { writeFile, mkdir } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["url", "config", "out", "steps", "probe"], bools: [], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const flag = (n, d) => { const i = args.indexOf("--" + n); return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : d; };

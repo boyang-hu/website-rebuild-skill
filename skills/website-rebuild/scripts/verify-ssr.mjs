@@ -26,6 +26,12 @@
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import path from "node:path";
 import { resolvePort } from "./lib/ports.mjs";
+import { cli } from "./lib/cli.mjs";
+
+// No flags: everything this gate asserts lives in CONFIG below (PORT / MIRROR_DIR
+// come from the environment). cli() still runs so --help works and a stray
+// --flag fails loudly instead of being ignored.
+cli({ known: [], file: import.meta.url });
 
 // ---------------------------------------------------------------------------
 // CONFIG — edit per project.

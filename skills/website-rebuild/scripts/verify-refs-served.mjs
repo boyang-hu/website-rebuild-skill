@@ -12,11 +12,16 @@
  * ⚠ This is cheap on purpose: one HEAD per distinct reference, no browser. It
  * cannot see a URL assembled at runtime; that is the resource-level probe's job
  * (verification-gates.md §1.6 class 4).
+ *
+ *   node scripts/verify-refs-served.mjs --base http://127.0.0.1:6376 --dir site [--allow mirror/external.txt]
  */
 import { existsSync, readFileSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { joinFlightPushes } from "./lib/extract-refs.mjs";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["base", "dir", "allow"], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const flag = (n, d) => { const i = args.indexOf("--" + n); return i >= 0 ? args[i + 1] : d; };

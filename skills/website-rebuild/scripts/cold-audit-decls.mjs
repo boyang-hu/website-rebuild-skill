@@ -64,12 +64,14 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["pretty", "ranges", "port", "overrides", "json", "min-name", "cite-tag", "slack"], bools: [], file: import.meta.url });
 
 const ACORN_VERSION = "8.14.0";
 const args = process.argv.slice(2);
 const flag = (n, d) => { const i = args.indexOf("--" + n); return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : d; };
-const KNOWN = new Set(["pretty", "ranges", "port", "overrides", "json", "min-name", "cite-tag", "slack"]);
-for (const a of args) if (a.startsWith("--") && !KNOWN.has(a.slice(2))) { console.error(`FATAL: unknown flag ${a}`); process.exit(2); }
+// Unknown flags are rejected by lib/cli.mjs (the one argv contract) before anything here runs.
 const PRETTY = flag("pretty", null);
 const PORT = flag("port", null);
 const RANGES_RAW = flag("ranges", null);

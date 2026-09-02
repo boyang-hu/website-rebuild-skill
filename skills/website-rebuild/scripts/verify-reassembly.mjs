@@ -22,16 +22,15 @@
 import { readdir, readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
+import { cli } from "./lib/cli.mjs";
+
+cli({ known: ["dir", "against"], bools: [], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const flag = (n, d) => { const i = args.indexOf("--" + n); return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : d; };
 const DIR = path.resolve(flag("dir", "src/readable"));
 const AGAINST = flag("against", null) ? path.resolve(flag("against", null)) : null;
-const KNOWN = new Set(["dir", "against"]);
-for (const a of args) if (a.startsWith("--") && !KNOWN.has(a.slice(2))) {
-  console.error(`FATAL — unknown flag ${a}. Known: ${[...KNOWN].map((f) => "--" + f).join(" ")}`);
-  process.exit(2);
-}
+// Unknown flags are rejected by lib/cli.mjs (the one argv contract) before anything here runs.
 
 const sha = (s) => createHash("sha256").update(s).digest("hex");
 const manifests = [];

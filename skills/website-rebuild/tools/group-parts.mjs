@@ -25,14 +25,13 @@
 import { readFileSync, writeFileSync, mkdirSync, renameSync, readdirSync, existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
+import { cli } from "../scripts/lib/cli.mjs";
+
+// Unknown flags are fatal — the check lives in lib/cli.mjs; this is its known set.
+cli({ known: ["dir", "all", "min-run"], file: import.meta.url });
 
 const args = process.argv.slice(2);
 const flag = (n, d) => { const i = args.indexOf("--" + n); return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : d; };
-const KNOWN = new Set(["dir", "all", "min-run"]);
-for (const a of args) if (a.startsWith("--") && !KNOWN.has(a.slice(2))) {
-  console.error(`FATAL — unknown flag ${a}. Known: ${[...KNOWN].map((f) => "--" + f).join(" ")}`);
-  process.exit(2);
-}
 const MIN_RUN = Number(flag("min-run", "2"));
 
 const targets = [];
