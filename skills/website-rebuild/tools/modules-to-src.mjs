@@ -104,7 +104,14 @@ for (const id of ids) {
     // methods are the contract (ctx.i / ctx.r / ctx.s). Both are fixed by the
     // build, not inferred, so renaming them is free readability either way.
     const arity = fnPath ? fnPath.node.params.length : 0;
-    const WANTED_BY_ARITY = { 1: ["ctx"], 2: ["module", "exports"], 3: ["module", "exports", "require"] };
+    // ⛔ Turbopack's three-parameter factory is (ctx, module, exports) — the
+    // runtime calls `n(u, o, i)` with the context FIRST — not webpack's
+    // (module, exports, require). Naming it the webpack way keeps positions
+    // right and readability backwards: `module.i(…)` where the reader expects
+    // `ctx.i(…)` (darkroom §F-12). The container kind decides the names.
+    const WANTED_BY_ARITY = TURBO
+      ? { 1: ["ctx"], 2: ["ctx", "module"], 3: ["ctx", "module", "exports"] }
+      : { 1: ["ctx"], 2: ["module", "exports"], 3: ["module", "exports", "require"] };
     if (fnPath && WANTED_BY_ARITY[arity] && fnPath.node.params.every((p) => p.type === "Identifier")) {
       const wanted = WANTED_BY_ARITY[arity];
       const spans = [];
@@ -314,6 +321,6 @@ if (typeof window !== "undefined") window.__req = require;
 console.log(`=== modules-to-src ===`);
 console.log(`  ${ids.length} module(s) -> ${path.relative(process.cwd(), OUT)}/modules/`);
 console.log(`  ${named} named from evidence, ${ids.length - named} keep their id`);
-console.log(`  ${wrapperRenamed} wrapper signature(s) renamed to ${TURBO ? "(ctx)" : "(module, exports, require)"};`);
+console.log(`  ${wrapperRenamed} wrapper signature(s) renamed to ${TURBO ? "(ctx[, module, exports])" : "(module, exports, require)"};`);
 console.log(`  ${ids.length - wrapperRenamed} left alone (unexpected parameter shape, or the target name is taken)`);
 console.log(`\n  ⚠ Bodies are still verbatim. Local renaming is the next step and has its own gate.`);

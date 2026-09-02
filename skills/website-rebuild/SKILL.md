@@ -3,7 +3,7 @@ name: website-rebuild
 description: 1:1 rebuild of award-winning creative websites (WebGL / scroll-animation / portfolio sites). Evidence-driven pipeline - mirror-first forensics, line-number-traceable reverse engineering of minified bundles, verbatim porting, quantitative verification gates. Use when user asks to "复刻网站", "重建网站", "1:1 rebuild", "clone this site", or provides a URL of a creative/award site to reproduce.
 compatibility: Requires Node 22+ (bundled scripts use built-in WebSocket to talk to CDP), npx, and a local Chrome/Chromium for headless comparison. POSIX shell optional - the Step 0 probe protocol has a zero-dependency Node equivalent (scripts/fingerprint.mjs) for shells without curl/cmp/tr/perl (e.g. Windows PowerShell). Agent-agnostic - works in any Agent Skills-compatible runtime.
 metadata:
-  version: "0.3.12"
+  version: "0.3.13"
 ---
 
 # Website Rebuild（获奖创意站 1:1 复刻）
@@ -182,12 +182,16 @@ Step 0 → M(n) 全程不装任何东西；**复刻项目要到 M(n+1) 才获得
 | `scripts/probe.mjs` | CDP 无头探针（console/异常/网络 CLEAN 判定，退出码进 CI；`--no-external` 断言零外联、`--walk` 全滚动走查） | M0.5 起每 commit |
 | `scripts/verify-routes.mjs` | 路由/重定向/状态码契约门 | M2+ |
 | `scripts/verify-ssr.mjs` | SSR/DOM 逐字节门 | M2+（有 SSR 产物时最先建） |
-| `scripts/pixelcompare.mjs` | 量化像素对拍（粗网格相似度 + metric 输出）。**视口 ≳ 1500×900 时 PNG 过不了 CDP 载荷硬顶**，改 `--format jpeg --quality 92`。**产出前先过非空帧前置条件**——两张空帧对拍会报 `meanAbsDiff 0 / 相似度 100`，与完美结果同形（实测：冻结把引擎停在首帧之前，三条路由全报 0，而那是 201 色 99.5% 纯黑）；`--pump dt,frames` 是 probe-shim 的一等驱动入口，且**与真实时间交错地泵**——冻结页的启动仍在墙钟上等资产，settle 之后一次性泵完会让引擎永远拿不到"资产已到达"的那一帧（`determinism.md` §2.9.1）。`--self` 是**自比带宽的合法通道**（§1.3.2 要求的那次测量按定义是一侧与自己比，会被跨侧假绿守卫拦下）——产物标 `kind:"self-band"`，且 `--max-mean` 对它失效：带宽是分类的**输入**，不是判决 | M(n-1) |
+| `scripts/pixelcompare.mjs` | 量化像素对拍（粗网格相似度 + metric 输出）。⭐ **状态对齐协议**：`--ready <表达式>` + `--chunk 1` + `--after-ready N`——两侧各自 READY 后再泵 N 帧，分块粒度即对齐分辨率（darkroom /about、/work 两处 UNCLASSIFIED 残差由此归零，determinism §7）。**视口 ≳ 1500×900 时 PNG 过不了 CDP 载荷硬顶**，改 `--format jpeg --quality 92`。**产出前先过非空帧前置条件**——两张空帧对拍会报 `meanAbsDiff 0 / 相似度 100`，与完美结果同形（实测：冻结把引擎停在首帧之前，三条路由全报 0，而那是 201 色 99.5% 纯黑）；`--pump dt,frames` 是 probe-shim 的一等驱动入口，且**与真实时间交错地泵**——冻结页的启动仍在墙钟上等资产，settle 之后一次性泵完会让引擎永远拿不到"资产已到达"的那一帧（`determinism.md` §2.9.1）。`--self` 是**自比带宽的合法通道**（§1.3.2 要求的那次测量按定义是一侧与自己比，会被跨侧假绿守卫拦下）——产物标 `kind:"self-band"`，且 `--max-mean` 对它失效：带宽是分类的**输入**，不是判决 | M(n-1) |
 | `scripts/side-by-side.mjs` | 双侧截图并排合成图（对拍产物留证） | M(n-1) |
 | `scripts/frame-census.mjs` | **这一帧上有东西吗**：数截图的颜色数与主色占比。⛔ 像素门已内置同一判据作前置条件，本脚本用于事后复核任意截图——`§4.8`「全部的门拍在同一个状态里」的那个状态可能是**空的**，而此前没有任何一道门会问这句 | M(n-1) |
 | `scripts/probe-shim.js` | 确定性驱动 shim（接管整个熵面：rAF/timer/`performance.now`/`Date.now`/定种 `Math.random`/**IntersectionObserver**，手动泵到任意 t，双侧同位注入）。⭐ **IO 也是一个时钟**——浏览器按自己的节奏投递交叉记录，滚动揭示站因此无法冻结；接管后实测带宽 0.31 → **0.04**，门的可用阈值从 0.5 收到 0.1 | M(n-1) |
 | `scripts/dump-timelines.mjs` | GLB 动画曲线 dump 成 JSON 数值账本 | M1（数据驱动动画时） |
 | `tools/assemble-static.mjs` | **像素门两侧同经 serve.mjs**：把 `next build` 的 `.next/server/app/**.html` 摊成 `<route>/index.html`、`_next/static` 与 `public/*` 软链进静态树，用 `serve --side rebuild` 伺服——`next start` 侧不注入 probe-shim，镜像帧 BLANK/重建有画是冻结不对称不是差异（darkroom）。只供对拍，sweep 仍跑 next start | M(n-1)（C1 重构工程） |
+| `tools/accept-names.mjs` | **命名的接受步**：name-modules 只提名不决定；默认只接受 tier-1（打包器声明的导出名），其余保留 id——"错名比哈希更糟"在这一步才真正生效（darkroom 278 模块接受 105） | M(n+1) |
+| `tools/sourcify-chunk.mjs` | **多 chunk 站的 M(n+1) 驱动**：按 merged map 的 canonical 位切子闭包（⛔ id 与 map 同型：字符串），逐 chunk 跑 name-modules → accept-names → modules-to-src → verify-module-map（darkroom 43/43） | M(n+1)（多 chunk 站） |
+| `tools/harvest-optimized-images.mjs` | **next/image 优化器产物补齐**：像素门重建侧的静态树没有优化器，serve 回落原图 → 重采样残差；镜像字节优先，本机 `next start` 优化器兜底并登记为重建侧生成物（rsc-reconstruction §3.5） | M(n-1)（C1 重构工程） |
+| `tools/verify-fresh-next.mjs` | **verify-fresh 的 Next 形态**：src → `next build` → assemble-static 链重建比字节；⛔ 前提 `generateBuildId` 钉死，否则链条永远"过期" | M(n+1)（C1 重构工程） |
 | `tools/name-modules.mjs` | **模块提名**：模块化 bundle 的 id 是内容哈希，文件名要从证据里来。按 0–4 级证据提名并把**依据的那句话**一起记下（人工裁决 / 自注册与全局 / 多消费方字段名 / 常量值与命名前缀 / 报错主语），⛔ **无证据保留 id——错名比哈希更糟**。⭐ 最强的证据在模块外面：属性名不被压缩，`this._chapterPlayer = new M(…)` 能给一个匿名 `class {}` 命名 | M(n+1)（模块化打包产物） |
 | `scripts/cold-audit-modules.mjs` | **M(n) 冷头清点（模块化产物）**：逐模块对账，并查有没有**计算出来的 require**（认 webpack 与 Turbopack 两种工厂签名；v0.3.12 起认 merged map 的 `locations[]`/`source`，不再要求摊平+软链）。⛔⛔ **必须报出 `n/N examined` 并把覆盖率当判据**——它曾在一个模块都没查的情况下报绿；改成「仅 0 时报错」之后，又在查了 1/20 时报绿。⛔ 实测抓到一处条件 require（`require(t ? "a" : "b")`）导致闭包少算两个模块，**而 9 个检查点逐像素全零毫无察觉**。⚠ 零依赖阶段分辨不了作用域遮蔽，所以只**判定**"有没有未移植模块被已移植模块 require"，疑似动态 require **列出来交人读** | M(n)（模块化打包产物） |
 | `scripts/verify-module-map.mjs` | **M(n+1) 等价门（模块化产物）**：一模块一文件，且每个文件与打包器字节 **token 级一致**（只允许包装重命名那组一一映射）。⛔ 用文本把重命名 undo 回去比对会失败——`module.exports` 里的 `exports` 是属性名；**门用捷径就会测到自己的捷径**。⛔ 门也不许重跑重命名来比对 | M(n+1)（模块化打包产物） |

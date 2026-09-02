@@ -1,5 +1,27 @@
 # 更新记录
 
+## v0.3.13 — 梯顶的最后一段：状态对齐、优化器产物、多 chunk 可读树（darkroom 收官回哺）
+
+darkroom.engineering 无人值守跑到**梯顶**：三处 UNCLASSIFIED 像素残差全部归类到 0.00（/about 走马灯、
+/work 场景挂载 = 泵分块内的相位差，`--chunk 1 --ready --after-ready` 归零；looped/badomens = 重建
+静态树缺 next/image 优化器产物，镜像字节优先补齐后归零）；M(n+1) 可读树 **278 模块/43 chunk
+token 级精确**（105 个 tier-1 命名），verify-fresh-next 10/10，verify-standalone static + `--full`
+PASS（复制出去断网装/建，副本 sweep 8/8）。v0.3.12 的 module-map 修复实弹：6 模块补回异步边，
+项目侧文本补边退役为断言。§F 11–17 本版全部落地：
+
+**工具级**：`pixelcompare --after-ready N` / `--chunk N`（状态对齐协议：两侧各自 READY 后再泵 N 帧，
+分块粒度 = 对齐分辨率，determinism §7）；四个 darkroom 工具入 tools/——`sourcify-chunk.mjs`
+（多 chunk 站按 canonical 位逐 chunk 跑三件套，闭包 id 与 map 同型）、`accept-names.mjs`
+（name-modules 只提名，接受步默认只收 tier-1）、`harvest-optimized-images.mjs`（优化器产物是像素门
+的一层资产：镜像字节优先，本机优化器兜底并登记）、`verify-fresh-next.mjs`（Next 链的新鲜度门，
+前提 `generateBuildId` 钉死）；modules-to-src 对 Turbopack 三参工厂按 `(ctx, module, exports)` 命名
+（此前套 webpack 名：位置对、可读性反）；verify-standalone 静态扫描跳过 `.next/`（构建产物里的
+构建机绝对路径不是泄漏）。
+
+**文档级**：readable-source §3.0.1.1（多 chunk 三件套 + 接受步）、§4.5.1（Next 链 verify-fresh）、
+§4.6.1（`.npmrc` 是交付物的一部分）；determinism §7（状态对齐协议）；rsc-reconstruction §3.5
+（优化器产物层 + `images` 配置从 srcset 反推，`qualities` 默认 [75] 会把 90 静默压回 75）。
+
 ## v0.3.12 — 声明体里的边：React Compiler 把模块塞进了 e.s()（darkroom C1 收口回哺）
 
 darkroom.engineering（Next 16.3.2/Turbopack + React 19.3 experimental + React Compiler + StyleX +

@@ -136,6 +136,16 @@ C1(服务端组件源不下发)从"拒绝"改为**可做:重构式逆向**。定
 4. head 树 → `metadata`/`viewport` 导出;ClientPageRoot → `"use client"` 转发页;层体仅 `{children}`
    的 layout 不生成文件(Next 的隐式层)。
 
+### §3.5 next/image 优化器产物是像素门的一层资产【darkroom】
+
+镜像侧持有的是 **Vercel 优化器的输出**（`/_next/image?url=…&w=1440&q=…`,实测 naturalWidth 1280);
+重建的静态树没有优化器,serve 回落到原图(2592 宽)——两侧源分辨率不同,浏览器重采样差就是
+looped/badomens 0.2 的残差。两件事分开做:① `images.deviceSizes/imageSizes/qualities` 从镜像
+srcset 普查**反推**进 next.config(⚠ `qualities` 默认 `[75]` 会把源站的 `quality=90` 静默压回 75);
+② `tools/harvest-optimized-images.mjs` 把静态树引用的全部 `/_next/image` 档位补齐——**镜像字节
+优先**(源站发了什么才是参照,动态图片生成器只拿得到输出字节,§6),镜像没有的档位才向本机
+`next start` 的优化器取并登记为重建侧生成物(darkroom:镜像 55 + 本机 936 → 0.00)。
+
 ## §4 语义门(scripts/verify-flight.mjs)
 
 字节门到不了 C1 收口:chunk 名/模块 id/css-module 类/媒体哈希是**构建哈希

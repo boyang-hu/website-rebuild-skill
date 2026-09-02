@@ -1,7 +1,7 @@
 # website-rebuild-skill
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.12-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.13-blue.svg)](CHANGELOG.md)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-brightgreen.svg)](https://agentskills.io/)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522-339933.svg)](#快速开始)
 
@@ -37,7 +37,7 @@
 - **行号可溯源的逆向**——复刻里的每一行都能指回源站 bundle 的哪一行；bug 与怪写法照抄不修
 - **量化验收**——控制台 / 网络 / DOM / 几何 / **逐像素**五层自动比对，差异要么修掉、要么登记，不许糊过去
 - **源码化交付**——逐字移植的产物重写成人能读的工程（拆模块、按证据命名、补溯源头注），**复制到任何地方断网可跑**
-- **零依赖工具链**——66 个 Node 脚本（51 个工序脚本与验收门 + 9 个共用库 + 6 个源码化/反推重构器），源码化之前整条流水线不装任何 npm 包
+- **零依赖工具链**——70 个 Node 脚本（51 个工序脚本与验收门 + 9 个共用库 + 10 个源码化/反推重构器），源码化之前整条流水线不装任何 npm 包
 - **死站也能救**——Wayback 存档抢救：锚点+时间窗选一个连贯时刻、原始字节落成标准镜像、永久洞如实登记；五次死站抢救实测（四个复活、其一走完 L3；一个画面层确证全失,失败形态入册）
 - **连 RSC 站也能重构**——服务端组件源不下发（React Server Components / Next.js App Router），但它的完整输出（flight 流）内联在每页 HTML 里就是规格书：从中重构一个可构建的 Next 工程，用 flight 语义门收口。实测一个 Next 16/Turbopack 博客站 18/18 路由语义一致，一个 144 路由重站 PASS 144/144；盲逆向对公开源码判卷，结构 ≈95%、行为 ≈98%
 - **法务决定权归用户**——skill 只取证与呈交，产出默认私有 + noindex + 不部署
@@ -260,7 +260,7 @@ README.en.md               # 英文版 README
 
 版本随真实复刻项目递进：每个版本发布的功能与修复，都先在至少一个完整项目上验证过。
 
-完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.12**：声明体里的边——React Compiler 下 Turbopack 把整个实现内联进 `e.s([name, 0, function…], id)`，module-map "收完导出名跳过调用体"于是跳过了整个模块，体内 `.A/.i` 边全丢而闭包看似闭合；现在扫描进入声明体、导出名只在元素起始位读（darkroom 59278 requires 3→5 条）。verify-flight N2 位宽 `{6,8}` + notFound/loading 空样式槽对称；cold-audit 认 merged map；新 `tools/assemble-static.mjs`（像素门两侧同经 serve.mjs）。darkroom.engineering 无人值守跑到 M(n)：verify-flight 8/8 双射 32 对、逐字图 `next start` 8/8 CLEAN、像素 5 路由 0.00。selftest 62→66。
+完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.13**：梯顶的最后一段——darkroom.engineering 无人值守跑到 L3 梯顶：三处像素残差全部归类到 0.00（走马灯/场景挂载 = 泵分块内的相位差，`pixelcompare --chunk 1 --ready --after-ready` 状态对齐协议；视频页 = 静态树缺 next/image 优化器产物，镜像字节优先补齐），可读树 278 模块/43 chunk token 级精确、verify-standalone `--full` PASS。四个工具入 tools/（sourcify-chunk / accept-names / harvest-optimized-images / verify-fresh-next），modules-to-src 对 Turbopack 工厂按 `(ctx, module, exports)` 命名，verify-standalone 跳过 `.next/`。
 
 ## 贡献
 

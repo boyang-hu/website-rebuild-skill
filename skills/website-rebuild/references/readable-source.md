@@ -26,6 +26,20 @@
 (`slice-modules --check` 加 `build-site --check`,本项目 23/23 一致)。
 **一道门沉默着退出 0,和查遍一切之后退出 0,从外面看是一样的——而只有一个有意义。**
 
+### §4.5.1 ⭐ Next 工程的 verify-fresh 形态：链上没有 bundler，但有 buildId【darkroom】
+
+C1 重构工程的新鲜度链是 `src-modules/ + app/ → next build → assemble-static`。判据不变
+（重新生成、比字节、不看时间戳），前提多一条：⛔ **`generateBuildId` 必须钉死**——随机 buildId
+让同一份源码两次 build 出不同 HTML，链条永远"过期"。`tools/verify-fresh-next.mjs` 把现存静态树
+HTML 记 sha、备份 `.next`、重跑 build + assemble 到临时目录逐文件比对（10/10）。
+
+### §4.6.1 ⭐ `.npmrc` 是交付物的一部分【darkroom】
+
+verify-standalone 的 `--full`（复制出去、断网 `npm install`、构建）在 canary React + Next peer 范围
+下会 ERESOLVE——`.npmrc`（`legacy-peer-deps`）不是本机习惯，是**交付物能装起来的条件**，随
+`src/` 一起交付并由 `--full` 证明。另：`.next/` 是构建产物（`required-server-files.json` 记着构建
+机的绝对路径），静态扫描要跳过，不是"绝对路径泄漏"。
+
 ### §4.6 交付物的服务器必须**按项目那样配置**
 
 `make-standalone` 生成的 `serve` 脚本原本只有 `--root public --port N`。
@@ -256,6 +270,20 @@ src/assets/**
 ⭐ 正确做法：每个模块产出**候选阶梯**（按证据级排序），全局逐级裁决——某一级上只有一个模块认领的名字判给它；**同一级**多个模块认领才算真歧义，全部落空，并且这个名字对后续级别一并作废（否则更弱的证据会把它悄悄捡回去）。输给更强主张的模块，自动落到自己的下一个候选。
 
 ⚠ 人工裁决要能**存活到下一次运行**：override 文件是 tier 0，且每条必须附上"读到了什么"。⛔ **override 里写了一个不在切片里的 id 必须 FATAL 并给 did-you-mean**——凭记忆抄 id 抄错过两次，而**静默无效的 override 在 diff 里看起来和生效了一模一样**。
+
+### 3.0.1.1 ⭐ 多 chunk 站：按 canonical 位逐 chunk 跑三件套，提名之后要有"接受"这一步【darkroom】
+
+name-modules / modules-to-src / verify-module-map 三件套认的是**单文件 map**（`MAP.source` + 一个
+容器）。多 chunk 站（darkroom 60 chunk / 339 模块）的做法不是改三件套，是**按 merged map 的
+canonical 位把闭包切成逐 chunk 的子闭包与子 map，逐 chunk 跑**（`tools/sourcify-chunk.mjs`）；
+⛔ 闭包 id 必须与 map **同型**（字符串）——数字 id 整批"not in map"，报的是缺失不是类型。
+
+name-modules **只提名，不决定**。提名之后要有显式的"接受"步（`tools/accept-names.mjs`）：
+Turbopack 站的默认规则是**只接受 tier-1（打包器声明的导出名）**，其余保留 id——darkroom
+278 模块中 105 个由此得名，其余 173 个宁可叫 `m<id>` 也不用低档证据；"错名比哈希更糟"在
+接受步上才真正生效。逐 chunk 产物仍以 verify-module-map 对压缩原件 token 边界收口（43/43）。
+Turbopack 三参工厂是 `(ctx, module, exports)`（runtime 的 `n(u, o, i)`），不是 webpack 的
+`(module, exports, require)`——modules-to-src 按容器种类给包装形参命名，位置对而名字反同样是错名。
 
 ### 3.0.2 ⭐⭐ 模块化产物拆成文件：三条会毁掉等价性的决定【airpodspro】
 

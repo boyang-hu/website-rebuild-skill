@@ -122,6 +122,10 @@ if (FORMAT !== 'png' && (!Number.isInteger(QUALITY) || QUALITY < 1 || QUALITY > 
 const EXT = FORMAT === 'jpeg' ? 'jpg' : FORMAT;
 const SETTLE = Number(flag('settle', 6000));
 const READY = flag('ready', null);
+// --after-ready N: align on STATE first (the frame where --ready turns true on each side), THEN pump N more frames.
+// Waiting for an absolute pump count instead differs by one mount phase between the sides (darkroom /work: 1.8–2.5 at
+// pumps 180/210, 0 at 60/90/120/240 — phase noise, not a porting gap). Same-frame means state-relative time.
+const AFTER_READY = Number(flag('after-ready', '0')) || 0;
 // ⛔ A LOAD-TIME SEED CANNOT DRIVE A PAGE WHOSE TARGET DOES NOT EXIST YET.
 // Measured: a site whose scroll container is created only after its preloader
 // finishes. The seed ran at `load`, found `scrollHeight - clientHeight === 0`,
@@ -393,7 +397,11 @@ async function capture(url, label) {
       process.exit(6);
     }
     const total = frames || 60;
-    const chunk = Math.max(1, Math.ceil(total / 40));
+    // --chunk N: pump granularity. State alignment (--ready) resolves to ONE chunk —
+    // a marquee that starts 8–16 frames earlier on the single-bundle rebuild sits
+    // entirely inside the default 6-frame chunk, and the two sides can only be
+    // pinned to the same frame with a 1-frame chunk (darkroom /about 2.57 → 0.00).
+    const chunk = Number(flag('chunk', '0')) > 0 ? Number(flag('chunk', '0')) : Math.max(1, Math.ceil(total / 40));
     const gap = Math.max(20, Math.floor(SETTLE / Math.ceil(total / chunk)));
     let readyAt = null;
     for (let done = 0; done < total; done += chunk) {
@@ -403,11 +411,18 @@ async function capture(url, label) {
         const r = await evalJs(READY);
         if (r === true || r === 'true') {
           readyAt = done + chunk;
-          console.log(`[pixel]   ${label}: ready after ${readyAt} pumped frame(s) — stopping early`);
+          console.log(`[pixel]   ${label}: ready after ${readyAt} pumped frame(s) — ${AFTER_READY ? `then +${AFTER_READY} frame(s) state-relative` : 'stopping early'}`);
           break;
         }
       }
       await new Promise((r) => setTimeout(r, gap));
+    }
+    if (READY && readyAt !== null && AFTER_READY > 0) {
+      for (let done = 0; done < AFTER_READY; done += chunk) {
+        await evalJs(`(window.__pump(${dt || 16.7}, ${Math.min(chunk, AFTER_READY - done)}), true)`);
+        if (DRIVE) await evalJs(`(function(){ try { ${DRIVE} } catch (e) { return "ERR:" + e; } return true; })()`);
+        await new Promise((r) => setTimeout(r, gap));
+      }
     }
 
     if (READY && readyAt === null) {
