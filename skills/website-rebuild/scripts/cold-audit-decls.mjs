@@ -35,11 +35,25 @@
  *   node cold-audit-decls.mjs --pretty mirror/_pretty/main.pretty.js \
  *        --ranges 34-42,30432-30669,59956-70561 --port port \
  *        [--overrides docs/cold-audit-overrides.json] [--json docs/cold-audit.json]
- *        [--min-name 3] [--cite-tag pretty]
+ *        [--min-name 3] [--cite-tag pretty] [--slack 1]
+ *
+ * --slack N: a citation range may miss a declaration by N lines (a header that
+ * cites `L60740-L60843` for a block whose singleton `t3 = new m80` sits on
+ * L60844 — measured). Default 1; 0 for the strict reading.
+ * Names shorter than --min-name (the `t3`, `Q0`, `$9` of a minified scope) are
+ * still matched as markers, but only inside a comment that ALSO carries a
+ * line citation (`pretty L…`) and only as a standalone token next to `/`, `(`,
+ * `)`, `,`, `:` or whitespace — the alias form `t3/m80`, `(Ki)`, `Tu0 dp` — so
+ * an English "On" or "Be" in prose cannot vouch for a declaration.
  *
  * Overrides file shape:
- *   { "ranges": [ { "from": 46397, "to": 47023, "bucket": "collapsed", "reason": "…" } ],
+ *   { "ranges": [ { "from": 46397, "to": 47023, "bucket": "collapsed", "reason": "…",
+ *                   "match": "= \\{\\s*\\n\\s*(class|ref|key):" } ],
  *     "decls":  [ { "name": "Ka0", "line": 47265, "bucket": "omitted", "reason": "…" } ] }
+ * A range override with `match` applies only to declarations whose source line
+ * (plus the next line) matches the regex — the way to register "the compiled
+ * template's hoisted vnode-prop literals in this component region" without
+ * excusing the component logic that sits between them.
  * A decl override needs name AND line (names repeat in a minified scope). An
  * override that names a declaration the scan cannot find is FATAL — a silently
  * inert override looks exactly like one that worked (readable-source.md §3.0.1.2).
@@ -54,7 +68,7 @@ import path from "node:path";
 const ACORN_VERSION = "8.14.0";
 const args = process.argv.slice(2);
 const flag = (n, d) => { const i = args.indexOf("--" + n); return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : d; };
-const KNOWN = new Set(["pretty", "ranges", "port", "overrides", "json", "min-name", "cite-tag"]);
+const KNOWN = new Set(["pretty", "ranges", "port", "overrides", "json", "min-name", "cite-tag", "slack"]);
 for (const a of args) if (a.startsWith("--") && !KNOWN.has(a.slice(2))) { console.error(`FATAL: unknown flag ${a}`); process.exit(2); }
 const PRETTY = flag("pretty", null);
 const PORT = flag("port", null);
@@ -63,6 +77,7 @@ const OVERRIDES = flag("overrides", null);
 const JSON_OUT = flag("json", null);
 const MIN_NAME = Number(flag("min-name", 3));
 const CITE_TAG = flag("cite-tag", "pretty");
+const SLACK = Number(flag("slack", 1));
 if (!PRETTY || !PORT || !RANGES_RAW) {
   console.error("usage: cold-audit-decls.mjs --pretty <file> --ranges a-b,c-d --port <dir> [--overrides f.json] [--json out.json] [--min-name 3] [--cite-tag pretty]");
   process.exit(2);
@@ -155,7 +170,7 @@ const portFiles = [];
 })(PORT);
 const intervals = []; // { from, to, file }
 const commentText = []; // { file, text }
-const CITE = /\b(pretty|baker|worker)?\s*@?L(\d{2,6})(?:\s*[-–]\s*L?(\d{1,6}))?\b/g;
+const CITE = /\b(pretty|baker|worker)?\s*@?L(\d{1,6})(?:\s*[-–]\s*L?(\d{1,6}))?\b/g;
 for (const f of portFiles) {
   const text = readFileSync(f, "utf8");
   const comments = [...text.matchAll(/\/\*[\s\S]*?\*\/|\/\/[^\n]*|<!--[\s\S]*?-->/g)].map((m) => m[0]).join("\n");
@@ -170,11 +185,22 @@ for (const f of portFiles) {
     intervals.push({ from: a, to: b, file: path.relative(PORT, f) });
   }
 }
-const citedBy = (line) => intervals.filter((iv) => line >= iv.from && line <= iv.to);
+const citedBy = (line) => intervals.filter((iv) => line >= iv.from - SLACK && line <= iv.to + SLACK);
+const esc = (name) => name.replace(/[$]/g, "\\$");
 const namedIn = (name) => {
-  if (name.length < MIN_NAME) return [];
-  const re = new RegExp(`(^|[^A-Za-z0-9_$])${name.replace(/[$]/g, "\\$")}(?![A-Za-z0-9_$])`);
-  return commentText.filter((c) => re.test(c.text)).map((c) => path.relative(PORT, c.file));
+  if (name.length >= MIN_NAME) {
+    const re = new RegExp(`(^|[^A-Za-z0-9_$])${esc(name)}(?![A-Za-z0-9_$])`);
+    return commentText.filter((c) => re.test(c.text)).map((c) => path.relative(PORT, c.file));
+  }
+  // short name: marker context + a citation in the same comment line
+  const re = new RegExp(`(^|[\\s(/,:→=])${esc(name)}(?=[\\s)/,:.;→=]|$)`);
+  const out = [];
+  for (const c of commentText) {
+    for (const line of c.text.split("\n")) {
+      if (/\bL\d{2,6}\b/.test(line) && re.test(line)) { out.push(path.relative(PORT, c.file)); break; }
+    }
+  }
+  return out;
 };
 
 // --- 3. overrides ----------------------------------------------------------------
@@ -191,7 +217,13 @@ for (const o of ov.decls || []) {
     process.exit(2);
   }
 }
-const rangeOv = (line) => (ov.ranges || []).find((o) => line >= o.from && line <= o.to);
+const srcLines = src.split("\n");
+const rangeOv = (line) => (ov.ranges || []).find((o) => {
+  if (line < o.from || line > o.to) return false;
+  if (!o.match) return true;
+  const two = `${srcLines[line - 1] ?? ""}\n${srcLines[line] ?? ""}`;
+  return new RegExp(o.match).test(two);
+});
 
 // --- 4. verdicts -------------------------------------------------------------------
 const rows = examined.map((d) => {

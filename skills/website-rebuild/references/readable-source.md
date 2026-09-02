@@ -376,6 +376,12 @@ WebGPUWaveSimulation / Gerstner / createInitSpectrumMaterial 等 151 件——�
 ⚠ 本节与 §3.1 分工:§3.1 管**容器/扁平 port 重写为真 ESM 树**(粒度三约束),本节管
 "重写不可行"的那一形状;两者都以"先有裁判,再动手"为前提。
 
+### 3.0.7 ⭐ 手写移植 + 冻结快照当 port/：第一段的裁判是声明级点名【samsy】
+
+skill 采纳之前完成的项目会长成这个形状：M2–M12 是**人手逐字移植**（带 `pretty LNNNN` 头注释），M13 把它冻结为 `port/`，`src/` 由重命名器从它派生。三段接力里 **src→port 有 token 门，port→mirror 只有头注释**——纪律 2 的第一段没有机器裁判，冷头评审靠人读了一个区间的 60 个类、发现一处真缺口，然后没人能复跑。
+
+这一形态的正确裁判不是切片门（无字节可拼），是 `scripts/cold-audit-decls.mjs`：把 `_pretty` 应用区的每个深度 0 声明拿去问 port/src 的引用注释（区间含即 cited），问不到的必须进 `docs/cold-audit-overrides.json` 的一个桶（`collapsed` npm/addon/编译器产物顶替、`omitted` 登记死代码、`ported` 人工裁决点名文件）。实测 samsy 首跑 964 条里 349 条 UNKNOWN，**没有一条是缺口**：三大 vendor 与应用交错的区间（vuex / vue-router / TSL 别名块 / partysocket+uuid / three addon 的模块级作用域）、SFC 编译器提升出来的 vnode 常量、以及一整段**主线程里重复打包的 worker 模块**（retarget/packer 在 main 与 baker.worker 里各一份，port 只从 worker 那份抄了一次）。**归桶的过程就是那份评审第一次被写下来。** 引用注释的坐标形状要统一（`pretty L…`、`@L…`、`L30456-64` 短尾），头注释常常比声明少一行——`--slack 1` 是实测出来的默认值。
+
 ### 3.1 拆模块 ⛔ 粒度不是自由选择
 
 ⚠ **本节 v0.1.24 初稿写错过两条，实测推翻**：写的是"一个顶层声明一个文件是默认"和"循环依赖是边界切错的信号"。**两条都不成立**——`port/` 是**扁平脚本**，声明顺序即求值顺序，而 ES 模块按 import 深度优先求值。粒度由三条硬约束决定，不由品味决定。

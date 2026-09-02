@@ -1,5 +1,33 @@
 # 更新记录
 
+## v0.3.14 — 旧项目对新标尺：点名扁平产物、门订阅的域、活世界的骰子（samsyninja 复审回哺）
+
+samsyninja-rebuild（2026-08，M0–M15，采纳时 skill 还是 v0.1.68）拿 v0.3.12/13 复审：L3 形状成立、
+门全绿，但按新标尺有四处阻塞——分发面与 README 自述矛盾（用户裁定：小范围预览、分发由使用者考量，
+原话入 §D）、镜像账本无 sha256 且**规格书本身不在账**、CDN 变体字节等价从未证、像素残差无带宽。
+同日补齐 M16–M21：账本重建 + `verify-mirror` 五项全绿（含回源抽样 6/6、origin 对 `/about*` `/works*`
+的 301 首次入 `redirects.tsv`）、CDN 74/74 长度 + 26/26 sha256、CLEAN 门补 Network/Log 域 + 外联白名单
++ 音频面、冻结像素门 4+4 交错自比带宽三视图 PASS + DOM 文本 4/4 一致、冷头点名 964/4770 零 UNKNOWN、
+REBUILD_PLAN 归模板（§6 偏差 20 条 / §Q 怪癖 35 条 / §D 6 条）。回哺一件工具、五条文档：
+
+**新工具 `scripts/cold-audit-decls.mjs`（M(n) 冷头点名，扁平产物）**：Vite/esbuild/Rollup scope-hoisted
+产物没有模块容器，`cold-audit-modules` 无处下手；点名单位改为**深度 0 声明**（class / function /
+const-let-var 链每个绑定，含解构），在 acorn token 流上列出、限定到应用区间，逐条判 cited（port 注释的
+`pretty L…` 区间含它，`--slack 1`）> override（`collapsed` / `omitted` / `ported`，范围级可带 `match`
+只收编译期常量）> named > UNKNOWN，报 `n/N examined`，找不到的 override 即 FATAL。实测首跑 349 条
+UNKNOWN **零缺口**：vuex / vue-router / TSL 别名块 / partysocket+uuid / three addon 模块级作用域、SFC
+编译器提升常量、一整段**主线程重复打包的 worker 模块**——归桶的过程就是那份人工评审第一次被写下来。
+它也是"手写移植 + 冻结快照当 port/"形态里 mirror→port 那一段唯一的机器裁判（readable-source §3.0.7）。
+selftest 66→71（深度 0 收集 / slack / match / FATAL / 严格模式）。
+
+**文档级**：verification-gates §4.12 **门订阅的 CDP 域不覆盖它声称的断言面**（只订 Runtime 的"零 404"门
+跑了十四个里程碑全绿——三项断言只做了最不会红的 1/3）；legal-and-deploy §3.3 5b **分发面事实**（仓库
+可见性 / 推送 / 本体入库 / 公网可达是四个事实，与"产物里有什么"是两个维度——没人把它们放到同一页给用户
+看）；determinism §2.6 **媒体钉帧**（hook `createElement` 抓不挂 DOM 的 `<video>`，pause + currentTime=0
+等齐 seeked）、**`Network.setBlockedURLs` 挡不住 WebSocket**（`--host-resolver-rules` 才是）、**reseed 是归类
+实验不是调参**（残差格 34→2 / 61→0 证明是骰子相位，同侧带宽照旧）；environment-traps §9.6 **`npx` 两层进程**
+（杀 npx 留 vite——:5199 上一个 8 天 18 小时的孤儿，ppid 1）。
+
 ## v0.3.13 — 梯顶的最后一段：状态对齐、优化器产物、多 chunk 可读树（darkroom 收官回哺）
 
 darkroom.engineering 无人值守跑到**梯顶**：三处 UNCLASSIFIED 像素残差全部归类到 0.00（/about 走马灯、

@@ -697,6 +697,7 @@ grep -n "<那条正则/那张常量表>" scripts/*.mjs # 除 lib/ 外应当零�
 | 像素 | `pixelcompare` / `pixel-walk` | 位置 × 状态两维检查点（§1.3.1），跨侧对同侧带宽（§1.3.2），重复帧点名（§4.8） | 带宽由 `--self` 实测,不许手挑 |
 | 像素前置 | `frame-census` | 帧里有东西（§4.3：byte-equal 不证明测的是想测的画面） | — |
 | M(n) 关账 | `cold-audit-modules` | bundle 模块清单对账 + 检查覆盖率自报（§0.24.0） | 未移植模块须无人 require |
+| M(n) 关账（扁平产物） | `cold-audit-decls` | 深度 0 声明逐条点名：cited / override / named / UNKNOWN，`n/N examined` 自报（§0.24.0）；手写移植形态里 mirror→port 那一段的唯一机器裁判 | `--overrides` 的 collapsed / omitted / ported 桶即登记（范围级 `match` 只收编译期常量） |
 | M(n+1) | `verify-symbols` **或** `verify-module-map` | 逐声明/逐模块存活，**按产物形状二选一**（平铺拼接 vs 模块容器；esbuild 惰性包装见 SKILL.md 的 verify-decls 范式） | 分类桶即登记 |
 | M(n+1) | `verify-fresh` | 盘上产物 = 生成器现在的产出（§4.7.1：没有 `--check` 的一步毁整条链的绿） | — |
 | M(n+1) | `verify-standalone` | src/ 拷出仓外真装真跑（契约在仓内不可测） | — |
@@ -917,6 +918,12 @@ grep -n "<那条正则/那张常量表>" scripts/*.mjs # 除 lib/ 外应当零�
 **判据（每个会打印大结果的工具都该有一次）**：喂一个**已知长度**的载荷，量回来的字节数。实测 60,000 → 60,009、65,000 → 65,009、70,000 → **65,537**（封顶）。一次三行的测量，抵得上事后对着"为什么这份数据看着不完整"的所有猜测。
 
 ⭐ 同一族的还有 **`Runtime.evaluate` 不带 `awaitPromise`**：async 表达式会被序列化成 `{}`——**又一个"格式良好的空答案"**。任何要驱动页面再读的东西都必然是 async，所以这条几乎一定会撞上。
+
+### 4.12 ⛔⛔ 门订阅的 CDP 域不覆盖它声称的断言面【samsy】
+
+一道自研启动门写着"零 404 / 零控制台错误"，跑了十四个里程碑全绿。它订阅的只有 `Runtime.exceptionThrown` 与 `Runtime.consoleAPICalled(error)`——**没有 `Network.enable`，没有 `Log.enable`**。于是：本地资产 404 不可见（浏览器把它记在 Log 域）、`loadingFailed` 不可见、外联不可见；而为了压掉 PartyKit 断线的噪声加的过滤 `/net::|Failed to fetch/` 把它本来还能撞见的那一点回声也吞了。**三项断言只做了 1/3，且是最不会红的那 1/3。**
+
+判据：一道门在**它订阅的事件面**之外的任何断言都是空话——把"我断言什么"和"我订阅了什么域"并排写出来，对不上就是假绿。CLEAN 门最少要开 `Runtime` + `Log` + `Network` 三个域（skill `probe.mjs` 的血统注释里 landonorris 那条 Log 域教训是同一课的前半句）。补上之后同一套页面首跑就报出两件事：请求面 0 失败（真干净）与**外联主机普查**（typekit / gtag / partykit 三族，全部在 `external.txt` 登记为 LINK 才放行）。
 
 ## 5. 根因修复而非调参糊平
 

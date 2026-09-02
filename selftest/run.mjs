@@ -494,6 +494,58 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
   truthy("verify-standalone — a real ../ import outside src still reds (v0.3.4)", out.includes("app.mjs") && /FAIL/.test(out), "missed the real escape");
 }
 
+// ------------------- 5d. cold-audit-decls: flat-bundle roll-call (v0.3.14, samsyninja)
+// A scope-hoisted bundle has no module containers, so the M(n) roll-call unit is the
+// depth-0 declaration. The samsyninja M11.1 review did this by hand for one region and
+// nobody could rerun it. Fixture pins: (a) depth-0 class/function/const-chain/
+// destructuring bindings are collected, nested ones are not; (b) a citation range in a
+// port comment covers a declaration (incl. --slack 1 off-by-one); (c) an uncited one is
+// UNKNOWN and exits 1; (d) overrides bucket it and exit 0; (e) an override naming a
+// declaration the scan cannot find is FATAL (exit 2); (f) a `match` range override
+// touches only the lines it matches.
+{
+  const FX = path.join(TMP, "cold-decls");
+  mkdirSync(path.join(FX, "port"), { recursive: true });
+  const pretty = [
+    "class Foo {",                       // L1
+    "    constructor() { const inner = 1; }",
+    "}",
+    "function bar(x) {",                 // L4
+    "    function nested() {}",
+    "    return x;",
+    "}",
+    "const a = 1,",                      // L8 a
+    "    b = {",                         // L9 b
+    "        cls: 1",
+    "    },",
+    "    { c, d: e } = bar(a);",         // L12 c, e
+    "var q = 2;",                        // L13 q
+    "const hoisted = {",                 // L14 hoisted (match-able)
+    "    class: \"x\"",
+    "};",
+    "",
+  ].join("\n");
+  writeFileSync(path.join(FX, "pretty.js"), pretty);
+  writeFileSync(path.join(FX, "port", "foo.js"), "// Port of Foo + bar (pretty L1-L7)\nexport class Foo {}\n// b lives here (pretty L9), so does q — L12 covers c/e via slack\nexport const b = {};\n");
+  const run = (extra) => {
+    try { return { code: 0, out: execFileSync(process.execPath, [path.join(SKILL, "scripts/cold-audit-decls.mjs"), "--pretty", path.join(FX, "pretty.js"), "--ranges", "1-20", "--port", path.join(FX, "port"), ...extra], { cwd: SKILL, stdio: "pipe" }).toString() }; }
+    catch (e) { return { code: e.status, out: String(e.stdout || "") + String(e.stderr || "") }; }
+  };
+  const r1 = run([]);
+  truthy("cold-audit-decls — depth-0 roll-call finds Foo/bar/a/b/c/e/q/hoisted, not inner/nested", /examined 8\/8/.test(r1.out) && !/inner|nested/.test(r1.out), r1.out.split("\n").slice(0, 4).join(" | "));
+  truthy("cold-audit-decls — cited ranges + slack cover Foo/bar/a/b/q/c/e; uncited `hoisted` is UNKNOWN → exit 1", r1.code === 1 && /UNKNOWN \(1\)/.test(r1.out) && /hoisted/.test(r1.out) && /cited 7/.test(r1.out), `exit ${r1.code}: ${r1.out.split("\n").find((l) => /cited/.test(l))}`);
+  writeFileSync(path.join(FX, "ov.json"), JSON.stringify({ ranges: [{ from: 1, to: 20, bucket: "collapsed", match: "= \\{\\s*\\n\\s*class:", reason: "compiler-hoisted literal" }] }));
+  const r2 = run(["--overrides", path.join(FX, "ov.json")]);
+  truthy("cold-audit-decls — a `match` range override buckets only the matching line → PASS exit 0", r2.code === 0 && /collapsed 1/.test(r2.out) && /cited 7/.test(r2.out), `exit ${r2.code}`);
+  writeFileSync(path.join(FX, "bad.json"), JSON.stringify({ decls: [{ name: "ghost", line: 99, bucket: "omitted", reason: "typo" }] }));
+  const r3 = run(["--overrides", path.join(FX, "bad.json")]);
+  truthy("cold-audit-decls — an override naming an unfound declaration is FATAL (exit 2), not silently inert", r3.code === 2 && /cannot find/.test(r3.out), `exit ${r3.code}`);
+  const r4 = run(["--slack", "0"]);
+  // strict: a (L8) and hoisted (L14) lose their neighbours' citations; q (L13) survives only as a
+  // short-name marker ("so does q" on a line that carries L12) — named, not cited, listed for a human
+  truthy("cold-audit-decls — --slack 0 reads ranges strictly: a/hoisted UNKNOWN, q demoted to named-only", r4.code === 1 && /UNKNOWN \(2\)/.test(r4.out) && /named-only 1/.test(r4.out) && /cited 5/.test(r4.out), r4.out.split("\n").find((l) => /cited/.test(l)));
+}
+
 // -------------------------------------------------------- 6. doc integrity
 {
   let dangling = 0;

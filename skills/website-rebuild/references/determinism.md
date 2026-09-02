@@ -198,6 +198,12 @@ mulberry32(42) 替换 `Math.random`，双侧同流——随机序列相同则洗
 ### 2.6 媒体层补丁
 `play()` 假成功、`paused` 谎报 false——视频停在 seek 帧，同时防止站点的"卡死检测循环"发现视频没在播而进入异常分支（"自己失明"）【kimi】。seek 后必须重新驱帧再截图【noomo】。
 
+
+⭐ **实测形态（samsy，WebGPU 视频墙）**：视频不走 JS 时钟，冻结页里它照播；且作品墙的 `<video>` 是 `document.createElement` 出来**不挂 DOM** 的，`querySelectorAll('video')` 找不到。做法：在 shim 之后 hook `Document.prototype.createElement` 记下每个 video；每次截图前 `pause()` + `currentTime = 0`、等齐 `seeked`（用 shim 暴露的 `__nativeSetTimeout` 兜底超时，页面的 `setTimeout` 已被泵接管）、再泵 2 帧让 VideoTexture 采到第 0 帧。works 视图跨侧 3.94 → 1.5–1.9，第一大残差就此消失。
+
+⛔ **多人房间不是任一侧的属性，而 `Network.setBlockedURLs` 挡不住 WebSocket 握手**：屏蔽了 `*partykit.dev*`，镜像侧 HUD 照样 "Connected: 2"——别人的替身进了参照帧。对握手生效的是 DNS 层：Chrome 启动旗标 `--host-resolver-rules=MAP <host> 127.0.0.1`，两侧同加，登记为仪器条件（§2.8 同等隐藏）。
+
+⭐ **活世界的带宽来自它自己的骰子，reseed 是归类实验不是调参**：NPC 随机游走、粒子 spawn、CRT 屏的随机内容全走 `Math.random`——shim 把它定种了，但两侧在到达同一状态前消耗的次数不同（three 双拷贝 / vendored 库各消耗一串），于是跨侧残差成片（samsy 战役 1：home 34 格、about 61 格）。在每个视图截图前两侧同时 `__reseed(n)`，残差格 34→1、61→1——这证明它们是**骰子相位**不是移植差异；而同侧自比带宽照旧（活世界的骰子在截图前已经掷过了），门的容差就是这个带宽 + 常数，不许因为看见了残差再去动。
 ### 2.7 重光栅归一化
 display 抖动强制重绘，清掉合成层缓存的历史次像素光栅——带 transform 过渡的层会在合成器里留下与过渡路径相关的光栅残迹，导致同终态不同字节【kimi】。
 

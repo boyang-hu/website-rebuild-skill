@@ -229,6 +229,12 @@ addEventListener('resize', () => { if (cols() !== columnCount) buildColumns(); }
 - 无人值守脚本与文档里统一写 `npm run build`,不写 `npx next build`;
 - 自查:坏境复现前先 `ls` 一遍钩子负责的产物在不在。
 
+## 9.6 陷阱：`npx <tool>` 是两层进程——杀 npx 留下 tool，端口从此有主【samsy】
+
+门脚本用 `spawn('npx', ['vite', …])` 起开发服务器，退出时 `child.kill('SIGKILL')`。杀掉的是 npx，真正监听端口的 vite 是它 fork 的孙进程，被过继给 pid 1 继续活着。实测：2026-09-01 在 :5199 上发现一个 **2026-08-24 的 vite（8 天 18 小时，ppid 1）**，从 M14 那次"回归超时"的元凶开始一直伺服着一棵早就不存在的旧树——而后来的每一次"端口被占"都被当成了新问题。
+
+对策与 `lib/chrome.mjs` 同款：`spawn(…, { detached: true })` 让子进程自成进程组，退出路径上 `process.kill(-pid, 'SIGKILL')` 收割整组；起服务前先探一次端口，**有东西应答就响亮退出并指路 `lsof -i :<port>`**——静默换端口只会把孤儿留给下一个人。
+
 ## 10. 判定 bug 前的自查清单
 
 把问题归因到源码之前，逐项打勾：

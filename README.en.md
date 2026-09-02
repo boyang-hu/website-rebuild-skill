@@ -260,7 +260,7 @@ Before anything goes public, per-asset copyright **forensics** must be completed
 
 Versions advance with real rebuild projects: every feature and fix shipped was first validated on at least one complete project.
 
-Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.13** — the last stretch to the top of the ladder: darkroom.engineering ran unattended to L3 — all three pixel residuals classified to 0.00 (marquee/scene-mount = phase differences inside one pump chunk, resolved by the `pixelcompare --chunk 1 --ready --after-ready` state-alignment protocol; video pages = the static tree lacked next/image optimizer output, filled mirror-bytes-first), readable tree 278 modules/43 chunks token-exact, verify-standalone `--full` PASS. Four tools land in tools/ (sourcify-chunk / accept-names / harvest-optimized-images / verify-fresh-next), modules-to-src names Turbopack factories `(ctx, module, exports)`, verify-standalone skips `.next/`.
+Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.14** — an old project against the new ruler: samsyninja (an L3 from the v0.1.68 days) re-audited against v0.3.13 and brought up the same day in six milestones — rebuilt mirror ledger + five-assertion mirror gate, CDN byte equivalence 74/74, CLEAN gate with Network/Log domains, frozen pixel gate with 4+4 interleaved self-bands (three views PASS, DOM text identical), cold-head roll-call 964/4770 with zero unknowns; new tool `cold-audit-decls.mjs` (M(n) roll-call for flat bundles, selftest 66→71); the CDP domains a gate subscribes to, distribution-surface facts, media pinning / WebSocket isolation / reseed as classification, and the two-process `npx` orphan enter the references.
 
 ## Contributing
 

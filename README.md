@@ -260,7 +260,7 @@ README.en.md               # 英文版 README
 
 版本随真实复刻项目递进：每个版本发布的功能与修复，都先在至少一个完整项目上验证过。
 
-完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.13**：梯顶的最后一段——darkroom.engineering 无人值守跑到 L3 梯顶：三处像素残差全部归类到 0.00（走马灯/场景挂载 = 泵分块内的相位差，`pixelcompare --chunk 1 --ready --after-ready` 状态对齐协议；视频页 = 静态树缺 next/image 优化器产物，镜像字节优先补齐），可读树 278 模块/43 chunk token 级精确、verify-standalone `--full` PASS。四个工具入 tools/（sourcify-chunk / accept-names / harvest-optimized-images / verify-fresh-next），modules-to-src 对 Turbopack 工厂按 `(ctx, module, exports)` 命名，verify-standalone 跳过 `.next/`。
+完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.14**：旧项目对新标尺——samsyninja（v0.1.68 时代的 L3）按 v0.3.13 复审后同日补齐六个里程碑：镜像账本 + 五项镜像门、CDN 字节等价 74/74、CLEAN 门补 Network/Log 域、冻结像素门 4+4 自比带宽三视图 PASS + DOM 文本一致、冷头点名 964/4770 零缺口；新工具 `cold-audit-decls.mjs`（扁平产物的 M(n) 点名，selftest 66→71）；门订阅的 CDP 域、分发面事实、媒体钉帧 / WebSocket 隔离 / reseed 归类、npx 两层进程孤儿入册。
 
 ## 贡献
 

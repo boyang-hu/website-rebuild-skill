@@ -3,7 +3,7 @@ name: website-rebuild
 description: 1:1 rebuild of award-winning creative websites (WebGL / scroll-animation / portfolio sites). Evidence-driven pipeline - mirror-first forensics, line-number-traceable reverse engineering of minified bundles, verbatim porting, quantitative verification gates. Use when user asks to "复刻网站", "重建网站", "1:1 rebuild", "clone this site", or provides a URL of a creative/award site to reproduce.
 compatibility: Requires Node 22+ (bundled scripts use built-in WebSocket to talk to CDP), npx, and a local Chrome/Chromium for headless comparison. POSIX shell optional - the Step 0 probe protocol has a zero-dependency Node equivalent (scripts/fingerprint.mjs) for shells without curl/cmp/tr/perl (e.g. Windows PowerShell). Agent-agnostic - works in any Agent Skills-compatible runtime.
 metadata:
-  version: "0.3.13"
+  version: "0.3.14"
 ---
 
 # Website Rebuild（获奖创意站 1:1 复刻）
@@ -194,6 +194,7 @@ Step 0 → M(n) 全程不装任何东西；**复刻项目要到 M(n+1) 才获得
 | `tools/verify-fresh-next.mjs` | **verify-fresh 的 Next 形态**：src → `next build` → assemble-static 链重建比字节；⛔ 前提 `generateBuildId` 钉死，否则链条永远"过期" | M(n+1)（C1 重构工程） |
 | `tools/name-modules.mjs` | **模块提名**：模块化 bundle 的 id 是内容哈希，文件名要从证据里来。按 0–4 级证据提名并把**依据的那句话**一起记下（人工裁决 / 自注册与全局 / 多消费方字段名 / 常量值与命名前缀 / 报错主语），⛔ **无证据保留 id——错名比哈希更糟**。⭐ 最强的证据在模块外面：属性名不被压缩，`this._chapterPlayer = new M(…)` 能给一个匿名 `class {}` 命名 | M(n+1)（模块化打包产物） |
 | `scripts/cold-audit-modules.mjs` | **M(n) 冷头清点（模块化产物）**：逐模块对账，并查有没有**计算出来的 require**（认 webpack 与 Turbopack 两种工厂签名；v0.3.12 起认 merged map 的 `locations[]`/`source`，不再要求摊平+软链）。⛔⛔ **必须报出 `n/N examined` 并把覆盖率当判据**——它曾在一个模块都没查的情况下报绿；改成「仅 0 时报错」之后，又在查了 1/20 时报绿。⛔ 实测抓到一处条件 require（`require(t ? "a" : "b")`）导致闭包少算两个模块，**而 9 个检查点逐像素全零毫无察觉**。⚠ 零依赖阶段分辨不了作用域遮蔽，所以只**判定**"有没有未移植模块被已移植模块 require"，疑似动态 require **列出来交人读** | M(n)（模块化打包产物） |
+| `scripts/cold-audit-decls.mjs` | **M(n) 冷头点名（扁平 scope-hoisted 产物）**：Vite/esbuild/Rollup 产物没有模块容器，点名单位是**深度 0 声明**（class / function / const-let-var 链的每个绑定，含解构）。在 token 流上列出、限定到应用区间，逐条问"落在 port 哪里"：**cited**（port 注释引用的 `pretty L…` 区间含它，`--slack 1` 容忍头注释差一行）> **override**（`collapsed` npm/addon/编译器产物顶替、`omitted` 登记死代码、`ported` 人工裁决；范围级可带 `match` 正则只收编译期常量）> **named**（压缩名出现在带引用的注释里，仅供人读）> **UNKNOWN**（退出 1）。⛔ 报出 `n/N examined`（§0.24.0）；⛔ override 点名扫描找不到的声明即 FATAL（静默无效的登记和生效了一模一样）。实测 samsy：964/4770 examined，首跑 349 UNKNOWN 全部归桶（三大 vendor 交错区 + 编译期常量 + 主线程重复打包的 worker 模块），0 缺口 | M(n)（扁平产物；手写移植形态的第一段裁判） |
 | `scripts/verify-module-map.mjs` | **M(n+1) 等价门（模块化产物）**：一模块一文件，且每个文件与打包器字节 **token 级一致**（只允许包装重命名那组一一映射）。⛔ 用文本把重命名 undo 回去比对会失败——`module.exports` 里的 `exports` 是属性名；**门用捷径就会测到自己的捷径**。⛔ 门也不许重跑重命名来比对 | M(n+1)（模块化打包产物） |
 | `scripts/pixelcompare.mjs` 的 `--freeze-css` | ⛔ **冻 JS 时钟冻不住 CSS 动画**——`animation` 跑在浏览器动画时间线上，不经过 JS。症状是**同侧对照比跨侧还大**且最差格相同。该旗标把所有动画 `paused` + 固定负延迟钉在同一相位（⚠ 它改变被渲染内容，这正是目的：两侧定格在同一位置）。实测带宽 0.31 → 0.20，**仍未归零**：剩下的是 IntersectionObserver 门控的 canvas，shim 尚未接管 | M(n-1)（CSS 驱动的站） |
 | `scripts/pixel-walk.mjs` | **检查点巡航**：在 N 个滚动位置各跑一次像素门。⛔ **滚两次**（`load` 时 + 虚拟时间 +1.5s 再一次）——页面在自己的 init 里重置滚动会**吃掉** load 时那一次，于是所有检查点都拍页顶而两侧一致地全绿。⛔ **重复帧要逐格报出来**：全局 distinct 计数在「9 格里 3 格重复」时照样通过。⛔ **单个 0.00 是这套工具能产出的最误导的数字**——它是一帧，通常是页面顶部的头两秒。⚠ 先用 `--self` 在同样的检查点上测带宽：实测未冻结时自比 4.6–5.0、跨侧 2.6–3.4，**差异整个落在噪声里**；冻结后两者都归零 | M(n-1) |
