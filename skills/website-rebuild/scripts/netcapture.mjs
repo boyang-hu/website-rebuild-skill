@@ -68,6 +68,7 @@ import { launchChrome, preflightChrome } from "./lib/chrome.mjs";
 // CDN every responsive variant after the first reported HAVE against a file that
 // is a DIFFERENT image — a false GAP=0 with no symptom. See lib/urlpath.mjs.
 import { localRelPath, loadPolicy, describePolicy } from "./lib/urlpath.mjs";
+import { imageAcceptFor } from "./lib/negotiate.mjs";
 
 const args = process.argv.slice(2);
 const flag = (name, dflt) => {
@@ -82,6 +83,11 @@ if (!ORIGIN_RAW) {
 }
 const ORIGIN = ORIGIN_RAW.replace(/\/+$/, "");
 const ROOT = path.resolve(flag("mirror", "mirror"));
+// Declared up here, not next to the --fetch helpers at the bottom: the fetch
+// loop is top-level code that runs BEFORE a `const` further down would exist.
+const MANIFEST_FILE = path.join(ROOT, "mirror-manifest.json");
+const FETCH_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
 const ROUTES = flag("routes", "/").split(",").filter(Boolean);
 const STEPS = Number(flag("steps", 12));
 const DWELL = Number(flag("dwell", 1500));
@@ -351,7 +357,11 @@ function localPathFor(absUrl) {
 const rows = [...requests.values()].sort((a, b) => a.path.localeCompare(b.path));
 const missing = [];
 for (const r of rows) {
-  if (r.status !== 200) continue;
+  // 206 is a HIT, not a miss: <video>/<audio> arrive through Range requests,
+  // and a URL the browser only ever fetched as 206 was dropped here — so media
+  // served by Range never entered the GAP diff at all, whether or not the
+  // crawler had it.
+  if (r.status !== 200 && r.status !== 206) continue;
   const rel = localPathFor(r.path);
   try {
     await fs.access(path.join(ROOT, rel));
@@ -376,7 +386,7 @@ await fs.writeFile(
 const offHostTotal = [...offHost.values()].reduce((a, b) => a + b, 0);
 
 console.log(`\nrequests observed: ${rows.length} (hosts: ${[...RECORD_HOSTS].join(", ")})`);
-console.log(`already mirrored:  ${rows.filter((r) => r.status === 200).length - missing.length}`);
+console.log(`already mirrored:  ${rows.filter((r) => r.status === 200 || r.status === 206).length - missing.length}`);
 console.log(`MIRROR GAPS:       ${missing.length}`);
 for (const m of missing) console.log(`  ${m.status} ${m.path}`);
 if (offHost.size) {
@@ -414,6 +424,23 @@ if (DO_FETCH && missing.length) {
   //
   // ⛔ A tool that can leave the artefact in a state no gate accepts is a
   // footgun with a comment on it. Appending the row is fifteen lines.
+  // ⛔ The ledger must be READABLE before the first byte lands. Bytes that hit
+  // disk with no row are off the books from that moment: the next capture sees
+  // HAVE for every one of them and nothing ever ledgers them. So a --fetch into
+  // a mirror whose manifest cannot be read is refused up front, loudly, with
+  // nothing written.
+  await readManifest();
+  // Image URLs get the browser's own image Accept on the std rung, with the
+  // CDP-recorded type as the hint (lib/negotiate.mjs; basement D5: `accept: */*`
+  // lands the FALLBACK format on every `auto=format` CDN while every gate stays
+  // green). Same ladder mirror-site.mjs and reconcile-gaps.mjs climb, so a row
+  // this pass writes is indistinguishable from a crawler row — profile and
+  // Vary on record. The bare rung is for header allergies (a CDN that 403s
+  // browser-shaped headers) and stays `*/*` on purpose.
+  const profilesFor = (url, typeHint) => [
+    { name: "std", headers: { "user-agent": FETCH_UA, accept: imageAcceptFor(url, typeHint), referer: ORIGIN + "/" } },
+    { name: "bare", headers: { "user-agent": "curl/8.6.0", accept: "*/*" } },
+  ];
   console.log("\nfetching gaps... (bytes AND ledger rows)");
   for (const m of missing) {
     // m.path is an absolute URL (records are keyed by host + path).
@@ -423,17 +450,20 @@ if (DO_FETCH && missing.length) {
     // off-the-books state — the exact condition appendLedger's own comment
     // promises to prevent, one failure mode over. Measured on rauchg: 725
     // /_next/image variants on disk, zero in the manifest.
-    let res;
-    try {
-      res = await fetch(m.path, {
-        headers: { "user-agent": "Mozilla/5.0 local static mirror", accept: "*/*", referer: ORIGIN + "/" },
-      });
-    } catch (e) {
-      console.log(`  FAIL ${e.message} ${m.path}`);
-      continue;
+    let res = null, lastErr = "", usedProfile = "";
+    for (const p of profilesFor(m.path, m.type)) {
+      try {
+        const r = await fetch(m.path, { headers: p.headers });
+        if (r.ok) { res = r; usedProfile = p.name; break; }
+        lastErr = `HTTP ${r.status} (${p.name})`;
+        // Only auth-ish refusals suggest a header allergy; a 404 is a 404.
+        if (r.status !== 401 && r.status !== 403) break;
+      } catch (e) {
+        lastErr = `${e.message} (${p.name})`;
+      }
     }
-    if (!res.ok) {
-      console.log(`  FAIL ${res.status} ${m.path}`);
+    if (!res) {
+      console.log(`  FAIL ${lastErr} ${m.path}`);
       continue;
     }
     const rel = localPathFor(m.path);
@@ -446,7 +476,8 @@ if (DO_FETCH && missing.length) {
     // without one gets extension-guessed into text/html, and ofetch — which
     // parses by content-type — hands the app a string where it awaited JSON.
     fetched.push({ rel, url: m.path, bytes: body.length, sha: createHash("sha256").update(body).digest("hex"),
-      type: (res.headers.get("content-type") || "").split(";")[0] || undefined });
+      type: (res.headers.get("content-type") || "").split(";")[0] || undefined,
+      profile: usedProfile, vary: res.headers.get("vary") || "" });
     console.log(`  OK ${m.path}`);
     if (fetched.length % 100 === 0) await appendLedger(fetched.splice(0, fetched.length));
   }
@@ -465,17 +496,23 @@ async function appendLedger(rows) {
   // state this function was added to prevent, one ledger over. Worse: any later
   // mirror-site run rewrites both ledgers from the manifest, so rows that only
   // ever reached inventory.tsv are silently dropped again.
-  const mfPath = path.join(ROOT, "mirror-manifest.json");
-  try {
-    const mf = JSON.parse(await fs.readFile(mfPath, "utf8"));
-    let n = 0;
-    for (const r of rows) {
-      if (mf.files[r.url]) continue;
-      mf.files[r.url] = { path: r.rel, bytes: r.bytes, sha256: r.sha, ...(r.type ? { type: r.type } : {}) };
-      n++;
-    }
-    if (n) await fs.writeFile(mfPath, JSON.stringify(mf, null, 2));
-  } catch {}
+  //
+  // ⛔ MANIFEST FIRST, INVENTORY SECOND, and a manifest that cannot be read is
+  // FATAL before inventory.tsv is touched — so the two ledgers can never
+  // disagree about one batch (both carry its rows, or neither does). This was a
+  // bare `catch {}`: a missing or corrupt manifest silently skipped the write
+  // and produced exactly the off-the-books state described above.
+  const mf = await readManifest();
+  let n = 0;
+  for (const r of rows) {
+    if (mf.files[r.url]) continue;
+    // Same row shape mirror-site.mjs's save() writes: profile + Vary on record,
+    // or a negotiated response is indistinguishable from a plain one.
+    mf.files[r.url] = { path: r.rel, bytes: r.bytes, sha256: r.sha, ...(r.type ? { type: r.type } : {}),
+      ...(r.profile ? { profile: r.profile } : {}), ...(r.vary ? { vary: r.vary } : {}) };
+    n++;
+  }
+  if (n) await fs.writeFile(MANIFEST_FILE, JSON.stringify(mf, null, 2));
   const inv = path.join(ROOT, "inventory.tsv");
   let text = await fs.readFile(inv, "utf8").catch(() => "");
   if (!text) text = "SHA256\tBYTES\tPATH\tURL\n";
@@ -486,4 +523,18 @@ async function appendLedger(rows) {
   text += add.map((r) => `${r.sha}\t${r.bytes}\t${r.rel}\t${r.url}`).join("\n") + "\n";
   await fs.writeFile(inv, text);
   console.log(`  ledger — ${add.length} row(s) appended to ${path.relative(process.cwd(), inv)}`);
+}
+
+/** The mirror's ledger, or a loud exit — never a silent skip (see appendLedger). */
+async function readManifest() {
+  try {
+    const mf = JSON.parse(await fs.readFile(MANIFEST_FILE, "utf8"));
+    if (!mf || typeof mf.files !== "object" || mf.files === null) throw new Error("no `files` map in the document");
+    return mf;
+  } catch (e) {
+    console.error(`FATAL: cannot read ${MANIFEST_FILE}: ${e.message}`);
+    console.error(`       --fetch appends to the mirror's ONE ledger; without it every fetched file is off the books`);
+    console.error(`       (files landed since the last ledger write, if any, are on disk unrecorded — verify-mirror lists them as orphans).`);
+    process.exit(1);
+  }
 }

@@ -65,7 +65,7 @@ samsy M12 实例：部署后暴露一个源站永不触发的构造期纹理加�
 **`clip` 陷阱：固定布局的站点会拿到全白图**【shopifydesign】。写滚动截图门时为了降分辨率提速，很自然会写 `clip: {x:0, y:0, width, height, scale:.5}`。**那个坐标系是文档，不是视口**：滚到 `scrollY = 10810` 时它照样截**文档顶部**那一块。而如果站点的画布与页头都是 `position: fixed`，文档顶部那一屏里什么都没有——实测 **11 个滚动检查点返回 11 张全白 PNG**，肉眼看图才发现。
 
 - **指令**：**带 `clip` 抓图前先问一句"这个页面有没有 fixed / sticky 元素"**；**滚动位姿一律用整视口抓图（不带 `clip`）**。代价是快门变慢，用 §7 的突发采样 + 事后取最近帧去接。
-- **自检**：**同一会话不同滚动位姿的截图哈希必须互异**（`verification-gates.md` §4.2 的老规矩，正好也抓这个坑——11 张全白图的哈希全都一样）。
+- **自检**：**同一会话不同滚动位姿的截图哈希必须互异**（`gate-failure-modes.md` §1.2 的老规矩，正好也抓这个坑——11 张全白图的哈希全都一样）。
 
 WebGL 读回专属陷阱：`readRenderTargetPixels` 读回前必查 `gl.getError()`——**全零缓冲是读回假象**，不是场景真的全黑【noomo】。
 
@@ -157,7 +157,7 @@ addEventListener('resize', () => { if (cols() !== columnCount) buildColumns(); }
 **识别信号（命中任一条就按本节处置，不要去查移植）**：
 
 - 同一条命令、同一个视口档，**分钟之隔跑出两种布局**（实证：`#product-grid` 高 12,763px 一列 / 2,261px 三列）；
-- 失败**同时出现在两侧**且**不确定**——这是仪器竞态的签名，不是移植缺陷（`verification-gates.md` §6.1.0）；
+- 失败**同时出现在两侧**且**不确定**——这是仪器竞态的签名，不是移植缺陷（`gate-failure-modes.md` §3.1.1）；
 - 事后读 `innerWidth` 一切正常，**只有 document-start 探针**才看得见 980。
 
 **取证手段（这是本节唯一的"先量"动作）**：用 `Page.addScriptToEvaluateOnNewDocument` 在**任何页面脚本之前**记 `window.innerWidth` / `screen.width`，成功与失败的会话各看一遍。**它一次就能把候选机制砍到一种**——实测成功与失败的每一次 document-start 都是 980，于是"渲染进程换了""覆盖没落地"两个假设当场出局。
@@ -253,7 +253,7 @@ addEventListener('resize', () => { if (cols() !== columnCount) buildColumns(); }
 - [ ] 无头 flag（`--use-gl=swiftshader` / `--disable-gpu`）有没有把被测程序切到另一条画质/能力分支？（`determinism.md` §2.9）【shopifydesign】
 - [ ] 生命周期钩子负责的产物还在吗？这轮构建走的是 `npm run` 还是直调 CLI？（§9.5）【basement】
 - [ ] **移动视口档**：用 document-start 探针量过 `innerWidth` 吗？（`<meta viewport>` 落地前它是 **980**，页面可能已经按桌面排好了版，§8）【objectarchive】
-- [ ] 准备改仪器了——**有没有先用一个探针把候选机制砍到一种**？（凭症状猜修法实测把 2/8 红变成 5/8 红，`verification-gates.md` §6.1.0）【objectarchive】
+- [ ] 准备改仪器了——**有没有先用一个探针把候选机制砍到一种**？（凭症状猜修法实测把 2/8 红变成 5/8 红，`gate-failure-modes.md` §3.1.1）【objectarchive】
 - [ ] 只在部署环境出现？先用延迟注入复现再归因【samsy】
 
 全部排除后，才允许开始在 bundle 里找源码归属。反之，如果是环境问题：**修环境或修探针，不动复刻代码**。

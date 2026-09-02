@@ -51,7 +51,7 @@ const READY = flag("ready", null);
 const HOLD = flag("hold", null);
 const HOLD_GRACE = flag("hold-grace", null);
 const HOLD_AFTER = flag("hold-after", null);
-if (!A || !B) { console.error("usage: pixel-walk.mjs --a <rebuild-url> --b <mirror-url> [--steps N] [--pump dt,frames] [--max-mean N] [--self] [--ready expr] [--hold expr] [--hold-grace ms]"); process.exit(2); }
+if (!A || !B) { console.error("usage: pixel-walk.mjs --a <rebuild-url> --b <mirror-url> [--steps N] [--pump dt,frames] [--max-mean N] [--self] [--ready expr] [--hold expr] [--hold-grace ms] [--hold-after N]"); process.exit(2); }
 if (STEPS < 2) { console.error("FATAL — --steps must be >= 2. One checkpoint is the problem this tool exists to fix."); process.exit(2); }
 
 // ⛔ Scroll TWICE: at load, and again after the page's own init has run.

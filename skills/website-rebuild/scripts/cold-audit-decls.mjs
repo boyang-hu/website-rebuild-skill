@@ -23,7 +23,7 @@
  *             (`// Xx0`) — weak, listed for a human, never a pass by itself
  *   UNKNOWN   none of the above → exit 1. This is the roll-call's whole point:
  *             a function test cannot see a missing block; only a list can
- *             (verification-gates.md §0.24). It reports `n/N examined` because a
+ *             (gate-case-design.md §3). It reports `n/N examined` because a
  *             check that does not say how much it looked at is silent, not green
  *             (§0.24.0).
  *

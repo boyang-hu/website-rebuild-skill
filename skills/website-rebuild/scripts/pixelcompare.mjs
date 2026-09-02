@@ -104,6 +104,23 @@ if (!URL_A || !URL_B) {
 }
 const NAME = flag('name', 'home');
 const OUT = flag('out', join(process.cwd(), 'docs', 'pixelcompare'));
+const KIND = args.includes('--self') ? 'self-band' : 'cross-side';
+// ⛔ Refuse to MIX KINDS in one metric.json, and refuse HERE — before the
+// server wait and before a browser is launched. The tag used to be spread
+// under the loaded object (`{kind, ...metrics}` with `metrics.kind` already
+// set), so the file kept whichever kind its first run wrote: a band file and
+// a cross-side pass could share one metric.json and the "tag travels with the
+// numbers" promise at the write site was never enforced. A file with no tag is
+// a pre-tag file and is simply tagged from here on.
+{
+  let prior = null;
+  try { prior = JSON.parse(readFileSync(join(OUT, 'metric.json'), 'utf8')).kind ?? null; } catch {}
+  if (prior && prior !== KIND) {
+    console.error(`FATAL: ${join(OUT, 'metric.json')} is tagged kind=${prior}, but this run is ${KIND}.`);
+    console.error(`       A band file and a cross-side file must not share one metric.json — use a different --out.`);
+    process.exit(2);
+  }
+}
 const W = Number(flag('width', 1280));
 const H = Number(flag('height', 800));
 // PNG by default: the saved frames are evidence and a byte-exact gate needs
@@ -529,7 +546,7 @@ const inlineFatal = (step, err) => {
   process.exit(4);
 };
 
-// --- NON-BLANK PRECONDITION (verification-gates.md §4.8) ---------------------
+// --- NON-BLANK PRECONDITION (gate-failure-modes.md §1.8) ---------------------
 // ⛔ Runs BEFORE the diff, and it is not optional. A comparison of two empty
 // frames reports meanAbsDiff 0, worstCellDiff 0, similarity 100 — the exact
 // shape of a perfect result. Measured on a WebGL target whose determinism
@@ -663,10 +680,13 @@ writeFileSync(join(OUT, `side-by-side-${NAME}.jpg`), Buffer.from(composite, 'bas
 // merge into metric.json so repeated runs (one per view/state) accumulate
 let metrics = {};
 try { metrics = JSON.parse(readFileSync(join(OUT, 'metric.json'), 'utf8')); } catch {}
+// Strip the loaded tag so this run's KIND wins the spread (the kind check
+// above already guaranteed the two agree, or exited before any pixel was taken).
+delete metrics.kind;
 metrics[NAME] = metric;
 // The tag travels with the numbers: a band file must never be readable later as
 // a cross-side pass. Anything consuming these files should refuse to mix kinds.
-writeFileSync(join(OUT, 'metric.json'), JSON.stringify({ kind: SELF ? 'self-band' : 'cross-side', ...metrics }, null, 2));
+writeFileSync(join(OUT, 'metric.json'), JSON.stringify({ kind: KIND, ...metrics }, null, 2));
 console.log('[pixel] wrote', OUT);
 
 ws.close();

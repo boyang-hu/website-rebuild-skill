@@ -3,7 +3,7 @@ name: website-rebuild
 description: 1:1 rebuild of award-winning creative websites (WebGL / scroll-animation / portfolio sites). Evidence-driven pipeline - mirror-first forensics, line-number-traceable reverse engineering of minified bundles, verbatim porting, quantitative verification gates. Use when user asks to "复刻网站", "重建网站", "1:1 rebuild", "clone this site", or provides a URL of a creative/award site to reproduce.
 compatibility: Requires Node 22+ (bundled scripts use built-in WebSocket to talk to CDP), npx, and a local Chrome/Chromium for headless comparison. POSIX shell optional - the Step 0 probe protocol has a zero-dependency Node equivalent (scripts/fingerprint.mjs) for shells without curl/cmp/tr/perl (e.g. Windows PowerShell). Agent-agnostic - works in any Agent Skills-compatible runtime.
 metadata:
-  version: "0.3.15"
+  version: "0.3.16"
 ---
 
 # Website Rebuild（获奖创意站 1:1 复刻）
@@ -77,6 +77,8 @@ metadata:
 
 ⛔ = 阻塞门：验收标准未达成不得进入下一阶段。
 
+标记约定（全部文档通用）：⛔ 硬规则，违反即 bug · ⛔⛔ 已在实战里付过高代价的硬规则 · ⭐ 经验证的做法 · ⭐⭐ 反直觉但已被数据证实的做法 · ⚠ 陷阱 / 边界 · 【代号】= 实证来源项目（对应 README「已验证过的网站」）。
+
 ### Flow
 
 **Step 0 — 指纹侦察与范围门**。加载 [references/scope-and-fingerprint.md](references/scope-and-fingerprint.md)，对用户给的 URL 执行探测协议（GET 到路径粒度、最终 URL 同一性、双抓 diff、物种/年代校验、bundle 初检），输出判级与依据。A/B 类继续；C/D/X 类向用户解释后停止或引导。
@@ -99,7 +101,7 @@ metadata:
 
 **M2+ — 严格溯源移植**。加载 [references/porting-discipline.md](references/porting-discipline.md)，并按分支路由表加载对应场景指南。每个移植文件头部注明源行号区间；GLSL/魔数/数据逐字提取；数据资产脚本抽取入库不手抄。
 
-**M(n-1) — 对拍验收**。加载 [references/verification-gates.md](references/verification-gates.md) 与 [references/determinism.md](references/determinism.md)。全站渲染**广度**用 `scripts/sweep-routes.mjs`（全路由一个浏览器,逐路由 0 错误/0 失败/0 外联 + 交互钩子与逐路由采集）,单路由**深度**才用 `probe.mjs`——⛔ 不要手搓逐路由起 Chrome 的循环,成本按浏览器启动次数计,且并发探针会互相收割孤儿。⚠ **归因残差之前先建自比带宽**（`pixelcompare --self`，逐侧 ≥4 次、交错跑）——没有带宽的残差一律 UNCLASSIFIED，而 UNCLASSIFIED 是失败不是通过。门型选择：有 SSR/静态 HTML 产物先建字节门 → DOM 静态场景冻结熵源走 byte-equal → 活场景（WebGL/视频/随机相位）降级量化指标 + 噪声归类 → 数据驱动动画补数值探针门 → CLEAN 门全程兜底。判定时序 bug 前先校准探针（[references/environment-traps.md](references/environment-traps.md)）。
+**M(n-1) — 对拍验收**。加载 [references/verification-gates.md](references/verification-gates.md) 与 [references/determinism.md](references/determinism.md)；门红了或残差需要归类时再加载 [references/gate-failure-modes.md](references/gate-failure-modes.md)，不要开局读。全站渲染**广度**用 `scripts/sweep-routes.mjs`（全路由一个浏览器,逐路由 0 错误/0 失败/0 外联 + 交互钩子与逐路由采集）,单路由**深度**才用 `probe.mjs`——⛔ 不要手搓逐路由起 Chrome 的循环,成本按浏览器启动次数计,且并发探针会互相收割孤儿。⚠ **归因残差之前先建自比带宽**（`pixelcompare --self`，逐侧 ≥4 次、交错跑）——没有带宽的残差一律 UNCLASSIFIED，而 UNCLASSIFIED 是失败不是通过。门型选择：有 SSR/静态 HTML 产物先建字节门 → DOM 静态场景冻结熵源走 byte-equal → 活场景（WebGL/视频/随机相位）降级量化指标 + 噪声归类 → 数据驱动动画补数值探针门 → CLEAN 门全程兜底。判定时序 bug 前先校准探针（[references/environment-traps.md](references/environment-traps.md)）。
 
 **M(n) — 收口**。冷头评审：对 bundle 顶层类/模块清单逐一核对落点（功能测试测不出整块遗漏，只有清单式核对能）。加载 [references/legal-and-deploy.md](references/legal-and-deploy.md) 完成版权**取证**并把决定**呈交用户**——在用户决定之前按安全默认执行（**私有 + noindex + 不部署**），公开前必须逐资产取证、显著标注非官方复刻。
 
@@ -119,6 +121,9 @@ Step 1 侦察结果决定加载哪些场景指南（按需，不要全量加载�
 | 私有二进制格式（.buf / .sog / VAT / GLB 时间线 / .riv） | [references/binary-formats.md](references/binary-formats.md) |
 | Shopify 店铺（指纹见 `cdn/shop`、`Shopify.theme`、`cdn.shopify.com`） | [references/shopify-platform.md](references/shopify-platform.md) |
 | Sanity CMS（指纹见 `cdn.sanity.io/images/<projectId>/`、`*.api.sanity.io`、载荷里成片 `_key`/`_type`/`_ref`）——⛔ 判级看内容烘焙时点不看库名，且 `auto=format` 资产按 Accept 协商返回不同字节 | [references/sanity-platform.md](references/sanity-platform.md) |
+| 门红了、或像素 / 数值残差需要归类（真差异 vs 方法学噪声） | [references/gate-failure-modes.md](references/gate-failure-modes.md) |
+| 数值门 / 跨侧门 / 采集基线的用例设计；M(n) 清单式核对 | [references/gate-case-design.md](references/gate-case-design.md) |
+| 内联序列化载荷（flight / `__NUXT__` / devalue 数据岛）或策略 A 外壳构建 | [references/payload-gates.md](references/payload-gates.md) |
 | DOM 层策略选型（所有站必经；Webflow 导出 / 静态单页 / 框架 SSR 分支不同，另有"DOM 被 3D 引擎当坐标源读"的正交约束） | [references/dom-shell-strategies.md](references/dom-shell-strategies.md) |
 | 大体量资产（百 MB 级媒体 / 授权字体） | [references/asset-management.md](references/asset-management.md) |
 | 无头探测行为异常 / 疑似环境问题 | [references/environment-traps.md](references/environment-traps.md) |
@@ -138,7 +143,7 @@ Step 1 侦察结果决定加载哪些场景指南（按需，不要全量加载�
 
 ## Script Directory
 
-Node 22+，路径相对本 skill 目录。用法与成熟度详见 [scripts/README.md](scripts/README.md)。
+Node 22+，路径相对本 skill 目录。本表只列一句话用途；每个脚本的完整说明、旗标、实证与成熟度见 [scripts/README.md](scripts/README.md) 与 [tools/README.md](tools/README.md)（含自本表迁出的速查表）。
 
 ⭐⭐ **依赖纪律是按阶段划的，不是按目录划的：源码化之前，整条流水线零依赖。**
 
@@ -152,61 +157,71 @@ Step 0 → M(n) 全程不装任何东西；**复刻项目要到 M(n+1) 才获得
 
 | 脚本 | 用途 | 使用阶段 |
 |---|---|---|
-| `scripts/fingerprint.mjs` | Step 0 六步探测协议的跨平台等价实现（GET 存活 + 重定向链与终点域同一性、双抓 diff、物种/年代、HTML 技术指纹、bundle 初检；出现次数计数与 <1KB Referer 重试内置；Sanity CMS 证据采集——projectId/dataset/API 主机/auto=format/_key，三种拼写归一，命中即指路 sanity-platform.md）。**只采证据不出判级**——判级仍走 scope-and-fingerprint.md §3 判定树 | Step 0（无 POSIX 工具链时） |
-| `scripts/mirror-site.mjs` | BFS 爬虫镜像（资产白名单 + 迭代到不动点；`redirect:manual` + 三本账，含逐文件 sha256；⭐ `redirects.tsv` 与 manifest 一样**跨运行累积**——`--scope` 补页曾把它截成只剩表头，载荷门在 `/work` 撞 404 才发现）。`--scope <前缀>` 把**页面**队列限制在目标路径下（微站挂在企业 CMS 域下时必用；⛔ 只限页面不限资产）。**账本累积**（`--seeds` 补漏不再截短上一轮的行）+ **off-host 普查**（不跟的主机逐个计数并告警——静默丢弃曾让 827 条媒体引用消失而报告写着"57 files saved"） | M0 第一遍 |
-| `scripts/netcapture.mjs` | 真实浏览器 CDP 抓包对账补录运行时资源（**CDN 站必须传 `--hosts`**，否则只观测同源流量、会报假 GAP=0） | M0 第二遍 |
-| `scripts/verify-mirror.mjs` | **镜像自己的门**，跑在断网门之前。五项断言：映射单射性 / 账本与磁盘 sha256 / **真实性（挑战页正文 + 声明类型对魔数——一个 200 不是"你拿到了那个资源"的证据）** / 闭包 / 可选抽样回源。下游所有门问的都是"渲染得出来吗"，**错的镜像能让它们全绿** | M0 关账前，每次重抓镜像后 |
-| `scripts/gapfill-video.mjs` | HLS/DASH 流媒体阶梯补录（master → rendition → 分片），静态爬虫的结构性盲区 | M0（有流媒体时） |
-| `scripts/reconcile-gaps.mjs` | **运行时缺口对账器**：把 netcapture 记下的 GAP 行与字节推导的全集清单（如 next/image 的 srcset 阶梯穷举——实测 1,078 vs 浏览器碰到 217）逐条补进镜像。⭐ **请求头梯子**（标准 profile 4xx → 裸 profile 重试：同一个 403 有两种相反的药，landonorris 要 Referer、video.twimg 恨 Referer）+ 逐 URL 容错 + 分批记账（一次崩溃不留账外文件）。⛔ 图片 URL 的标准 profile 发**浏览器同款图片 Accept**（`lib/negotiate.mjs`）——`auto=format` 类 CDN 按 Accept 协商格式，`*/*` 拿到的是回退字节（basement D5：391 变体全回退而门全绿）；账本记 `profile`+`vary` | M0（运行时资源多的站） |
-| `scripts/flight-decode.mjs` | **C1 的坐标系**：把每页 `self.__next_f.push` 流解成模块引用表（I 行导出名=白送的 tier-1 命名证据）、HL 预载、已解引用的元素树 + JSX 式 outline。T 行按声明字节数走；`:HL` 空 id 行不许断链 | M1（C1） |
-| `scripts/verify-flight.mjs` | **C1 语义门**：构建产物 flight 树 ≟ 镜像 flight 树。自带解析器（⛔ 不 import flight-decode——检查者不能是生产者）；规范化只收「证明不携带行为」的构建哈希命名空间（chunk 名/css-module 类/媒体哈希/可提升资源挂载点/编码自由度），**模块 id 做全局双射**（一对多即红）；站点登记项走 `--normalize-props`（ISR 纪元字段）与 `--normalize-class`（库渲染子树）；其余一切差异照红 | M(n-1)（C1） |
-| `scripts/serve.mjs` | 零依赖静态服务器（MIME/Range/服务层改写/重定向回放），兼任源站参照服。`--rewrite FROM::TO` 是**登记式字面量替换**，为的是一类本地化触及不到的东西——**源程序按自己的域名分支**（`location.hostname=="x.com" && (CDN=...)`，镜像不在那个域名上于是整个子系统走空路径）；**首次命中打印**，因为沉默与生效此前无法区分。`--fallback-root` 让复刻侧只放产出、资产全部从只读镜像读（`asset-management.md` 的不复制策略）——⭐ v0.3.15 起是**回落链** `--fallback-root mirror-negotiated,mirror`，协商变体的独立记账树压在只读镜像之上、两侧同链；⛔ **桩主机的 DSN 保持是 DSN**：`https://<key>@oNNN.ingest.us.sentry.io/<id>` 改写成 `http://<key>@127.0.0.1:<port>/ext/<host>/<id>`，SDK 正常初始化、信封打进桩（此前改成裸路径 → 两侧 console `Invalid Sentry Dsn`，CLEAN 门红而无静态门能见）；**未知旗标响亮失败**——被静默忽略的旗标是一次没人知道的降级 | M0.5 起全程 |
-| `scripts/build-site.mjs` | **策略 A 构建层**：按 `shell-config.mjs` 的登记变换表从镜像生成 `site/`，逐条命中下限 + `--check` 可复现性 + 目的断言（下限说明变换还活着，目的断言说明它达成了目的） | M2+（策略 A） |
-| `scripts/verify-shell.mjs` | **外壳字节门**：逐文档 patience diff，每个差异块必须能被变换表**重放**解释。⛔ 不 import `build-site.mjs`——门不许生产它所审计之物（`verification-gates.md` §2.1.2） | M2+（策略 A） |
-| `scripts/verify-payload.mjs` | **SSG payload 门**：把内联序列化数据块（Nuxt2 `window.__NUXT__` / Nuxt3 `__NUXT_DATA__` / **React flight `self.__next_f`**）**求值展开**再按结构对拍。字节门在这里不够用——payload 是一段"输出数据的程序"（参数去重、`\u002F` 转义），两份可以字节不同而语义相同，也可以字节相近而语义不同；且服务层要**改写它内部**的 URL。实测：它抓到两侧本地化实现不一致（一侧留 `href="http://host"`、另一侧写出 `href=""`），而外壳字节门全绿 | M0.5 起（有 SSG payload 时） |
-| `scripts/verify-tokens.mjs` | **token 流等价门**：排版/再发射件 ≟ 源站原件逐 token（类型+值）相等，空白/位置无关（`lib/tokens.mjs`，acorn 钉死）。凡以 `_pretty` 字节交付（再发射、切片拼接）必跑——像素/CLEAN/probe 对模板字面量内容改变全部失明（14islands：748,409 vs 748,398） | M2+（排版字节交付时每 commit） |
-| `scripts/verify-nextdata.mjs` | **pages router 载荷门**：`__NEXT_DATA__` 与 `/_next/data/<buildId>/<route>.json` 单侧自洽 + 双侧深比较（键序敏感、值逐字，两侧同 4xx/5xx 视为一致），`--a/--b` 可给伺服地址或镜像目录；`--normalize` 只删登记过的纪元字段，⛔ Sanity `_key` 是化石不 normalize。verify-payload 只认 nuxt/flight/sveltekit，这是它的空白 | M0.5 起（pages router 站） |
-| `scripts/emit-webpack-chunk.mjs` | **多 chunk webpack 站的逐字再发射**：按 module-map 边界把 `_pretty` chunk 切成逐模块部件（含首尾非模块部件），按源站容器形态 `push([[ids],{…}],runtime)` 原样拼回，解析交给镜像里源站自己的 webpack runtime——Turbopack "再发射进 TURBOPACK" 的 webpack 同构物；`--check` 拼接门逐字节；`--raw` 对 token 不等的模块代入压缩原件精确子串 | M2+（webpack 多 chunk 站） |
-| `scripts/verify-lenprefix.mjs` | **自带长度的载荷门**：走 React flight 流（Next.js App Router 每页内联的 `self.__next_f.push`），逐行按声明的 `T<十六进制>` 字节数前进，确认落点仍是一个行首。⭐ **长度前缀行没有终止符**——下一行的行首就贴在声明的末尾，长度本身即分隔符。因此任何**改变字节数的文本改写**（本地化外链）都会让读取者把下一行的行首吞成正文。实测 eightdesign：115 条路由里 2 条只渲染出 70 字（对侧 2,440），**零 404、零请求失败、HTML 字节数一致、其它门全绿**；定位它的是拿 `python3 -m http.server` 伺服同一个目录——两条路由完美渲染，于是错处在服务器而不在字节。⛔ 这道门要**先拿源站校准**：第一版断言"行末必须是换行"，把包括源站自身字节在内的每份文档都判为损坏 | M0.5 起（有 flight 载荷时） |
-| `scripts/verify-refs-served.mjs` | **引用可达门**:把产出字节里的每一条资源引用**逐条问服务器**(一次 GET,不开浏览器)。⭐ 关键在于**问服务器,而不是再实现一遍它的解析**——一个自己走镜像的离线检查就是第二份 url→path 实现,而第二份实现就是一次等着被报成窟窿的分歧(实测它把 28 张在场的图报成缺失,只因不知道服务器的查询变体回退)。⚠ 它看不见运行时拼出来的 URL,那是资源级探针的活(§1.6 class 4) | M2+ 起每 commit |
-| `scripts/verify-offline.mjs` | **零外联门的静态一半**：枚举产出字节里每个外部绝对 URL 并逐条裁决（§1.6 的四类断言面里，资源级探针看不见的那三类） | M0.5 起每 commit |
-| `scripts/beautify-bundle.mjs` | js-beautify@1.15.1 钉死展开 bundle 到 `_pretty/` 并生成再生成说明。⛔ **排版后自查 token 流**（`lib/tokens.mjs`）：js-beautify 会改变嵌套模板字面量内容而所有渲染门照绿（14islands F4）——不等的文件在账本标 `DIFFER@n`、退出码 1，只能当坐标不能当交付字节；`[slug]` 类含 glob 字符的文件名喂无括号副本（F5：CLI 对 -f 做 glob，静默零产出）；输出 === 压缩输入直接 FAIL。⛔ **撞名响亮告警 + 单射断言**——两个不同目录下的 `main.built.js` 曾静默互相覆盖，而 `_pretty/` 是全项目唯一溯源坐标系，覆盖之后每个行号都指向错误的文件 | M1 |
-| `scripts/module-map.mjs` | **模块化 bundle 的分层表**：spawn 钉死的 `acorn --tokenize`（零依赖），逐模块给出行区间、`requires`、导出名。**认两种容器**：webpack 对象容器（⭐ v0.3.10 起以 `webpackChunk*/webpackJsonp` 的 `push([[ids],{…}])` **正签名**定位——three 的 400+ 导出映射曾以"属性更多"赢过真容器，把 256 模块的 chunk 报成 406 个 3 行模块；对象/数组容器**模块行数 > 文件行数一律 FATAL**）与 **Turbopack 扁平列表**（后者把导出名直接写在容器里，M(n+1) 命名因此几乎全是 tier-1 证据；⛔ v0.3.12：React Compiler 下整个实现内联在 `e.s([name, 0, function…], id)` 里——扫描进入声明体，导出名只在元素起始位读，否则体内的 `.A/.i` 边全丢）。⛔ 认不出容器即 FATAL；⛔⛔ **认出来的还必须解释得了这个文件**——行覆盖率 <50%、或依赖边不足 require 调用数的 25%，一律 FATAL：读错容器时工具会「成功」（实测对一个真有 20 个工厂的 chunk 报了 2 个模块）。⛔ **容器可以重复定义同一个 id**——实测 597 条属性只有 569 个不同模块，且其中 4 条被遮蔽的定义**实现不同**；语义是**对象字面量后者胜出**，工具必须去重并报告，否则每份文档记的模块数都是错的，而下游拿到哪一份取决于迭代顺序 | M1（模块化打包产物） |
-| `scripts/closure.mjs` | 从种子模块算**传递依赖闭包**，是竖切边界的唯一依据。⛔ **未知种子 ID 一律 FATAL** 并给出 did-you-mean——静默丢弃会产出一个“小一号但看似合理”的切片，失败推迟到运行时 | M2+（模块化打包产物） |
-| `scripts/verify-tween.mjs` | **竖切的数值门**：同一关键帧规格喂两侧、逐点比补间值与缓动曲线。比像素门**早得多**判红，且失败会带上产生它的输入。⛔ 用例的字段名与值域必须从源码抄——第一版凭直觉写，六个用例全落在同一条曲线上、全绿、零区分力 | M2+（有补间/时间轴引擎时） |
-| `scripts/harvest-cases.mjs` | **从源站活引擎采用例**：驱动源站到 N 个状态，逐状态记录它自己对象里的数值（站点侧写在 `harvest.config.mjs`，样例见 `harvest.config.example.mjs`）。手写用例编码的是**你相信引擎的参数是什么**——六个手写用例曾全落在同一条曲线上、全绿。⛔ 只产出 A 侧，必须配 `verify-harvest.mjs`。⚠ 采**解析完的数值**而非源文本 | M2+（源站引擎可达时） |
-| `scripts/verify-harvest.mjs` | **采集基线的 B 侧**：把采到的身份逐条喂给移植，要求**恰好匹配一个**（零个=缺失，两个=移植里有重复行为、映射不成立）。⭐ 按**行为**匹配还能**把名字找回来**——源站的缓动函数全匿名，移植侧按可读键导出，指纹一对上就知道源页面在跑哪条曲线 | M2+（有采集基线时） |
-| `scripts/verify-crossside.mjs` | **跨侧门**：同一份输入同时喂镜像与移植，逐条比结果（站点侧写在 `crossside.config.mjs`，样例见 `crossside.config.example.mjs`）。用在源站**公开了接缝**时——bundle 没有模块注册表也可能有 `window.<Name> =` 这类模块顶层副作用，抓住编排层的那一个接缝，覆盖面远大于它的体积。⛔ 两侧**串行**求值，且每次运行给两侧取指纹、**URL 相同直接 FATAL**——并发探针会让第二个接到第一个拉起的浏览器，把一侧量两遍并报告**完美一致**。⛔ 用例分 `judged`（条件无关，逐字必须相同）与 `info`（条件相关，只打印但两侧都得解析得出来） | M2+（源站有可直接调用的接缝时） |
-| `scripts/slice-modules.mjs` | **按模块 id 逐字切片**：边界由打包器给定，所以切片表就是一串 id，且工具能自校（`--check` 重切须字节一致）。转写的 webpack 运行时在文件头登记为偏差。⛔ **容器不是整个文件**（v0.3.15）：Turbopack chunk 容器外的字节（Sentry `_debugIds` 前奏、`//# debugId` 尾注）逐字带走，否则 `verify-tokens` 对每个 chunk 恒差 87 token 而无处登记（raycastkbd 0/54 → 61/61） | M2+（模块化打包产物） |
-| `scripts/extract-source.mjs` | 字节切片器：按钉死行号区间切 `_pretty/` 拼成生成文件（sha256 守卫 + 切片表 + 别名/桩表，`--check` 进门），逐字移植首选形式（§2.2；配置样例 `scripts/slices.config.example.mjs`） | M2+（逐字移植期） |
-| `scripts/probe.mjs` | CDP 无头探针（console/异常/网络 CLEAN 判定，退出码进 CI；`--no-external` 断言零外联、`--walk` 全滚动走查） | M0.5 起每 commit |
-| `scripts/verify-routes.mjs` | 路由/重定向/状态码契约门 | M2+ |
-| `scripts/verify-ssr.mjs` | SSR/DOM 逐字节门 | M2+（有 SSR 产物时最先建） |
-| `scripts/pixelcompare.mjs` | 量化像素对拍（粗网格相似度 + metric 输出）。⭐ **状态对齐协议**：`--ready <表达式>` + `--chunk 1` + `--after-ready N`——两侧各自 READY 后再泵 N 帧，分块粒度即对齐分辨率（darkroom /about、/work 两处 UNCLASSIFIED 残差由此归零，determinism §7）。**视口 ≳ 1500×900 时 PNG 过不了 CDP 载荷硬顶**，改 `--format jpeg --quality 92`。**产出前先过非空帧前置条件**——两张空帧对拍会报 `meanAbsDiff 0 / 相似度 100`，与完美结果同形（实测：冻结把引擎停在首帧之前，三条路由全报 0，而那是 201 色 99.5% 纯黑）；`--pump dt,frames` 是 probe-shim 的一等驱动入口，且**与真实时间交错地泵**——冻结页的启动仍在墙钟上等资产，settle 之后一次性泵完会让引擎永远拿不到"资产已到达"的那一帧（`determinism.md` §2.9.1）。`--self` 是**自比带宽的合法通道**（§1.3.2 要求的那次测量按定义是一侧与自己比，会被跨侧假绿守卫拦下）——产物标 `kind:"self-band"`，且 `--max-mean` 对它失效：带宽是分类的**输入**，不是判决 | M(n-1) |
-| `scripts/side-by-side.mjs` | 双侧截图并排合成图（对拍产物留证） | M(n-1) |
-| `scripts/frame-census.mjs` | **这一帧上有东西吗**：数截图的颜色数与主色占比。⛔ 像素门已内置同一判据作前置条件，本脚本用于事后复核任意截图——`§4.8`「全部的门拍在同一个状态里」的那个状态可能是**空的**，而此前没有任何一道门会问这句 | M(n-1) |
-| `scripts/probe-shim.js` | 确定性驱动 shim（接管整个熵面：rAF/timer/`performance.now`/`Date.now`/定种 `Math.random`/**IntersectionObserver**，手动泵到任意 t，双侧同位注入）。⭐ **IO 也是一个时钟**——浏览器按自己的节奏投递交叉记录，滚动揭示站因此无法冻结；接管后实测带宽 0.31 → **0.04**，门的可用阈值从 0.5 收到 0.1 | M(n-1) |
+| `scripts/fingerprint.mjs` | Step 0 探测协议的零依赖等价实现：存活 / 重定向终点 / 双抓 diff / 技术指纹 / bundle 初检 + Sanity 证据采集（只采证据，不出判级） | Step 0 |
+| `scripts/mirror-site.mjs` | BFS 爬虫镜像：资产白名单、`redirect:manual`、三本账（含 sha256）跨运行累积、off-host 普查；`--scope` 只限页面不限资产 | M0 第一遍 |
+| `scripts/netcapture.mjs` | 真实浏览器 CDP 抓包，对账补录运行时资源（CDN 站必须传 `--hosts`） | M0 第二遍 |
+| `scripts/verify-mirror.mjs` | 镜像自己的门：映射单射 / 账本 sha256 / 真实性（魔数 + 挑战页）/ 闭包 / 抽样回源，跑在断网门之前 | M0 关账前 |
+| `scripts/gapfill-video.mjs` | HLS/DASH 流媒体阶梯补录（master → rendition → 分片） | M0（有流媒体时） |
+| `scripts/reconcile-gaps.mjs` | 运行时缺口对账：netcapture 的 GAP 行 + 字节推导全集逐条补进镜像；请求头梯子 + 浏览器同款图片 Accept | M0（运行时资源多的站） |
+| `scripts/wayback-mirror.mjs` | X 类抢救：从 CDX 按锚点 + 时间窗选一个连贯时刻，以 `id_` 原始字节抓成标准镜像，洞登记 `wayback-holes.txt` | M0（X 类） |
+| `scripts/serve.mjs` | 零依赖静态服务器兼参照服：MIME / Range / 服务层改写 / 重定向回放；`--fallback-root` 回落链、`--stub-ext-hosts` 桩、`--rewrite` 登记式替换；未知旗标响亮失败 | M0.5 起全程 |
+| `scripts/probe.mjs` | CDP 无头探针：console / 异常 / 网络 CLEAN 判定进 CI，`--no-external` 零外联，`--walk` 全滚动走查 | M0.5 起每 commit |
+| `scripts/sweep-routes.mjs` | 渲染广度门：全路由一个浏览器，逐路由 0 错误 / 0 失败 / 0 外联 + 交互钩子；不要手搓逐路由起 Chrome | M0.5 起（多路由站） |
+| `scripts/verify-offline.mjs` | 零外联门的静态一半：枚举产出里每个外部绝对 URL 并逐条裁决 | M0.5 起每 commit |
+| `scripts/verify-payload.mjs` | SSG payload 门：内联序列化数据块（Nuxt / flight）求值展开后按结构对拍 | M0.5 起（有 SSG payload 时） |
+| `scripts/verify-nextdata.mjs` | pages router 载荷门：`__NEXT_DATA__` 与 `/_next/data/*.json` 单侧自洽 + 双侧深比较 | M0.5 起（pages router 站） |
+| `scripts/verify-lenprefix.mjs` | 自带长度的载荷门：flight 流逐行按 `T<hex>` 字节数前进，改写后落点仍须是行首 | M0.5 起（有 flight 载荷时） |
+| `scripts/flight-decode.mjs` | C1 坐标系：把每页 flight 流解成模块引用表 / 预载 / 元素树 / JSX outline | M1（C1） |
+| `scripts/beautify-bundle.mjs` | js-beautify@1.15.1 钉死展开 bundle 到 `_pretty/`，排版后 token 流自查，撞名断言 | M1 |
+| `scripts/module-map.mjs` | 模块化 bundle 的分层表（spawn 钉死 acorn）：认 webpack 容器与 Turbopack 扁平列表，认不出即 FATAL，覆盖率守卫 | M1（模块化打包产物） |
+| `scripts/census-bundles.mjs` | 无容器产物的 chunk 级坐标账本（sha256 / 行数 / ESM 边），拼接式分解的第一步 | M1（scope-hoisted 产物） |
 | `scripts/dump-timelines.mjs` | GLB 动画曲线 dump 成 JSON 数值账本 | M1（数据驱动动画时） |
-| `tools/assemble-static.mjs` | **像素门两侧同经 serve.mjs**：把 `next build` 的 `.next/server/app/**.html` 摊成 `<route>/index.html`、`_next/static` 与 `public/*` 软链进静态树，用 `serve --side rebuild` 伺服——`next start` 侧不注入 probe-shim，镜像帧 BLANK/重建有画是冻结不对称不是差异（darkroom）。只供对拍，sweep 仍跑 next start | M(n-1)（C1 重构工程） |
-| `tools/accept-names.mjs` | **命名的接受步**：name-modules 只提名不决定；默认只接受 tier-1（打包器声明的导出名），其余保留 id——"错名比哈希更糟"在这一步才真正生效（darkroom 278 模块接受 105） | M(n+1) |
-| `tools/sourcify-chunk.mjs` | **多 chunk 站的 M(n+1) 驱动**：按 merged map 的 canonical 位切子闭包（⛔ id 与 map 同型：字符串），逐 chunk 跑 name-modules → accept-names → modules-to-src → verify-module-map（darkroom 43/43） | M(n+1)（多 chunk 站） |
-| `tools/harvest-optimized-images.mjs` | **next/image 优化器产物补齐**：像素门重建侧的静态树没有优化器，serve 回落原图 → 重采样残差；镜像字节优先，本机 `next start` 优化器兜底并登记为重建侧生成物（rsc-reconstruction §3.5） | M(n-1)（C1 重构工程） |
-| `tools/verify-fresh-next.mjs` | **verify-fresh 的 Next 形态**：src → `next build` → assemble-static 链重建比字节；⛔ 前提 `generateBuildId` 钉死，否则链条永远"过期" | M(n+1)（C1 重构工程） |
-| `tools/name-modules.mjs` | **模块提名**：模块化 bundle 的 id 是内容哈希，文件名要从证据里来。按 0–4 级证据提名并把**依据的那句话**一起记下（人工裁决 / 自注册与全局 / 多消费方字段名 / 常量值与命名前缀 / 报错主语），⛔ **无证据保留 id——错名比哈希更糟**。⭐ 最强的证据在模块外面：属性名不被压缩，`this._chapterPlayer = new M(…)` 能给一个匿名 `class {}` 命名 | M(n+1)（模块化打包产物） |
-| `scripts/cold-audit-modules.mjs` | **M(n) 冷头清点（模块化产物）**：逐模块对账，并查有没有**计算出来的 require**（认 webpack 与 Turbopack 两种工厂签名；v0.3.12 起认 merged map 的 `locations[]`/`source`，不再要求摊平+软链；v0.3.15 起认 Turbopack 经典单参工厂 `function(C){…}`——loader-stub 家族的再导出 shim，此前报"只查了 2/3"）。⛔⛔ **必须报出 `n/N examined` 并把覆盖率当判据**——它曾在一个模块都没查的情况下报绿；改成「仅 0 时报错」之后，又在查了 1/20 时报绿。⛔ 实测抓到一处条件 require（`require(t ? "a" : "b")`）导致闭包少算两个模块，**而 9 个检查点逐像素全零毫无察觉**。⚠ 零依赖阶段分辨不了作用域遮蔽，所以只**判定**"有没有未移植模块被已移植模块 require"，疑似动态 require **列出来交人读** | M(n)（模块化打包产物） |
-| `scripts/cold-audit-decls.mjs` | **M(n) 冷头点名（扁平 scope-hoisted 产物）**：Vite/esbuild/Rollup 产物没有模块容器，点名单位是**深度 0 声明**（class / function / const-let-var 链的每个绑定，含解构）。在 token 流上列出、限定到应用区间，逐条问"落在 port 哪里"：**cited**（port 注释引用的 `pretty L…` 区间含它，`--slack 1` 容忍头注释差一行）> **override**（`collapsed` npm/addon/编译器产物顶替、`omitted` 登记死代码、`ported` 人工裁决；范围级可带 `match` 正则只收编译期常量）> **named**（压缩名出现在带引用的注释里，仅供人读）> **UNKNOWN**（退出 1）。⛔ 报出 `n/N examined`（§0.24.0）；⛔ override 点名扫描找不到的声明即 FATAL（静默无效的登记和生效了一模一样）。实测 samsy：964/4770 examined，首跑 349 UNKNOWN 全部归桶（三大 vendor 交错区 + 编译期常量 + 主线程重复打包的 worker 模块），0 缺口 | M(n)（扁平产物；手写移植形态的第一段裁判） |
-| `scripts/verify-module-map.mjs` | **M(n+1) 等价门（模块化产物）**：一模块一文件，且每个文件与打包器字节 **token 级一致**（只允许包装重命名那组一一映射）。⛔ 用文本把重命名 undo 回去比对会失败——`module.exports` 里的 `exports` 是属性名；**门用捷径就会测到自己的捷径**。⛔ 门也不许重跑重命名来比对 | M(n+1)（模块化打包产物） |
-| `scripts/pixelcompare.mjs` 的 `--freeze-css` | ⛔ **冻 JS 时钟冻不住 CSS 动画**——`animation` 跑在浏览器动画时间线上，不经过 JS。症状是**同侧对照比跨侧还大**且最差格相同。该旗标把所有动画 `paused` + 固定负延迟钉在同一相位（⚠ 它改变被渲染内容，这正是目的：两侧定格在同一位置）。实测带宽 0.31 → 0.20，**仍未归零**：剩下的是 IntersectionObserver 门控的 canvas，shim 尚未接管 | M(n-1)（CSS 驱动的站） |
-| `scripts/pixel-walk.mjs` | **检查点巡航**：在 N 个滚动位置各跑一次像素门。⛔ **滚两次**（`load` 时 + 虚拟时间 +1.5s 再一次）——页面在自己的 init 里重置滚动会**吃掉** load 时那一次，于是所有检查点都拍页顶而两侧一致地全绿。⛔ **重复帧要逐格报出来**：全局 distinct 计数在「9 格里 3 格重复」时照样通过。⛔ **单个 0.00 是这套工具能产出的最误导的数字**——它是一帧，通常是页面顶部的头两秒。⚠ 先用 `--self` 在同样的检查点上测带宽：实测未冻结时自比 4.6–5.0、跨侧 2.6–3.4，**差异整个落在噪声里**；冻结后两者都归零。⭐ **状态分两种**（v0.3.15，determinism §7.1）：泵到的（挂载相位）用 `--ready/--after-ready`，**等到的**（GLB 在 worker 里解码）用 `--hold <expr> --hold-after N --hold-grace ms`——先泵 N 帧让页面开口要，真实时间等到达，再两侧同样绝对泵完；用错半边一个是 1/3 概率拍到未到达，一个是恒定的相位差 | M(n-1) |
-| `scripts/verify-decls.mjs`（范式，非本 skill 提供） | **esbuild 形态的分类门**：模块体裹在 `var X = VA(() => {…})` 惰性包装里、绑定以逗号链出现，双射式符号门在这里成片假红。正确形状是把每个 port 声明分类进 `declarations` / `collapsed` / `plumbing` / `omitted` 恰好一个桶，反向要求每个 src 声明有来源或登记理由。⭐ **门的形状要跟着产物的形状走**（`readable-source.md` §3.0.5） | M(n)/M(n+1)（esbuild 产物） |
-| `scripts/verify-symbols.mjs` | **符号映射门**：`port/` 每个顶层声明在 `src/` 中有且仅有一个对应符号（双向单射，读 `docs/rename-map.json`），且 `src/` 里没有无来源的孤儿声明。⛔ **必需不是可选**——门只跑有限条路由，没被跑到的代码改坏了门是绿的；这是冷启动清点在重构阶段的同构物。⛔ 只读 `rename-map.json` 与两侧文本，**不许 import 重构器的 parser** 来"确认"重命名 | M(n+1) |
-| `scripts/verify-fresh.mjs` | **新鲜度门**：`src/` → `dist/` → `site/` 是否同步。⛔ 链条上**只要有一步缺 `--check`，整条链的绿灯就可能过期**——过期的产物照样伺服，下游门照样全绿（它们比的是产物对镜像，不是产物对源码）。⛔ **时间戳不是判据**：实测一次 mtime 显示过期而重建字节完全相同。⚠ 必须同时查「产物是不是源码现在构建出来的」与「伺服的是不是那一份」——只查前者，缺口只是往下游挪一步 | M(n+1)（有构建步骤时每次） |
-| `scripts/verify-standalone.mjs` | **自包含门**：把 `src/` 复制到临时目录 → 断网 → 安装 → 构建 → 跑 CLEAN 与零外联。⛔ **必须复制出去跑**——原地跑会命中项目根的 `node_modules`/`mirror/`/根 `package.json`，而这三样恰好是自包含要证伪的东西 | M(n+1) |
-| `scripts/verify-zerodep.mjs` | **依赖分界门**：`scripts/` 下不许出现 node: 之外的 import，且没有任何门 import `tools/`。⚠ 存在的理由是这条纪律**被违反了八个版本**都没人发现——它的原文就写在被违反的文件上方三行。**只写在文档里、没有东西去查的规矩会安静失效** | 每次新增脚本 |
-| `scripts/lib/png.mjs` | 零依赖 PNG 编解码 | 对拍脚本依赖 |
-| `scripts/lib/tokens.mjs` | token 流读法（acorn@8.14.0 钉死 spawn）+ 首分歧定位；beautify-bundle 自查与 verify-tokens 门共用（门不 import 生产者，只共享读法） | beautify-bundle / verify-tokens 依赖 |
-| `scripts/lib/negotiate.mjs` | 内容协商 Accept 策略（`IMG_ACCEPT` 逐字照抄 Chrome 图片请求头——标尺只有一把；`imageAcceptFor` 认 CDP TYPE 提示/扩展名/next/image 代理解码；`isNegotiated` 读 Vary）+ Sanity 证据提取（`sanityEvidence`，裸写/`\/` 转义/%2F 编码三种拼写归一）。出身 basement D5；合同由 selftest 钉住 | mirror-site / reconcile-gaps / fingerprint 依赖 |
-| `scripts/lib/chrome.mjs` | 无头浏览器生命周期（**进程组**收割 + 全退出路径 + 启动前孤儿自检；漏子进程会抬高参照侧自比带宽，把像素门调松）与 CDP 载荷硬顶常量。`node scripts/lib/chrome.mjs --all/--reap` 可查/回收残留 | 所有 CDP 脚本依赖 |
+| `scripts/closure.mjs` | 从种子模块算传递依赖闭包，竖切边界的唯一依据；未知种子 FATAL + did-you-mean | M2+（模块化打包产物） |
+| `scripts/slice-modules.mjs` | 按模块 id 逐字切片，容器外字节（前奏 / 尾注）逐字带走，`--check` 重切须字节一致 | M2+（模块化打包产物） |
+| `scripts/extract-source.mjs` | 字节切片器：按钉死行号区间切 `_pretty/` 拼成生成文件，sha256 守卫 + `--check` | M2+（逐字移植期） |
+| `scripts/emit-webpack-chunk.mjs` | 多 chunk webpack 站的逐字再发射：按 module-map 边界切成部件再按源站容器形态拼回，`--check` 逐字节 | M2+（webpack 多 chunk 站） |
+| `scripts/slice-esm.mjs` | 拼接式分解切片器：按声明把 ESM chunk 切成语义命名部件，按序拼接逐字节等于原件 | M2+ / M(n+1)（scope-hoisted 产物） |
+| `scripts/verify-reassembly.mjs` | 重拼门：逐部件 sha + 按序拼接 sha + `--against` 对活原件三重比对 | M2+ / M(n+1)（scope-hoisted 产物） |
+| `scripts/build-site.mjs` | 策略 A 构建层：按 `shell-config.mjs` 变换表从镜像生成 `site/`，逐条命中下限 + `--check` | M2+（策略 A） |
+| `scripts/verify-shell.mjs` | 外壳字节门：逐文档 patience diff，每个差异块须能被变换表重放解释（不 import 构建器） | M2+（策略 A） |
+| `scripts/verify-tokens.mjs` | token 流等价门：排版 / 再发射件 ≟ 源站原件逐 token 相等；凡以 `_pretty` 字节交付必跑 | M2+（排版字节交付时每 commit） |
+| `scripts/verify-refs-served.mjs` | 引用可达门：产出字节里每条资源引用逐条问服务器（不再实现一遍解析） | M2+ 起每 commit |
+| `scripts/verify-routes.mjs` | 路由 / 重定向 / 状态码契约门 | M2+ |
+| `scripts/verify-ssr.mjs` | SSR / DOM 逐字节门 | M2+（有 SSR 产物时最先建） |
+| `scripts/verify-tween.mjs` | 竖切的数值门：同一关键帧规格喂两侧，逐点比补间值与缓动曲线 | M2+（有补间 / 时间轴引擎时） |
+| `scripts/harvest-cases.mjs` | 从源站活引擎采用例（`harvest.config.mjs`），只产出 A 侧 | M2+（源站引擎可达时） |
+| `scripts/verify-harvest.mjs` | 采集基线的 B 侧：每条身份在移植侧恰好匹配一个，按行为把名字找回来 | M2+（有采集基线时） |
+| `scripts/verify-crossside.mjs` | 跨侧门：同一份输入串行喂镜像与移植逐条比（`crossside.config.mjs`），URL 相同直接 FATAL | M2+（源站有可直接调用的接缝时） |
+| `scripts/pixelcompare.mjs` | 量化像素对拍：自比带宽 `--self`、状态对齐 `--ready / --after-ready / --chunk`、到达等待 `--hold*`、`--freeze-css`；非空帧前置条件；大视口用 jpeg | M(n-1) |
+| `scripts/pixel-walk.mjs` | 检查点巡航：N 个滚动位置各跑一次像素门，滚两次、重复帧逐格报出，先 `--self` 测带宽 | M(n-1) |
+| `scripts/side-by-side.mjs` | 双侧截图并排合成图（对拍产物留证） | M(n-1) |
+| `scripts/frame-census.mjs` | 截图普查：颜色数与主色占比，证明帧里有东西 | M(n-1) |
+| `scripts/probe-shim.js` | 确定性驱动 shim：接管 rAF / timer / 时钟 / `Math.random` / IntersectionObserver，手动泵到任意 t，双侧同位注入 | M(n-1) |
+| `scripts/verify-flight.mjs` | C1 语义门：构建产物 flight 树 ≟ 镜像 flight 树，模块 id 全局双射，自带解析器 | M(n-1)（C1） |
+| `scripts/cold-audit-modules.mjs` | M(n) 冷头清点（模块化产物）：逐模块对账 + 计算型 require 扫描，必须报 `n/N examined` | M(n)（模块化打包产物） |
+| `scripts/cold-audit-decls.mjs` | M(n) 冷头点名（扁平产物）：深度 0 声明逐条判 cited / override / named / UNKNOWN | M(n)（扁平产物） |
+| `scripts/verify-module-map.mjs` | M(n+1) 等价门（模块化产物）：一模块一文件且与打包器字节 token 级一致 | M(n+1)（模块化打包产物） |
+| `scripts/verify-symbols.mjs` | 符号映射门：`port/` 每个顶层声明在 `src/` 有且仅有一个对应（读 `rename-map.json`） | M(n+1)（扁平产物） |
+| `scripts/verify-fresh.mjs` | 新鲜度门：`src/` → `dist/` → `site/` 是否同步；时间戳不是判据 | M(n+1)（有构建步骤时每次） |
+| `scripts/verify-standalone.mjs` | 自包含门：`src/` 复制到临时目录 → 断网 → 安装 → 构建 → CLEAN 与零外联 | M(n+1) |
+| `scripts/verify-zerodep.mjs` | 依赖分界门：`scripts/` 只许 node: / 相对 import，且没有门 import `tools/` | 每次新增脚本 |
+| `scripts/lib/urlpath.mjs` | 唯一的 url → 本地路径映射（查询感知），爬虫 / 抓包 / 服务 / 门四方共用 | lib |
+| `scripts/lib/extract-refs.mjs` | 唯一的资产引用提取器（五种写法 × 原文 / 解码两遍），爬虫与闭包门共用 | lib |
+| `scripts/lib/negotiate.mjs` | 内容协商 Accept 策略（浏览器同款图片 Accept）+ Sanity 证据提取 | lib |
+| `scripts/lib/ports.mjs` | 端口分配与实例身份（`21000 + slot×1000 + lane×10 + side`），占用即响亮失败 | lib |
+| `scripts/lib/chrome.mjs` | 无头浏览器生命周期：进程组收割 + 孤儿自检 + CDP 载荷硬顶常量 | lib |
+| `scripts/lib/png.mjs` | 零依赖 PNG 编解码 | lib |
+| `scripts/lib/tokens.mjs` | token 流读法（acorn 钉死 spawn）+ 首分歧定位 | lib |
+| `tools/name-modules.mjs` | 模块提名：按 0–4 级证据给内容哈希 id 起名并记依据，无证据保留 id | M(n+1)（模块化打包产物） |
+| `tools/accept-names.mjs` | 命名的接受步：默认只接受 tier-1（打包器声明的导出名），其余保留 id | M(n+1) |
+| `tools/modules-to-src.mjs` | 按接受后的命名逐模块生成 `src/modules/`（作用域安全的重命名器） | M(n+1)（模块化打包产物） |
+| `tools/sourcify-chunk.mjs` | 多 chunk 站的 M(n+1) 驱动：逐 chunk 跑 name-modules → accept-names → modules-to-src → verify-module-map | M(n+1)（多 chunk 站） |
+| `tools/group-parts.mjs` | 把 slice-esm 部件按域折进目录（只按 classy 证据分组） | M(n+1)（scope-hoisted 产物） |
+| `tools/make-standalone.mjs` | 交付物生成：按账本复制资产、生成 package.json / verify-bytes；`--mirror a,b` 回落链 | M(n+1) |
+| `tools/flight-to-mdx.mjs` | 从 flight 树反推 MDX / 页面骨架 | M2+（C1 重构工程） |
+| `tools/assemble-static.mjs` | 把 `next build` 产物摊成静态树供 serve.mjs 伺服（像素门两侧同经 serve） | M(n-1)（C1 重构工程） |
+| `tools/harvest-optimized-images.mjs` | next/image 优化器产物补齐（镜像字节优先，本机优化器兜底） | M(n-1)（C1 重构工程） |
+| `tools/verify-fresh-next.mjs` | verify-fresh 的 Next 形态：src → `next build` → assemble-static 链重建比字节（前提 `generateBuildId` 钉死） | M(n+1)（C1 重构工程） |
 
 ## 复刻工程目录结构
 
@@ -245,9 +260,12 @@ Step 0 → M(n) 全程不装任何东西；**复刻项目要到 M(n+1) 才获得
 - [mirroring.md](references/mirroring.md) — 镜像取证全流程（必经）
 - [reverse-engineering.md](references/reverse-engineering.md) — 行号坐标系与逆向笔记（必经）
 - [porting-discipline.md](references/porting-discipline.md) — 溯源移植纪律（必经）
-- [verification-gates.md](references/verification-gates.md) — 验收门选型与失效模式（必经）
+- [verification-gates.md](references/verification-gates.md) — 门型定义、决策树、运行纪律、分层体系（必经）
+- [gate-failure-modes.md](references/gate-failure-modes.md) — 门的失效模式、根因修复与残差归类（门红了再读）
+- [gate-case-design.md](references/gate-case-design.md) — 用例设计与清单式核对（数值门 / 跨侧门 / M(n) 清点前读）
+- [payload-gates.md](references/payload-gates.md) — 载荷与外壳变换的门（有内联载荷或策略 A 时）
 - [determinism.md](references/determinism.md) — 确定性冻结协议与 probe-shim
-- [dom-shell-strategies.md](references/dom-shell-strategies.md) — DOM 层策略选型（A/B/C + 正交约束 D）
+- [dom-shell-strategies.md](references/dom-shell-strategies.md) — DOM 层策略选型（A/B/C + 正交约束 D）（所有站必经）
 - [webgl-scenes.md](references/webgl-scenes.md) — WebGL/GLSL 场景逆向
 - [animation-recovery.md](references/animation-recovery.md) — 动画/输入逆向路径
 - [binary-formats.md](references/binary-formats.md) — 私有二进制格式
@@ -258,6 +276,8 @@ Step 0 → M(n) 全程不装任何东西；**复刻项目要到 M(n+1) 才获得
 - [legal-and-deploy.md](references/legal-and-deploy.md) — 版权取证与部署决断（取证归 skill，决定归用户）
 - [readable-source.md](references/readable-source.md) — M(n+1) 源码化：port/ → src/ 的可读工程（拆模块、去混淆、注释纪律、自包含契约）
 - [rsc-reconstruction.md](references/rsc-reconstruction.md) — C1（RSC）重构式逆向：flight 坐标系、MDX 反推、语义门、平台层工件
+- [archival-rescue.md](references/archival-rescue.md) — X 类死站抢救：CDX 分层覆盖侦察、锚点 + 时间窗、洞登记
+- [beyond-the-rebuild.md](references/beyond-the-rebuild.md) — 交接：拿产出做自己的项目（脚手架化不是本 skill 的阶段）
 - [assets/templates/rebuild-plan.md](assets/templates/rebuild-plan.md)、[assets/templates/engine-notes.md](assets/templates/engine-notes.md) — 文档模板
 
 ## Notes

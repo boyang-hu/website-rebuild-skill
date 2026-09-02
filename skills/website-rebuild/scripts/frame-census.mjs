@@ -2,7 +2,7 @@
 /**
  * frame-census.mjs — is this screenshot actually a rendered page?
  *
- * verification-gates.md §4.8: every gate can be pointed at the same empty state
+ * gate-failure-modes.md §1.8: every gate can be pointed at the same empty state
  * and report perfect agreement. A frozen A/B comparison that returns
  * meanAbsDiff 0 proves the two sides match; it does NOT prove they match on
  * something. If the determinism shim stopped the page before first paint, both

@@ -97,7 +97,6 @@ async function findChrome() {
 }
 
 const args = process.argv.slice(2);
-const url = args.find((a) => !a.startsWith('--'));
 const flag = (name, dflt) => {
   const i = args.indexOf('--' + name);
   return i >= 0 ? args[i + 1] : dflt;
@@ -111,13 +110,27 @@ const has = (name) => args.includes('--' + name);
 // suspected reload loop, a suspected renderer crash, a suspected patched clock
 // — all of it an artifact of one misspelled flag that nothing rejected.
 const KNOWN_FLAGS = new Set(['shot', 'format', 'quality', 'wait', 'scroll', 'walk', 'walk-dwell',
-  'no-external', 'eval', 'evalAfter', 'mobile', 'side', 'cdp-port', 'width', 'height']);
+  'no-external', 'eval', 'evalAfter', 'evalAfterDelay', 'mobile', 'side', 'expect-side', 'cdp-port',
+  'width', 'height']);
+// Flags that take no value; every other known flag consumes the next argument.
+const BOOL_FLAGS = new Set(['no-external', 'mobile']);
+// ⛔ WALK THE ARGV; do not `find` the first token without dashes. With a flag
+// ahead of the URL (`--wait 9000 http://…`) that token is the flag's VALUE, and
+// the probe died on `new URL('9000')` with a bare TypeError — after the flag
+// check, before saying what it was given. A value a known flag consumes is
+// never inspected as a flag or as the URL; the first bare token left is the URL.
+let url = null;
 {
   const bad = [];
-  for (const a of args) {
-    if (!a.startsWith('--')) continue;
-    const name = a.slice(2);
-    if (!KNOWN_FLAGS.has(name)) bad.push(a);
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a.startsWith('--')) {
+      const name = a.slice(2);
+      if (!KNOWN_FLAGS.has(name)) { bad.push(a); continue; }
+      if (!BOOL_FLAGS.has(name)) i++;
+      continue;
+    }
+    if (url === null) url = a;
   }
   if (bad.length) {
     console.error(`FATAL: unknown flag(s): ${bad.join(' ')}`);

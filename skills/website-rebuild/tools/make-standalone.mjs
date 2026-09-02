@@ -119,7 +119,7 @@ const html = htmls.join("\n");   // one view, for the reference report only
 // out-of-repo copy came up with 17 page errors while the in-repo build had 1.
 // "It built" said nothing, exactly as the gate warns.
 //
-// The ledger is the authority on completeness (asset-management.md §2.2), so the
+// The ledger is the authority on completeness (asset-management.md §0.5), so the
 // deliverable takes every mirrored file except the forensic material — the
 // beautified bundles, the ledgers themselves, and the origin bundle this port
 // replaces, which must not travel back alongside its own replacement.
@@ -371,7 +371,7 @@ await writeFile(path.join(OUT, "package.json"), JSON.stringify({
     check: "node verify-bytes.mjs",
     // ⛔ …and only when an entry module EXISTS. A verbatim-chunk port has --own
     // (its chunks) but no index.js; generating `esbuild index.js` for it is a
-    // build step with nothing to build (readable-source §4.2), and --own's first
+    // build step with nothing to build (readable-source §9.2), and --own's first
     // item was silently taken as BUILD_OUT (14islands F15). --no-build forces it off.
     ...(OWN.length && !NO_BUILD && !KEEP_OWN && fssync.existsSync(path.join(OUT, "index.js")) ? {
       build: `node verify-bytes.mjs && esbuild index.js --bundle --format=iife --outfile=public${BUILD_OUT}` +
@@ -433,3 +433,8 @@ if (assets.length) {
 console.log(assets.length ? `\n  FAIL — ${assets.length} asset(s) missing.` : `\n  ok   every referenced ASSET is present.`);
 console.log(`\n  ⚠ This copies what the DOCUMENT references. Assets a script builds at runtime`);
 console.log(`    are invisible to it — walk the built copy with a probe before believing it.`);
+// ⛔ A FAIL line with exit 0 is a gate that does not gate: CI and the loop
+// runner read the code, not the prose, and "N asset(s) missing" scrolled past
+// as a pass. Pages outside the declared scope stay a warning (they are a
+// boundary, not a hole); a missing ASSET is the hole and exits 1.
+process.exit(assets.length ? 1 : 0);

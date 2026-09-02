@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// verify-fresh-next.mjs — verify-fresh 的 Next 形态（darkroom 实战入库，v0.3.13；readable-source §4.5.1）。
+// verify-fresh-next.mjs — verify-fresh 的 Next 形态（darkroom 实战入库，v0.3.13；readable-source §9.5.1）。
 // C1 重构工程没有"bundler 一步"，链是 src-modules/ + app/ → next build → assemble-static(static-site/)。
 // 判据同 verify-fresh：重新生成并比字节，不看时间戳。⛔ 前提：next.config 钉死 `generateBuildId`——
 // 随机 buildId 让同一份源码两次 build 出不同 HTML，链条永远"过期"。

@@ -88,7 +88,7 @@ const args = process.argv.slice(2);
 // is worse than a crash.
 const KNOWN_FLAGS = new Set([
   "host", "port", "root", "fallback-root", "side", "origin-host", "ext-hosts",
-  "stub-ext-hosts", "query-ignore", "query-only", "redirects", "cdp-port", "rewrite",
+  "stub-ext-hosts", "query-ignore", "query-only", "rewrite",
 ]);
 {
   const unknown = args.filter((a) => a.startsWith("--") && !KNOWN_FLAGS.has(a.slice(2)));

@@ -127,6 +127,24 @@
 // wasted regex pass, while skipping a text file costs a class of references
 // that nothing downstream can recover.
 
+/**
+ * What a file EXTENSION looks like, as a RegExp source fragment — the ONE
+ * spelling every "does this URL end in an extension" test below builds on.
+ * ⚠ {1,12}, the same cap lib/urlpath.mjs uses to decide page-vs-asset when it
+ * maps a URL to disk. The extractor carried its own `{2,5}` in five places, so
+ * `/site.webmanifest` (11), `/x.jsonld` (6) and `/x.geojson` (7) were "pages"
+ * here — never queued as assets — while the mapper called them assets; the
+ * closure gate shared the blind spot and reported ∅. Two copies of one rule
+ * drift; this is the copy, and urlpath.mjs's inline test cites it.
+ */
+export const EXT = "[a-z0-9]{1,12}";
+// Compiled once; the shapes below are built from EXT, never spelled again.
+const EXT_END = new RegExp(`\\.${EXT}$`, "i");
+const EXT_END_OR_QUERY = new RegExp(`\\.${EXT}($|\\?)`, "i");
+const ROOT_ATTR_RE = new RegExp(`(?:src|href|poster|content|data-src|data-poster|data-bg)=["'](\\/(?!\\/)[^"']+?\\.${EXT}(?:\\?[^"']*)?)["']`, "gi");
+const ROOT_LITERAL_RE = new RegExp(`["'](\\/(?!\\/)[A-Za-z0-9_\\-./@]+\\.${EXT})(\\?[^"']*)?["']`, "gi");
+const RELATIVE_ATTR_RE = new RegExp(`(?:src|href|poster|data-[a-z0-9-]+)\\s*=\\s*["']((?:\\.\\/)?[a-zA-Z0-9_][^"'<>\\s]*?\\.${EXT}(?:\\?[^"']*)?)["']`, "gi");
+
 /** Extensions whose bytes are text worth rescanning for references. */
 export const TEXT_REF_EXT =
   /\.(html?|xhtml|css|js|mjs|cjs|jsx|ts|tsx|json|jsonld|map|webmanifest|svg|xml|atom|rss|rdf|xsl|xslt|txt|md|csv|tsv|vtt|srt|gltf|mtl)($|\?)/i;
@@ -340,7 +358,7 @@ export function createRefExtractor({ origin, originHost, assetHosts, onOffHost }
       // silently dropped every such rung for eight versions while the srcset
       // shape below "found" them — raycastkbd: 42 rungs in the HTML, 19 on
       // disk, closure ∅ throughout.
-      if (!asset && u.hostname === originHost && !/\.[a-z0-9]{2,5}($|\?)/i.test(u.pathname) && !/[?&]url=/i.test(u.search)) return;
+      if (!asset && u.hostname === originHost && !EXT_END_OR_QUERY.test(u.pathname) && !/[?&]url=/i.test(u.search)) return;
       u.hash = "";
       urls.add(u.href);
     } catch {}
@@ -398,9 +416,7 @@ export function createRefExtractor({ origin, originHost, assetHosts, onOffHost }
     // also start with "/", and without it they get joined onto ORIGIN as
     // https://host//host/path — 77 phantom 404s on the first Shopify target
     // (racingshop-rebuild). Shape 2 already handled those.
-    for (const m of text.matchAll(
-      /(?:src|href|poster|content|data-src|data-poster|data-bg)=["'](\/(?!\/)[^"']+?\.[a-z0-9]{2,5}(?:\?[^"']*)?)["']/gi,
-    )) {
+    for (const m of text.matchAll(ROOT_ATTR_RE)) {
       addIfAsset(DOC_ORIGIN + decodeEntities(m[1]), urls);
     }
     // 3b. root-relative paths as PLAIN STRING LITERALS, not in an attribute.
@@ -420,7 +436,7 @@ export function createRefExtractor({ origin, originHost, assetHosts, onOffHost }
     // Deliberately still requires a file EXTENSION: without it every route
     // string ("/about", "/works/x") becomes a phantom asset. Route strings are
     // the page queue's business, not the asset extractor's.
-    for (const m of text.matchAll(/["'](\/(?!\/)[A-Za-z0-9_\-./@]+\.[a-z0-9]{2,5})(\?[^"']*)?["']/gi)) {
+    for (const m of text.matchAll(ROOT_LITERAL_RE)) {
       addIfAsset(DOC_ORIGIN + decodeEntities(m[1] + (m[2] || "")), urls);
     }
     // 4. srcset / imagesrcset candidate lists — one entry per candidate, not
@@ -469,7 +485,7 @@ export function createRefExtractor({ origin, originHost, assetHosts, onOffHost }
       let inner = raw;
       try { inner = decodeURIComponent(inner); } catch {}
       if (/^https?:\/\//i.test(inner)) addIfAsset(inner, urls);
-      else if (inner.startsWith("/") && /\.[a-z0-9]{2,5}$/i.test(inner.split("?")[0])) addIfAsset(DOC_ORIGIN + inner, urls);
+      else if (inner.startsWith("/") && EXT_END.test(inner.split("?")[0])) addIfAsset(DOC_ORIGIN + inner, urls);
     }
 
     // 4c. RELATIVE MODULE SPECIFIERS in JS. Vite writes its chunk manifest as
@@ -516,7 +532,7 @@ export function createRefExtractor({ origin, originHost, assetHosts, onOffHost }
     //   (import maps and __vite__mapDeps are shape territory elsewhere);
     //   CSS already has shape 5 with correct base semantics.
     if (baseUrl && !/\.(m?js|css)($|\?)/i.test(baseUrl)) {
-      for (const m of text.matchAll(/(?:src|href|poster|data-[a-z0-9-]+)\s*=\s*["']((?:\.\/)?[a-zA-Z0-9_][^"'<>\s]*?\.[a-z0-9]{2,5}(?:\?[^"']*)?)["']/gi)) {
+      for (const m of text.matchAll(RELATIVE_ATTR_RE)) {
         const v = m[1];
         if (/^(?:https?:|\/|#|data:|mailto:|tel:|javascript:)/i.test(v)) continue;
         if (!v.includes("/")) continue;

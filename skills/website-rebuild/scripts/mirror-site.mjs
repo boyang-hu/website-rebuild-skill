@@ -38,8 +38,8 @@
  *   -> objectandarchive-rebuild (query-aware url -> path mapping shared through
  *      lib/urlpath.mjs; srcset candidate lists extracted per candidate).
  */
-import { mkdir, writeFile, readFile } from 'node:fs/promises';
-import { dirname, join, relative } from 'node:path';
+import { mkdir, writeFile, readFile, access } from 'node:fs/promises';
+import { dirname, join, relative, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 // The url -> local-path mapping is QUERY-AWARE and lives in one module shared
 // with netcapture.mjs, serve.mjs and verify-mirror.mjs. Read its header once:
@@ -100,9 +100,22 @@ if (!ORIGIN_RAW) {
 }
 const ORIGIN = ORIGIN_RAW.replace(/\/+$/, '');
 const ORIGIN_HOST = new URL(ORIGIN).hostname;
-const OUT = join(process.cwd(), flag('out', 'mirror'));
-const ROUNDS = Number(flag('rounds', 4));
-const WORKERS = Number(flag('workers', 8));
+// resolve(), not join(cwd, …): an ABSOLUTE --out (`--out /tmp/m`) was glued
+// under the cwd as <cwd>/tmp/m, without a word.
+const OUT = resolve(flag('out', 'mirror'));
+// ⛔ A non-numeric --rounds/--workers used to become NaN — zero rounds and zero
+// workers — and the crawl fetched nothing and still printed "Done".
+const intFlag = (name, dflt) => {
+  const raw = flag(name, dflt);
+  const v = Number(raw);
+  if (!Number.isInteger(v) || v < 1) {
+    console.error(`usage: --${name} must be an integer >= 1 (got ${JSON.stringify(String(raw))})`);
+    process.exit(2);
+  }
+  return v;
+};
+const ROUNDS = intFlag('rounds', 4);
+const WORKERS = intFlag('workers', 8);
 const PROBE_404 = flag('probe-404', null);
 const SEEDS_FILE = flag('seeds', null);
 // Query policy: CLI wins, else whatever this mirror was already written with,
@@ -183,7 +196,61 @@ async function save(url, buf, contentType, extra = {}) {
     ...(extra.profile ? { profile: extra.profile } : {}),
     ...(extra.vary ? { vary: extra.vary } : {}),
   };
+  if (++savedSinceFlush >= FLUSH_EVERY) {
+    savedSinceFlush = 0;
+    await writeLedgers();
+  }
 }
+
+// The three ledgers, written from the SAME merged state every time: carried-over
+// rows plus this run's rows in `manifest`, prior plus new rows in `redirects`.
+// One function for the periodic flush, the SIGINT flush and the final write, so
+// the three cannot drift on merge semantics.
+async function writeLedgersNow() {
+  await writeFile(
+    join(OUT, 'mirror-manifest.json'),
+    JSON.stringify({ origin: ORIGIN, mirroredAt: new Date().toISOString(), files: manifest }, null, 2)
+  );
+  await writeFile(
+    join(OUT, 'redirects.tsv'),
+    // Column order is CODE FROM TO because serve.mjs's replay reader destructures
+    // in that order; a FROM-first ledger silently replays nothing.
+    ['CODE', 'FROM', 'TO'].join('\t') + '\n' +
+      // dedupe: a re-visited redirect is the same source behaviour, not a new row
+      [...new Map(redirects.map((r) => [`${r.status}\t${r.from}\t${r.to}`, r])).values()]
+        .map((r) => [r.status, r.from, r.to].join('\t')).join('\n') + (redirects.length ? '\n' : '')
+  );
+  await writeFile(
+    join(OUT, 'inventory.tsv'),
+    ['SHA256', 'BYTES', 'PATH', 'URL'].join('\t') + '\n' +
+      Object.entries(manifest)
+        .filter(([, f]) => f.path && f.sha256)
+        .sort((a, b) => a[1].path.localeCompare(b[1].path))
+        .map(([url, f]) => [f.sha256, f.bytes, f.path, url].join('\t'))
+        .join('\n') + '\n'
+  );
+}
+// Serialised: a periodic flush and a SIGINT flush must never interleave two
+// truncating writes to one file.
+let ledgerWrite = Promise.resolve();
+function writeLedgers() {
+  ledgerWrite = ledgerWrite.then(writeLedgersNow, writeLedgersNow);
+  return ledgerWrite;
+}
+// ⭐ FLUSH EVERY N SAVES AND ON CTRL-C. The ledgers were written once, at the
+// end: a multi-hour crawl interrupted at hour three left every byte on disk and
+// ZERO rows — the off-the-books state verify-mirror reports as orphans and no
+// gate can bless. Same cadence reconcile-gaps.mjs uses.
+const FLUSH_EVERY = 100;
+let savedSinceFlush = 0;
+// `once`, so a second Ctrl-C during a slow flush falls through to the default
+// handler and exits immediately instead of waiting on the write.
+process.once('SIGINT', () => {
+  console.error('\n[ledger] SIGINT — flushing ledgers before exit (Ctrl-C again to abort the flush)');
+  writeLedgers()
+    .catch((e) => console.error(`[ledger] flush failed: ${e.message}`))
+    .finally(() => process.exit(130));
+});
 
 // ⚠ HEADER LADDER — the same 403 has two OPPOSITE cures. One CDN family
 // refuses requests WITHOUT a same-origin Referer (landonorris), another
@@ -310,72 +377,88 @@ if (SEEDS_FILE) {
   console.log(`[seeds] ${n} urls from ${SEEDS_FILE}`);
 }
 
-// --- crawl pages ---
-while (pageQueue.length) {
-  const path = pageQueue.shift();
-  if (pagesDone.has(path)) continue;
-  pagesDone.add(path);
-  const url = ORIGIN + (path === '/' ? '/' : path);
+// ⛔ A same-origin HTML document is a PAGE, not an asset, and letting the
+// asset queue take it punches straight through --scope. The asset extractor
+// asks only "does this have an extension", and `.html` says yes — so
+// `href="/legal/…/site.html"` was blocked by the page guard and then fetched
+// anyway through the asset path, rescanned as text, and pulled an entire
+// cross-locale legal tree behind it. Measured: a 5-page microsite crawl
+// became 1,492 files and 239 MB.
+//
+// Out of scope it is dropped; in scope (or with no scope at all) it goes to
+// the PAGE queue where it belongs. Cross-origin documents keep the old
+// behaviour — they are not this origin's pages and have no page queue.
+//
+// ONE router for every extracted reference — the page loop's AND the asset
+// rounds' rescans. The rescans used to push straight into assetQueue, so the
+// same `.html` the page guard had just refused was fetched anyway the moment
+// a chunk or a JSON payload mentioned it: the hole, one caller over.
+function enqueueRef(u) {
+  let doc = null;
   try {
-    const res = await fetch(url, { headers: { 'user-agent': UA }, redirect: 'manual' });
-    if (res.status >= 300 && res.status < 400) {
-      const to = res.headers.get('location') || '';
-      redirects.push({ from: url, status: res.status, to });
-      console.log(`[page REDIRECT ${res.status}] ${path} -> ${to}`);
-      if (to && new URL(to, url).hostname === ORIGIN_HOST) {
-        const p2 = new URL(to, url).pathname;
-        if (!pagesDone.has(p2)) pageQueue.push(p2);
-      }
-      continue;
-    }
-    const buf = Buffer.from(await res.arrayBuffer());
-    const html = buf.toString('utf8');
-    const isNotFoundProbe = PROBE_404 !== null && path === PROBE_404;
-    if (isNotFoundProbe) {
-      // Save the origin's 404 template so serve.mjs can replay 404 semantics.
-      await mkdir(OUT, { recursive: true });
-      await writeFile(join(OUT, '404.html'), buf);
-      manifest[url] = {
-        path: '404.html',
-        bytes: buf.length,
-        sha256: createHash('sha256').update(buf).digest('hex'),
-        type: 'text/html (404 template)',
-      };
-    } else {
-      await save(url, buf, res.headers.get('content-type'));
-    }
-    console.log(`[page] ${path} (${buf.length}b${res.ok ? '' : `, HTTP ${res.status}`})`);
-    // ⛔ A same-origin HTML document is a PAGE, not an asset, and letting the
-    // asset queue take it punches straight through --scope. The asset extractor
-    // asks only "does this have an extension", and `.html` says yes — so
-    // `href="/legal/…/site.html"` was blocked by the page guard and then fetched
-    // anyway through the asset path, rescanned as text, and pulled an entire
-    // cross-locale legal tree behind it. Measured: a 5-page microsite crawl
-    // became 1,492 files and 239 MB.
-    //
-    // Out of scope it is dropped; in scope (or with no scope at all) it goes to
-    // the PAGE queue where it belongs. Cross-origin documents keep the old
-    // behaviour — they are not this origin's pages and have no page queue.
-    for (const u of extractAssetUrls(html, url)) {
-      let doc = null;
-      try {
-        const parsed = new URL(u);
-        if (parsed.hostname === ORIGIN_HOST && /\.x?html?($|\?)/i.test(parsed.pathname)) doc = parsed.pathname;
-      } catch {}
-      if (doc === null) { assetQueue.add(u); continue; }
-      if (!inScope(doc)) continue;
-      if (!pagesDone.has(doc)) pageQueue.push(doc);
-    }
-    if (!isNotFoundProbe) {
-      for (const p of extractPageLinks(html)) if (!pagesDone.has(p)) pageQueue.push(p);
-    }
-  } catch (e) {
-    console.error(`[page FAIL] ${path}: ${e.message}`);
-  }
+    const parsed = new URL(u);
+    if (parsed.hostname === ORIGIN_HOST && /\.x?html?($|\?)/i.test(parsed.pathname)) doc = parsed.pathname;
+  } catch {}
+  if (doc === null) { if (!fetched.has(u)) assetQueue.add(u); return; }
+  if (!inScope(doc)) return;
+  if (!pagesDone.has(doc)) pageQueue.push(doc);
 }
 
+// --- crawl pages ---
+// A function, not a one-shot loop: asset rounds discover pages too (see
+// enqueueRef), and those are crawled HERE — same scope guard, same page-link
+// extraction, same ledger row — before the next asset round.
+async function crawlPages() {
+  while (pageQueue.length) {
+    const path = pageQueue.shift();
+    if (pagesDone.has(path)) continue;
+    pagesDone.add(path);
+    const url = ORIGIN + (path === '/' ? '/' : path);
+    try {
+      const res = await fetch(url, { headers: { 'user-agent': UA }, redirect: 'manual' });
+      if (res.status >= 300 && res.status < 400) {
+        const to = res.headers.get('location') || '';
+        redirects.push({ from: url, status: res.status, to });
+        console.log(`[page REDIRECT ${res.status}] ${path} -> ${to}`);
+        if (to && new URL(to, url).hostname === ORIGIN_HOST) {
+          const p2 = new URL(to, url).pathname;
+          if (!pagesDone.has(p2)) pageQueue.push(p2);
+        }
+        continue;
+      }
+      const buf = Buffer.from(await res.arrayBuffer());
+      const html = buf.toString('utf8');
+      const isNotFoundProbe = PROBE_404 !== null && path === PROBE_404;
+      if (isNotFoundProbe) {
+        // Save the origin's 404 template so serve.mjs can replay 404 semantics.
+        await mkdir(OUT, { recursive: true });
+        await writeFile(join(OUT, '404.html'), buf);
+        manifest[url] = {
+          path: '404.html',
+          bytes: buf.length,
+          sha256: createHash('sha256').update(buf).digest('hex'),
+          type: 'text/html (404 template)',
+        };
+      } else {
+        await save(url, buf, res.headers.get('content-type'));
+      }
+      console.log(`[page] ${path} (${buf.length}b${res.ok ? '' : `, HTTP ${res.status}`})`);
+      for (const u of extractAssetUrls(html, url)) enqueueRef(u);
+      if (!isNotFoundProbe) {
+        for (const p of extractPageLinks(html)) if (!pagesDone.has(p)) pageQueue.push(p);
+      }
+    } catch (e) {
+      console.error(`[page FAIL] ${path}: ${e.message}`);
+    }
+  }
+}
+await crawlPages();
+
 // --- download assets, rescanning text assets until fixpoint ---
-for (let round = 1; round <= ROUNDS && assetQueue.size; round++) {
+for (let round = 1; round <= ROUNDS && (assetQueue.size || pageQueue.length); round++) {
+  // Pages a rescan found (a route's .html named in a chunk) are crawled first,
+  // through the page path, and feed this round's asset queue like any page.
+  if (pageQueue.length) await crawlPages();
   const batch = [...assetQueue].filter((u) => !fetched.has(u));
   assetQueue = new Set();
   console.log(`--- asset round ${round}: ${batch.length} urls ---`);
@@ -398,12 +481,20 @@ for (let round = 1; round <= ROUNDS && assetQueue.size; round++) {
         // already hold — so an extensionless route or a feed the extension
         // table never heard of still gets rescanned (lib/extract-refs.mjs).
         if (isTextRefSource({ url, contentType: type, head: buf })) {
-          for (const u of extractAssetUrls(buf.toString('utf8'), url))
-            if (!fetched.has(u)) assetQueue.add(u);
+          for (const u of extractAssetUrls(buf.toString('utf8'), url)) enqueueRef(u);
         }
       } catch (e) {
         console.error(`[asset FAIL] ${url}: ${e.message}`);
-        manifest[url] = { path: null, error: e.message };
+        // ⚠ Never downgrade a carried-over GOOD row to an error row while its
+        // file is still on disk. A transient failure (reset, timeout, a CDN
+        // blip) used to overwrite the row with `path: null`, and the next
+        // verify-mirror reported the file as an orphan nobody can name a URL
+        // for. The bytes are still what the origin once served and the row
+        // still names them; the failure is logged, the row is kept.
+        const prev = manifest[url];
+        const onDisk = prev && prev.path ? await access(join(OUT, prev.path)).then(() => true, () => false) : false;
+        if (onDisk) console.error(`[asset FAIL] keeping the carried-over row for ${url} (${prev.path} is still on disk)`);
+        else manifest[url] = { path: null, error: e.message };
       }
     }
   });
@@ -426,28 +517,9 @@ if (!SEEDS_FILE) {
   }
   if (pruned) console.log(`[ledger] pruned ${pruned} failed row(s) whose URL nothing referenced this run`);
 }
-await writeFile(
-  join(OUT, 'mirror-manifest.json'),
-  JSON.stringify({ origin: ORIGIN, mirroredAt: new Date().toISOString(), files: manifest }, null, 2)
-);
-await writeFile(
-  join(OUT, 'redirects.tsv'),
-  // Column order is CODE FROM TO because serve.mjs's replay reader destructures
-  // in that order; a FROM-first ledger silently replays nothing.
-  ['CODE', 'FROM', 'TO'].join('\t') + '\n' +
-    // dedupe: a re-visited redirect is the same source behaviour, not a new row
-    [...new Map(redirects.map((r) => [`${r.status}\t${r.from}\t${r.to}`, r])).values()]
-      .map((r) => [r.status, r.from, r.to].join('\t')).join('\n') + (redirects.length ? '\n' : '')
-);
-await writeFile(
-  join(OUT, 'inventory.tsv'),
-  ['SHA256', 'BYTES', 'PATH', 'URL'].join('\t') + '\n' +
-    Object.entries(manifest)
-      .filter(([, f]) => f.path && f.sha256)
-      .sort((a, b) => a[1].path.localeCompare(b[1].path))
-      .map(([url, f]) => [f.sha256, f.bytes, f.path, url].join('\t'))
-      .join('\n') + '\n'
-);
+// Pruning is a whole-crawl fact, so it happens once, here; the write itself is
+// the same one the periodic flush uses.
+await writeLedgers();
 const ok = Object.values(manifest).filter((f) => f.path).length;
 const fail = Object.values(manifest).filter((f) => !f.path).length;
 // Off-host census BEFORE the summary line, so it cannot be read as a footnote

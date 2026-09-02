@@ -227,7 +227,7 @@ cp -R skills/website-rebuild ~/.claude/skills/website-rebuild
 ```
 skills/website-rebuild/    # 技能本体，目录结构遵循 agentskills.io 规范
 ├── SKILL.md               #   主流程 + 判级 + 纪律（激活时整体加载）
-├── references/            #   20 份分场景指南（按需加载）
+├── references/            #   23 份分场景指南（按需加载）
 ├── assets/templates/      #   文档模板
 ├── scripts/               #   零依赖 Node 工序脚本与验收门 + lib/ 共用模块
 │                          #     判级与源码化之前的全部工序都住这里
@@ -260,7 +260,7 @@ README.en.md               # 英文版 README
 
 版本随真实复刻项目递进：每个版本发布的功能与修复，都先在至少一个完整项目上验证过。
 
-完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.15**：到达与相位是两种状态——raycastkbd（v0.1.69 时代的 L3）按 v0.3.14 复审：移植本体全绿，但镜像门在"闭包 = ∅"底下有三处失明（`/_next/image?url=` 阶梯被当页面丢弃、Turbopack loader-stub 家族 13 个文件从未请求、路由预取载荷带进 51 MB 未登记外联）；同日补齐并落地八条工具级回哺：extract-refs 认 srcset/代理为资产、slice-modules 逐字带走容器外的 Sentry 前奏（token 门 0/54 → 61/61）、serve 回落链 + 桩主机 DSN 保持是 DSN、`pixelcompare --hold/--hold-after/--hold-grace`（GLB 在 worker 里解码是等到的状态，不是泵到的）、cold-audit 认单参工厂、make-standalone 链；selftest 71→86。
+完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.16**：瘦身版——全仓冷头评审回哺，只做减法与修正：SKILL.md 55→41 KB（脚本表缩成一句话用途，完整表迁入 scripts/README）；verification-gates.md 拆成四份按需加载（门型 / 失效模式 / 用例设计 / 载荷门），三份文档的重复章节号全部消歧、全仓引用按映射表改写；八条已核实脚本 bug 修复（pixelcompare kind 被覆盖、extract-refs 丢 `.webmanifest`、netcapture 跳过 206、mirror-site 账本只在结束写、probe 旗标解析、urlpath 写读不一致、chrome 孤儿误判、make-standalone 退出码）；selftest 86→110，新增文档结构自检（章节号唯一、引用可解析、References 完整）。
 
 ## 贡献
 

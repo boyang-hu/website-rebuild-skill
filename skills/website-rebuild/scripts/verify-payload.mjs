@@ -271,7 +271,7 @@ for (const route of ROUTES) {
   // CONTENT — an anchor whose visible text is the address it links to
   // normalises to the same thing either way. That distinction belongs to the
   // render comparison, which is where it was actually found
-  // (verification-gates.md §4.10). Here it would pass, and saying so is part of
+  // (payload-gates.md §2). Here it would pass, and saying so is part of
   // knowing what this PASS is worth.
   const blankPaths = (v) =>
     String(v)

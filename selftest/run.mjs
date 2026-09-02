@@ -11,7 +11,7 @@
 // cases recorded in the changelog (srcset candidates, escaped spellings,
 // paren balance, spelling twins, …). Each assertion cites the version that
 // bled for it, so a regression names the lesson it just unlearned.
-import { readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -74,7 +74,28 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
   truthy("urlpath — dotted dir not flattened (v0.1.72)", !localRelPath("https://x.com/decoders/1.5.5/d.wasm", "x.com").includes("@@"));
   // canonicalUrl strips default port + hash (v0.2.5 spelling twins).
   eq("urlpath — canonical default port (v0.2.5)", canonicalUrl("http://x.com:80/a"), "http://x.com/a");
-  truthy("urlpath — serveCandidates flat form first (v0.1.72)", serveCandidates("/f/1/x.jpg/m/110x110/filters:quality(70)", "x.com").some((c) => c.includes("@@")));
+  // v0.3.16: EXACT candidates for a path-past-file URL. The old assertion passed
+  // `"x.com"` as the SEARCH argument, so it became a query suffix and the
+  // `.some(includes("@@"))` check was true of every answer. The crawler's form
+  // (`<flat>/index.html` — the flattened tail ends in `)`, so the writer calls it
+  // a page) comes first; it was never emitted, and serve 404'd on every
+  // Storyblok transform it had on disk.
+  eq("urlpath — serveCandidates flat form first, exact (v0.1.72/v0.3.16)",
+    serveCandidates("/f/1/x.jpg/m/110x110/filters:quality(70)", ""),
+    ["/f/1/x.jpg@@m@@110x110@@filters:quality(70)/index.html", "/f/1/x.jpg@@m@@110x110@@filters:quality(70)", "/f/1/x.jpg/m/110x110/filters:quality(70)"]);
+  // The lookup reaches what the writer wrote — one implementation, both spellings.
+  for (const [url, p, q] of [
+    ["https://x.com/x.jpg/m/110x110/filters:quality(70)", "/x.jpg/m/110x110/filters:quality(70)", ""],
+    ["https://x.com/x.jpg/m/y.png?w=1", "/x.jpg/m/y.png", "?w=1"],
+  ]) {
+    truthy(`urlpath — serveCandidates reaches localRelPath for ${p}${q} (v0.3.16)`,
+      serveCandidates(p, q).map((c) => c.replace(/^\//, "")).includes(localRelPath(url, "x.com")),
+      `${localRelPath(url, "x.com")} not in ${JSON.stringify(serveCandidates(p, q))}`);
+  }
+  // …and the plain cases are untouched (serve.mjs completes a page path itself).
+  eq("urlpath — plain page candidates unchanged (v0.3.16)", serveCandidates("/about", ""), ["/about"]);
+  eq("urlpath — query asset candidates unchanged (v0.3.16)", serveCandidates("/i.jpg", "?width=320"), ["/i@@width=320.jpg", "/i.jpg"]);
+  eq("urlpath — directory + query candidates unchanged (v0.3.16)", serveCandidates("/c/", "?page=2"), ["/c@@page=2/", "/c/@@page=2", "/c/"]);
 }
 
 // --------------------------------------------- 4. lib/extract-refs fixtures
@@ -118,6 +139,13 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
     !refs(`<div data-ease="power2.inOut" data-speed="0.35">`).some((u) => /inOut|0\.35/.test(u)));
   truthy("extract — js chunk-relative not guessed (v0.2.6 guard 2)",
     !refs(`x.src="img/deep.png"`, "https://x.com/chunk.js").some((u) => u.includes("deep.png")));
+  // v0.3.16: ONE extension cap, lib/urlpath.mjs's {1,12}. The extractor carried
+  // `{2,5}` in five places, so `.webmanifest` (11) and `.jsonld` (6) were pages
+  // to it — never queued — while the mapper called them assets.
+  const lx = refs(`<link rel="manifest" href="/site.webmanifest"><link href="/a.jsonld"><link href="/f.woff2"><a href="/about">x</a>`);
+  eq("extract — .webmanifest/.jsonld/.woff2 root-relative refs are assets (v0.3.16)",
+    ["https://x.com/site.webmanifest", "https://x.com/a.jsonld", "https://x.com/f.woff2"].filter((u) => lx.includes(u)).length, 3);
+  truthy("extract — /about is still a page, not an asset (v0.3.16)", !lx.some((u) => u.endsWith("/about")), JSON.stringify(lx));
   // isTextRefSource: declared type is the oracle; octet-stream means "unknown".
   truthy("textref — declared css wins", isTextRefSource({ url: "https://x.com/f", contentType: "text/css", head: Buffer.from("a{}") }));
   truthy("textref — png bytes not text", !isTextRefSource({ url: "https://x.com/i.png", contentType: "image/png", head: Buffer.from([0x89, 0x50, 0x4e, 0x47]) }));
@@ -650,6 +678,150 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
     eq("serve — stub host path answers 200 (envelope endpoint) (v0.3.15)", (await get("/ext/o379433.ingest.us.sentry.io/api/6624334/envelope/")).status, 200);
   } catch (e) { bad("serve chain/DSN", String(e.message).split("\n")[0]); }
   finally { sv.kill("SIGTERM"); await new Promise((r) => sv.once("exit", r)); }
+}
+
+// ------------------------------- v0.3.16: gates that said FAIL and exited 0, flags parsed after the crash
+// Every case here is offline and browser-free: each script is driven to the
+// exact line that used to be wrong and asserted on its exit code and message.
+{
+  const run = (script, argv, opts = {}) => {
+    try { return { code: 0, out: String(execFileSync(process.execPath, [path.join(SKILL, script), ...argv], { stdio: "pipe", ...opts })) }; }
+    catch (e) { return { code: e.status, out: String(e.stdout || "") + String(e.stderr || "") }; }
+  };
+  // probe: argv is WALKED, so a flag's value is never taken as the URL. An
+  // unknown flag dies before any browser (exit 2); a known one that used to be
+  // missing from KNOWN_FLAGS (--expect-side) proceeds to the identity check and
+  // fails THERE — nothing listens on :1 — which is the later, correct failure.
+  const p1 = run("scripts/probe.mjs", ["--wait", "9000", "--bogus", "http://127.0.0.1:1/"], { cwd: TMP });
+  truthy("probe — unknown flag dies before launch, exit 2 (v0.3.16)", p1.code === 2 && /unknown flag/.test(p1.out), `exit ${p1.code}: ${p1.out.slice(0, 120)}`);
+  const p2 = run("scripts/probe.mjs", ["--expect-side", "mirror", "http://127.0.0.1:1/"], { cwd: TMP });
+  truthy("probe — --expect-side is known and the URL survives leading flags (v0.3.16)",
+    p2.code === 3 && /not a serve\.mjs instance/.test(p2.out) && !/unknown flag|Invalid URL/.test(p2.out), `exit ${p2.code}: ${p2.out.slice(0, 160)}`);
+  // pixelcompare: a band file and a cross-side file must not share metric.json,
+  // and the refusal comes before the server wait (no server here, and no 10 s).
+  const PX = path.join(TMP, "px");
+  mkdirSync(PX, { recursive: true });
+  writeFileSync(path.join(PX, "metric.json"), JSON.stringify({ kind: "self-band", home: { meanAbsDiff: 1 } }));
+  const p3 = run("scripts/pixelcompare.mjs", ["--a", "http://127.0.0.1:1/", "--b", "http://127.0.0.1:2/", "--out", PX], { cwd: TMP });
+  truthy("pixelcompare — cross-side run refuses a self-band metric.json, exit 2 (v0.3.16)",
+    p3.code === 2 && /must not share one metric\.json/.test(p3.out), `exit ${p3.code}: ${p3.out.slice(0, 160)}`);
+  eq("pixelcompare — the refused file is untouched (v0.3.16)", JSON.parse(readFileSync(path.join(PX, "metric.json"), "utf8")).kind, "self-band");
+  // mirror-site: NaN rounds used to be zero rounds and a green "Done".
+  const p4 = run("scripts/mirror-site.mjs", ["--origin", "http://127.0.0.1:1", "--rounds", "abc", "--out", path.join(TMP, "ms-nan")]);
+  truthy("mirror-site — non-numeric --rounds is a usage error, nothing written (v0.3.16)",
+    p4.code === 2 && /--rounds must be an integer/.test(p4.out) && !existsSync(path.join(TMP, "ms-nan")), `exit ${p4.code}: ${p4.out.slice(0, 120)}`);
+  // chrome sweep: orphan = the browser's LAUNCHER is gone, decided at the root
+  // of the process tree — never "its parent is another Chrome".
+  const { markOrphans } = await import(path.join(SKILL, "scripts/lib/chrome.mjs"));
+  const tree = (ppid) => [{ pid: 4000001, ppid }, { pid: 4000002, ppid: 4000001 }, { pid: 4000003, ppid: 4000002 }];
+  truthy("chrome — renderers of a LIVE sibling browser are not orphans (v0.3.16)", markOrphans(tree(process.pid)).every((f) => !f.orphan));
+  truthy("chrome — a browser reparented to pid 1 is an orphan, renderers included (v0.3.16)", markOrphans(tree(1)).every((f) => f.orphan));
+  // make-standalone: "FAIL — N asset(s) missing" used to exit 0.
+  const { createHash } = await import("node:crypto");
+  const sha = (b) => createHash("sha256").update(b).digest("hex");
+  const MS = path.join(TMP, "ms"), MSM = path.join(MS, "mirror");
+  mkdirSync(MSM, { recursive: true });
+  const img = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
+  const shell = (extra) => `<html><img src="/a.png">${extra}</html>`;
+  const ledger = (page) => {
+    const files = {
+      "https://mini.test/": { path: "index.html", bytes: Buffer.byteLength(page), sha256: sha(Buffer.from(page)), type: "text/html" },
+      "https://mini.test/a.png": { path: "a.png", bytes: img.length, sha256: sha(img), type: "image/png" },
+    };
+    writeFileSync(path.join(MSM, "index.html"), page);
+    writeFileSync(path.join(MSM, "a.png"), img);
+    writeFileSync(path.join(MSM, "mirror-manifest.json"), JSON.stringify({ origin: "https://mini.test", files }, null, 2));
+    writeFileSync(path.join(MSM, "inventory.tsv"), "SHA256\tBYTES\tPATH\tURL\n" + Object.entries(files).map(([u, r]) => [r.sha256, r.bytes, r.path, u].join("\t")).join("\n") + "\n");
+  };
+  const msArgs = (out) => ["--shell", path.join(MSM, "index.html"), "--mirror", MSM, "--out", path.join(MS, out), "--no-build"];
+  ledger(shell(`<img src="/missing.png">`));
+  const m1 = run("tools/make-standalone.mjs", msArgs("out-fail"), { cwd: SKILL });
+  truthy("make-standalone — a missing ASSET exits 1 (v0.3.16)", m1.code === 1 && /FAIL — 1 asset\(s\) missing/.test(m1.out), `exit ${m1.code}: ${m1.out.slice(-200)}`);
+  ledger(shell(``));
+  const m2 = run("tools/make-standalone.mjs", msArgs("out-ok"), { cwd: SKILL });
+  truthy("make-standalone — every asset present exits 0 (v0.3.16)", m2.code === 0 && /every referenced ASSET is present/.test(m2.out), `exit ${m2.code}: ${m2.out.slice(-200)}`);
+}
+
+// ------------------------------- v0.3.16: mirror-site against a loopback origin (no browser)
+// A tiny in-process origin, two crawls. First crawl: an ABSOLUTE --out is used
+// as given; a `.html` a JS chunk names goes through the page-scope guard (out of
+// scope: dropped; in scope: crawled as a PAGE, its own assets fetched); and a
+// `.webmanifest` reached from that page is queued as an asset and lands as a
+// FILE. Second crawl, with /a.png answering 500: the carried-over GOOD row for a
+// file still on disk is kept, not downgraded to an error row.
+{
+  const http = await import("node:http");
+  const { execFile } = await import("node:child_process");
+  let failA = false;
+  const routes = {
+    "/": ["text/html", `<html><a href="/about">about</a><script src="/app.js"></script><img src="/a.png"></html>`],
+    "/app.js": ["text/javascript", `fetch("/data.json");x="/legal/site.html";y="/in/page.html";`],
+    "/data.json": ["application/json", `{"img":"/b.png"}`],
+    "/a.png": ["image/png", "PNGA"], "/b.png": ["image/png", "PNGB"],
+    "/legal/site.html": ["text/html", `<html><img src="/legal/big.png"></html>`], "/legal/big.png": ["image/png", "BIG"],
+    "/in/page.html": ["text/html", `<html><link rel="manifest" href="/in/site.webmanifest"><img src="/in/x.png"></html>`],
+    "/in/x.png": ["image/png", "INX"], "/in/site.webmanifest": ["application/manifest+json", `{"name":"x"}`],
+  };
+  const srv = http.createServer((req, res) => {
+    const r = routes[req.url];
+    if (req.url === "/a.png" && failA) { res.writeHead(500); return res.end("boom"); }
+    if (!r) { res.writeHead(404); return res.end("nf"); }
+    res.writeHead(200, { "content-type": r[0] }); res.end(r[1]);
+  });
+  await new Promise((r) => srv.listen(0, "127.0.0.1", r));
+  const origin = `http://127.0.0.1:${srv.address().port}`;
+  const OUTM = path.join(TMP, "e2e-mirror");
+  const crawl = () => new Promise((resolve) => execFile(process.execPath,
+    [path.join(SKILL, "scripts/mirror-site.mjs"), "--origin", origin, "--out", OUTM, "--scope", "/in/", "--pages", "/", "--workers", "2"],
+    { cwd: TMP }, (err, stdout, stderr) => resolve({ code: err ? err.code : 0, out: String(stdout) + String(stderr) })));
+  const manifest = () => JSON.parse(readFileSync(path.join(OUTM, "mirror-manifest.json"), "utf8")).files;
+  try {
+    const c1 = await crawl();
+    truthy("mirror-site — absolute --out is used as given, ledgers land there (v0.3.16)", c1.code === 0 && existsSync(path.join(OUTM, "inventory.tsv")), `exit ${c1.code}: ${c1.out.slice(-300)}`);
+    truthy("mirror-site — .html named in a chunk, out of scope: dropped (v0.3.16)", !existsSync(path.join(OUTM, "legal")) && !manifest()[`${origin}/legal/site.html`]);
+    truthy("mirror-site — .html named in a chunk, in scope: crawled as a page with its assets (v0.3.16)",
+      /\[page\] \/in\/page\.html/.test(c1.out) && existsSync(path.join(OUTM, "in/page.html")) && existsSync(path.join(OUTM, "in/x.png")), c1.out.slice(-300));
+    truthy("mirror-site — .webmanifest is queued as an asset and written as a file (v0.3.16)", statSync(path.join(OUTM, "in/site.webmanifest")).isFile());
+    failA = true;
+    const c2 = await crawl();
+    const row = manifest()[`${origin}/a.png`];
+    truthy("mirror-site — a fetch error keeps the carried-over row of a file still on disk (v0.3.16)",
+      c2.code === 0 && row && row.path === "a.png" && row.sha256 && /keeping the carried-over row/.test(c2.out), `${JSON.stringify(row)} ${c2.out.slice(-200)}`);
+  } catch (e) { bad("mirror-site loopback crawl", String(e.message).split("\n")[0]); }
+  finally { srv.close(); }
+}
+
+// ------------------------------- v0.3.16: reference docs — unique section ids, resolvable citations, complete References list
+// A rule only written in the docs decays: three duplicate-id families and a
+// dangling §3.4 lived in verification-gates.md until a cold review counted them.
+{
+  const REF = path.join(SKILL, "references");
+  const docs = readdirSync(REF).filter((f) => f.endsWith(".md"));
+  const headings = {};
+  const dups = [];
+  for (const d of docs) {
+    const ids = new Map();
+    readFileSync(path.join(REF, d), "utf8").split("\n").forEach((l, i) => {
+      const m = l.match(/^#{1,5}\s+§?\s*(\d+(?:\.\d+)*)\b/);
+      if (!m) return;
+      if (ids.has(m[1])) dups.push(`${d} §${m[1]} @${ids.get(m[1])},${i + 1}`); else ids.set(m[1], i + 1);
+    });
+    headings[d.replace(/\.md$/, "")] = ids;
+  }
+  truthy("docs — no reference doc repeats a section id (v0.3.16)", dups.length === 0, dups.slice(0, 5).join("; "));
+  const names = Object.keys(headings).sort((a, b) => b.length - a.length);
+  const cite = new RegExp(`(${names.join("|")})(?:\\.md)?[^§\\n]{0,40}?§\\s?(\\d+(?:\\.\\d+)*)`, "g");
+  const walk = (dir, out = []) => { for (const f of readdirSync(dir)) { const p = path.join(dir, f); if (statSync(p).isDirectory()) walk(p, out); else if (/\.(md|mjs|js)$/.test(f)) out.push(p); } return out; };
+  const unresolved = [];
+  for (const f of [path.join(SKILL, "SKILL.md"), ...walk(REF), ...walk(path.join(SKILL, "scripts")), ...walk(path.join(SKILL, "tools"))]) {
+    readFileSync(f, "utf8").split("\n").forEach((l, i) => {
+      for (const m of l.matchAll(cite)) if (!headings[m[1]].has(m[2])) unresolved.push(`${path.relative(SKILL, f)}:${i + 1} ${m[1]} §${m[2]}`);
+    });
+  }
+  truthy("docs — every `<doc> §x.y` citation resolves to a heading (v0.3.16)", unresolved.length === 0, unresolved.slice(0, 5).join("; "));
+  const refList = readFileSync(path.join(SKILL, "SKILL.md"), "utf8").split("## References")[1] || "";
+  const unlisted = docs.filter((d) => !refList.includes(`references/${d}`));
+  truthy("docs — SKILL.md References list names every references/*.md (v0.3.16)", unlisted.length === 0, unlisted.join(", "));
 }
 
 // ---------------------------------------------------------------- summary

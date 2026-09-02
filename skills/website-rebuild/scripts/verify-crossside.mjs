@@ -27,7 +27,7 @@
  *
  *   2. One side was missing a prerequisite action. A value read 0 on the port
  *      and 1080 on the mirror because the field is filled by a resize handler
- *      the probe page never triggers (verification-gates.md §0.25). ⭐ This is
+ *      the probe page never triggers (gate-case-design.md §4). ⭐ This is
  *      the gate EARNING ITS KEEP: one-sided, 0 looks like the answer.
  *
  *   3. The two sides differ in measurement conditions, not in behaviour. Page

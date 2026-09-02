@@ -227,7 +227,7 @@ Representatives from 43 probed sites that drew the boundary — **the boundary i
 ```
 skills/website-rebuild/    # the skill itself, laid out per the agentskills.io standard
 ├── SKILL.md               #   main pipeline + triage + disciplines (loaded whole on activation)
-├── references/            #   20 scenario guides (loaded on demand)
+├── references/            #   23 scenario guides (loaded on demand)
 ├── assets/templates/      #   document templates
 ├── scripts/               #   zero-dependency Node stage scripts and gates + lib/ shared modules
 │                          #     every stage before sourcification lives here
@@ -260,7 +260,7 @@ Before anything goes public, per-asset copyright **forensics** must be completed
 
 Versions advance with real rebuild projects: every feature and fix shipped was first validated on at least one complete project.
 
-Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.15** — arrival and phase are two different states: raycastkbd (an L3 from the v0.1.69 days) re-audited against v0.3.14 — the port itself held, but the mirror gate was blind in three places underneath "closure = ∅" (`/_next/image?url=` rungs dropped as pages, 13 Turbopack loader-stub files never requested, 51 MB of unregistered egress carried by a route-prefetch payload); brought up the same day with eight tool-level lessons: extract-refs treats srcset/proxy rungs as assets, slice-modules carries the Sentry prologue outside the container verbatim (token gate 0/54 → 61/61), serve gets a fallback chain and keeps a stub host's DSN a DSN, `pixelcompare --hold/--hold-after/--hold-grace` (a GLB decoded on a worker is a state you wait for, not one you pump to), cold-audit recognises the one-parameter factory, make-standalone takes a mirror chain; selftest 71→86.
+Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.16** — the slim release: a repo-wide cold review fed back as subtraction and correction only. SKILL.md 55→41 KB (the script table shrinks to one-line purposes; the full table moves to scripts/README); verification-gates.md split into four on-demand docs (gate types / failure modes / case design / payload gates), every duplicate section id in three docs disambiguated and all citations rewritten from a mapping table; eight verified script bugs fixed (pixelcompare kind overwritten, extract-refs dropping `.webmanifest`, netcapture skipping 206, mirror-site ledgers written only at exit, probe flag parsing, urlpath write/read mismatch, chrome orphan misdetection, make-standalone exit code); selftest 86→110 with a new docs-structure check (unique section ids, resolvable citations, complete References list).
 
 ## Contributing
 

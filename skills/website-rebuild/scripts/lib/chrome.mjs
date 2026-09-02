@@ -139,13 +139,41 @@ export function listInstances({ role = null, slot = portSlot() } = {}) {
     const dir = r.command.slice(at + "--user-data-dir=".length).split(/\s/)[0];
     found.push({ ...r, profile: dir, ...(parseProfileName(path.basename(dir)) || {}) });
   }
-  const pids = new Set(found.map((f) => f.pid));
+  markOrphans(found);
+  return found;
+}
+
+/**
+ * Decide `orphan` for every matched process, in place. Exported for the
+ * selftest; listInstances() is the only production caller.
+ *
+ * Orphaned = the BROWSER this process belongs to has lost its launcher. Walk up
+ * the matched tree (renderer -> zygote/helper -> browser main) to its ROOT — the
+ * matched process whose parent is NOT one of ours — and ask whether that parent
+ * is gone: reparented to pid 1, or no longer in the process table. Every member
+ * of the tree inherits the root's answer.
+ * ⛔ NOT "its parent is another matched Chrome". That predicate marked every
+ * renderer of a LIVE sibling browser — same role, other side, the concurrent
+ * mirror + rebuild probe that lib/ports.mjs exists to allow — as an orphan: a
+ * false LEFTOVER report, a reap that could not touch them (a renderer is not a
+ * group leader, so the group signal finds nothing) and then a "survived
+ * SIGKILL" warning about processes that were never leaked. A renderer whose
+ * browser has a live owner is that owner's business, exactly like the browser.
+ */
+export function markOrphans(found) {
+  const byPid = new Map(found.map((f) => [f.pid, f]));
+  const rootOf = (f) => {
+    const seen = new Set();
+    let cur = f;
+    while (byPid.has(cur.ppid) && !seen.has(cur.pid)) {
+      seen.add(cur.pid);
+      cur = byPid.get(cur.ppid);
+    }
+    return cur;
+  };
   for (const f of found) {
-    // Orphaned = the script that launched it is gone (reparented to pid 1), or
-    // its parent is another matched Chrome process (a renderer of a leaked
-    // browser), or the parent no longer exists at all. Anything else has a live
-    // owner and is somebody's business, not the sweeper's.
-    f.orphan = f.ppid === 1 || pids.has(f.ppid) || !isAlive(f.ppid);
+    const root = rootOf(f);
+    f.orphan = root.ppid === 1 || !isAlive(root.ppid);
   }
   return found;
 }

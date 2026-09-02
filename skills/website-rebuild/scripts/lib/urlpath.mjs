@@ -212,6 +212,20 @@ export function querySuffix(search, policy = DEFAULT_POLICY) {
   return "@@" + raw;
 }
 
+/**
+ * Does this path END in a file extension? The page-vs-asset test, in ONE place
+ * so the writer (localRelPath) and the lookup (serveCandidates) cannot answer
+ * it differently for the same name.
+ * ⚠ {1,12}, not {1,8}: `.webmanifest` is ELEVEN characters and the shorter cap
+ * classified it as a page, so the crawler wrote the file as a DIRECTORY with an
+ * index.html inside while serve.mjs (which sees a real extension via
+ * path.extname) looked for a file and 404'd. The cap still exists — it keeps a
+ * path segment like `/v1.2.3` from reading as an extension — it was just set
+ * before `.webmanifest`, `.geojson` and friends were common. lib/extract-refs.mjs
+ * exports the same cap as EXT; the two must not drift.
+ */
+const hasExt = (p) => p.includes(".") && /\.[a-z0-9]{1,12}$/i.test(p);
+
 /** Insert a query suffix into "dir/name.ext" -> "dir/name@@q.ext". */
 export function withQuerySuffix(p, suffix) {
   if (!suffix) return p;
@@ -268,14 +282,8 @@ export function localRelPath(absUrl, originHost, policy = DEFAULT_POLICY) {
   if (clean === "/" || clean === "") return withQuerySuffix("index.html", suffix);
   let p = clean.replace(/^\/+/, "");
   if (p.endsWith("/")) p = p.slice(0, -1);
-  // Extension-less origin URLs are pages; extensioned ones are assets.
-  // ⚠ {1,12}, not {1,8}: `.webmanifest` is ELEVEN characters and the shorter cap
-  // classified it as a page, so the crawler wrote the file as a DIRECTORY with an
-  // index.html inside while serve.mjs (which sees a real extension via
-  // path.extname) looked for a file and 404'd. The cap still exists — it keeps a
-  // path segment like `/v1.2.3` from reading as an extension — it was just set
-  // before `.webmanifest`, `.geojson` and friends were common.
-  if (!p.includes(".") || !/\.[a-z0-9]{1,12}$/i.test(p)) return p + suffix + "/index.html";
+  // Extension-less origin URLs are pages; extensioned ones are assets (hasExt).
+  if (!hasExt(p)) return p + suffix + "/index.html";
   return withQuerySuffix(p, suffix);
 }
 
@@ -297,7 +305,21 @@ export function serveCandidates(pathname, search, policy = DEFAULT_POLICY) {
     /^(.*?\.(?:jpe?g|png|gif|webp|avif|svg|ico|mp4|webm|mov|mp3|wav|pdf|css|js|mjs|json|woff2?|ttf|otf|glb|gltf|ktx2|wasm|zip))(\/.+)$/i,
     (m0, file, tail) => file + "@@" + tail.slice(1).replace(/\//g, "@@"),
   );
-  if (flat !== pathname) out.push(flat);
+  if (flat !== pathname) {
+    // ⛔ …AND THE SAME PAGE/ASSET TEST ON THE FLATTENED NAME. The writer runs
+    // hasExt() on the flattened form: `x.jpg@@m@@110x110@@filters:quality(70)`
+    // ends in `)`, so it is written as `<flat>/index.html`, and a flat name that
+    // does end in an extension takes the query suffix BEFORE that extension
+    // (`x.jpg@@m@@y@@w=1.png`). This function emitted the bare flat name only,
+    // and serve.mjs — seeing a dot somewhere in it — tried the bare file: 404 on
+    // every Storyblok transform the crawler had on disk. Emit every spelling
+    // localRelPath() can produce for this name, crawler's first. The bare flat
+    // name stays last: it is the cross-host form (assets/<host>/… never gets an
+    // index.html) and the cache-buster-only fallback.
+    if (!hasExt(flat)) out.push(flat + suffix + "/index.html");
+    if (suffix) out.push(withQuerySuffix(flat, suffix));
+    out.push(flat);
+  }
   if (suffix) {
     // ⛔ For a DIRECTORY-style path the crawler and the server used to disagree
     // about the ORDER of two operations — attach the query suffix, and append

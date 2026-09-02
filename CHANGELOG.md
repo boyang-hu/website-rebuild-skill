@@ -1,5 +1,50 @@
 # 更新记录
 
+## v0.3.16 — 瘦身版：拆 verification-gates、重编号、SKILL 表瘦身、八条已核实 bug（全仓冷头评审回哺）
+
+对 v0.3.13–0.3.15 做了一次全仓冷头评审（报告留在 analyses/，不入库），本版只做**减法与修正**，不引入新方法论。
+
+**预算**：SKILL.md 55.2 → 40.9 KB——Script Directory 从 24 KB 的战史表缩成"一句话用途 + 阶段"表，完整版整表迁入
+`scripts/README.md`「速查表」与 `tools/README.md`；顺手补齐此前表里缺席的 sweep-routes / census-bundles / slice-esm /
+verify-reassembly / wayback-mirror / lib/ports / lib/urlpath / lib/extract-refs / modules-to-src / flight-to-mdx / group-parts。
+verification-gates.md 158 KB 按四道天然缝拆成四份：`verification-gates.md`（门型 / 决策树 / 运行纪律 / 分层体系，81 KB）、
+`gate-failure-modes.md`（失效模式 / 根因修复 / 残差归类，50 KB）、`gate-case-design.md`（用例设计 / 清单式核对，19 KB）、
+`payload-gates.md`（载荷与外壳变换的门，9.5 KB）——后三份按需加载，M(n-1) 开局只读第一份。
+
+**重编号**：verification-gates §4.9–4.12 各两个、determinism §0.1.2 / §6 / §7 各两个、readable-source §4–4.5 两套与 §3.0.1.1
+两个——全部消歧。失效模式 §4.x → gate-failure-modes §1.x（§4.7.1 → §1.9、§4.13 → §1.14、§4.20 → §1.15，§4.8.x 按序）、
+§5 / §6 → §2 / §3；前插块 §0.2x → gate-case-design §1–5；尾追块 §4.9–4.19 → payload-gates §1–7（§4.14 进 verification-gates
+§2.3、§4.17 进 §2.1.3；§4.16 与"顺带"删除——那是 CHANGELOG 内容）；旧 §7 常见坑 / §8 产出物 → §4 / §5。determinism 的状态对齐
+协议正式成为 §7（§7.1 不变），旧常见坑 / 自检 / 产出物顺延为 §8 / §9 / §10，§0.1 与 §0.2 的子节按序排好。readable-source 的
+交付物块成为 §9（9.1–9.6.1），§2.x 与 §3.0.4 / §3.0.5 按序排好，多 chunk 站一节改为 §3.0.1.4。全仓文件限定引用与文档内裸 §
+引用按映射表改写；一处悬空（VG §3.4）指向 gate-case-design §3，一处错文件（readable-source "§0.3"）指向 legal §0.2。
+SKILL.md 补标记图例（⛔ / ⛔⛔ / ⭐ / ⭐⭐ / ⚠ / 【代号】），References 列表补齐 archival-rescue / beyond-the-rebuild 与三份新文档，
+路由表加三行。
+
+**八条已核实 bug**（selftest 86 → 110）：
+1. `pixelcompare`：metric.json 的 `kind` 被旧文件的值覆盖（spread 顺序）——现在开拍前就拒绝在同一 `--out` 混用 `--self` 与跨侧（exit 2）。
+2. `lib/extract-refs`：扩展名 `{2,5}` 在五处各写一份，`.webmanifest` / `.jsonld` / `.geojson` 被当页面丢弃而闭包门报 ∅——统一为导出的
+   `EXT = {1,12}`，与 `lib/urlpath` 同一把尺。
+3. `netcapture`：跳过 206，Range 请求的 video / audio 从不进 GAP 对账——200 与 206 都算命中。
+4. `netcapture`：账本追加的 manifest 半段裹在裸 `catch {}` 里——读不到 manifest 直接 FATAL（exit 1），`--fetch` 开抓前先验账本；
+   `--fetch` 改走 `lib/negotiate` 的浏览器图片 Accept + std → bare 梯子，行记 `profile` / `vary`。
+5. `mirror-site`：绝对 `--out` 被拼到 cwd 下；非数字 `--rounds` / `--workers` 变 NaN、零轮仍报 Done（现 exit 2）；三本账只在结束写一次
+   （现每 100 个文件与 Ctrl-C 都落盘，exit 130）；瞬时 fetch 错误覆盖仍在盘上的好行（现保留）；重扫抽出的同源 `.html` 绕过 `--scope`
+   （现统一走 `enqueueRef` 页面守卫并当页面爬）。
+6. `probe`：KNOWN_FLAGS 漏了自家文档里的 `--expect-side` / `--evalAfterDelay`；URL 取第一个非 `--` 参数，`--wait 9000 <url>` 把 9000
+   当 URL——改为逐参数走。
+7. `lib/urlpath`：写入侧把同源 path-past-file URL 落成 `<flat>/index.html`，伺服侧只查裸文件——`serveCandidates` 现在给出
+   `localRelPath` 能产出的每一种拼写（含带查询后缀的 flat 形）。
+8. `lib/chrome`：把活着的兄弟浏览器的 renderer 判为孤儿——改为沿匹配树走到根、根的父进程没了才算孤儿。
+
+另：`make-standalone` 打印 FAIL 后退出 0（现 exit 1）；`serve` 的 `--redirects` / `--cdp-port` 从"接受但忽略"改为拒绝；`pixel-walk`
+usage 补 `--hold-after`；selftest 修掉一条永真断言（`serveCandidates` 第二参传错位）；`make-standalone` 一处指向不存在的
+asset-management §2.2 改指 §0.5。
+
+**新门**：selftest 新增文档结构自检——references/ 任何文档不得有重复章节号；SKILL.md / references / scripts / tools 里每一处
+`<文档> §x.y` 引用必须能解析到一个标题；SKILL.md References 列表必须列出 references/ 下每一份文档。这三条此前只在评审里查过一次，
+按本 skill 自己的话说：只写在文档里、没有东西去查的规矩会安静失效。
+
 ## v0.3.15 — 到达与相位是两种状态：raycastkbd 复审补齐（镜像门的三处失明 + 切片的容器外字节）
 
 raycastkbd（Turbopack / Next 16.3 / R3F，v0.1.69 单会话跑完的 L3）按 v0.3.14 复审：**移植本体
