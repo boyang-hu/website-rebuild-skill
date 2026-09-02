@@ -35,16 +35,14 @@ C1(服务端组件源不下发)从"拒绝"改为**可做:重构式逆向**。定
 ### §1.1 flight 是保真神谕(比 DOM 更细的证据面)
 
 1. ⭐ **键序 = JSX prop 序**。flight 按源码 prop 顺序序列化,两侧键序不同 =
-   你的 prop 写序和作者不同(实测靠它照出脚注反链的 href/className/id 顺序)。
+   你的 prop 写序和作者不同。
 2. ⭐ **化石全下发**:`{cond && x}` 的 `false`/`undefined`、`{" "}` 显著空白、
    模板字符串类名里的换行缩进与**尾空格**——全部要照抄发射,门会验。
 3. ⭐ **`(post)` 这样的路由组名字面出现在 routerState 里**;segment 全是纯字符串
    = 字面目录(动态段是 `[param,value,"d"]` 元组)——目录结构无损恢复。
-4. ⭐ 标题文本尾空格 + 独立 id 锚 → 还原 `## 标题 [#custom-id]` 源约定
-   (99/101 个标题带作者自选 id,剥离 `[#id]` 后的空格就是化石)。
-5. ⭐ **作者的不一致本身是保真面**:同站两篇脚注一有 `"\n"` 分隔一没有、
-   一页整个忘写 metadata、og:title 写错——照抄,不"修好"。线上 bug 也一样
-   (对活源站复测是最强豁免证据)。
+4. ⭐ 标题文本尾空格 + 独立 id 锚 → 还原 `## 标题 [#custom-id]` 源约定。
+5. ⭐ **作者的不一致本身是保真面**:照抄,不"修好"。线上 bug 也一样
+   (对活源站复测是最强豁免证据)（实证：`case-studies/rsc-reconstruction.md` §1.1）。
 
 ## §2 镜像层的 C1 特有面
 
@@ -90,9 +88,7 @@ C1(服务端组件源不下发)从"拒绝"改为**可做:重构式逆向**。定
 ### §3.2 CSS 面:tailwind 扫描面与 token 必须对着镜像编译 CSS 对账【basement】
 
 语义门只看 flight 树,**看不见 CSS**——重建工程的样式面是独立债务,且塌法极具
-迷惑性:白色 SVG logo 因 `text-*` 未生成变黑底黑字"消失"、grid 塌成换行、
-自定义字体回退系统 sans、reveal 幕布类缺失导致整页盖黑(machine 模式黑屏
-= `.machine-reveal` 只有 keyframes 没有类规则)。四轮用户实测报障同一根因:
+迷惑性（实证：`case-studies/rsc-reconstruction.md` §3.2）。四轮用户实测报障同一根因:
 
 1. ⛔ **扫描面**:逐字图交付(porting-discipline §2.5 第四形态)下,DOM 外壳的
    类名活在 verbatim JS 的编译串里——tailwind `content` 不含 `verbatim/**/*.js`
@@ -105,13 +101,11 @@ C1(服务端组件源不下发)从"拒绝"改为**可做:重构式逆向**。定
    照样回退系统字体。
 3. ⭐ **carry-css 方法论**(tailwind 生成不了的规则,机器搬运不手抄):
    需求面 = 代表路由 SSR DOM 类名并集——**必须覆盖每个路由家族,含备用
-   模式家族**(basement 的 /ai 机器可读镜像有独立配色与幕布,漏采样 = 该
-   家族类全缺);减去构建产物已有的类;剩余到镜像 CSS 逐条找规则原文搬运:
+   模式家族**;减去构建产物已有的类;剩余到镜像 CSS 逐条找规则原文搬运:
    @media 上下文保留、@keyframes 随 animation-name 连带、元素级 base 规则
    (`body{background:#000;font-family:…}`,缺它 = 水合前白闪)单独一道;
    工具要幂等(上一轮产物已编进构建 CSS,重跑前先从 have 集剔除自身贡献)。
-4. **镜像里也无规则的类 = 源站自身死类**(`bg-brank-k` 拼写错、`text-caption`
-   等 16 个实测)——照抄不修(§1.3),报告里点名即可。
+4. **镜像里也无规则的类 = 源站自身死类**——照抄不修(§1.3),报告里点名即可。
 5. ⛔ 选择器分词陷阱:数字开头类名的 CSS 转义带尾随空格(`.\33 xl\:…` =
    `3xl:…`),naive 的 `\\.` 分词在空格处截断——`2xl/3xl` 断点变体整族漏判。
 
@@ -138,13 +132,13 @@ C1(服务端组件源不下发)从"拒绝"改为**可做:重构式逆向**。定
 
 ### §3.5 next/image 优化器产物是像素门的一层资产【darkroom】
 
-镜像侧持有的是 **Vercel 优化器的输出**（`/_next/image?url=…&w=1440&q=…`,实测 naturalWidth 1280);
-重建的静态树没有优化器,serve 回落到原图(2592 宽)——两侧源分辨率不同,浏览器重采样差就是
-looped/badomens 0.2 的残差。两件事分开做:① `images.deviceSizes/imageSizes/qualities` 从镜像
+镜像侧持有的是 **Vercel 优化器的输出**（`/_next/image?url=…&w=1440&q=…`);
+重建的静态树没有优化器,serve 回落到原图——两侧源分辨率不同,浏览器重采样差就是残差
+（实证：`case-studies/rsc-reconstruction.md` §3.5）。两件事分开做:① `images.deviceSizes/imageSizes/qualities` 从镜像
 srcset 普查**反推**进 next.config(⚠ `qualities` 默认 `[75]` 会把源站的 `quality=90` 静默压回 75);
 ② `tools/harvest-optimized-images.mjs` 把静态树引用的全部 `/_next/image` 档位补齐——**镜像字节
 优先**(源站发了什么才是参照,动态图片生成器只拿得到输出字节,§6),镜像没有的档位才向本机
-`next start` 的优化器取并登记为重建侧生成物(darkroom:镜像 55 + 本机 936 → 0.00)。
+`next start` 的优化器取并登记为重建侧生成物。
 
 ## §4 语义门(scripts/verify-flight.mjs)
 
@@ -169,10 +163,8 @@ srcset 普查**反推**进 next.config(⚠ `qualities` 默认 `[75]` 会把源�
 
 ## §5 平台层工件(登记,不复刻)
 
-- ⭐ **Vercel 边缘把 / 重写到 /index**:镜像首页 `c:["","index"]`、SSR 里
-  usePathname 撞见 "/index"(Logo 渲染成回链)、客户端水合撞 "/" → **线上的
-  React #418 就是这么来的**。静态预渲染侧 `c:["",""]`、无水合错误——登记
-  D 类偏差;要逐字节复刻线上 bug 得加边缘重写,通常不值得。
+- ⭐ **Vercel 边缘把 / 重写到 /index**:镜像首页 `c:["","index"]`、静态预渲染侧 `c:["",""]`——登记
+  D 类偏差;要逐字节复刻线上 bug 得加边缘重写,通常不值得（实证：`case-studies/rsc-reconstruction.md` §5）。
 - PPR/动态渲染的 `BAILOUT_TO_CLIENT_SIDE_RENDERING` 模板 vs 全静态输出。
 - Turbopack chunk 切分粒度(preload 数量、I 行 chunk 表长度)。
 

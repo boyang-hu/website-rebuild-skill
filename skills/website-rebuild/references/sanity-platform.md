@@ -17,7 +17,7 @@
 **指纹语法**（确定规格）：
 
 - 图片：`https://cdn.sanity.io/images/<projectId>/<dataset>/<sha1-40>-<W>x<H>.<ext>[?w=&h=&fit=&auto=format…]`
-  （basement=`9syto90m`、hashgraphvc=`diak0tmr`、franshalsmuseum=`r35o2ddl`；dataset 常为 `production`）
+  （dataset 常为 `production`）
 - 文件/视频：`https://cdn.sanity.io/files/<projectId>/<dataset>/<sha1-40>.<ext>`
 - 内容 API：`https://<projectId>.api.sanity.io/v<日期>/data/query/<dataset>?query=<GROQ>`；
   `apicdn.sanity.io` 是它的 CDN 缓存层
@@ -25,7 +25,7 @@
 
 ⭐ **文件名自带元数据**：`<sha1>-<W>x<H>` 里的 WxH 是**源资产内在尺寸**（查询参数只做缩放裁剪），
 sha1 是内容地址——"多少个不同图"的清点、变体归并、资产去重对账，直接按 hash 段做
-（basement：13,870 条响应式引用按 hash 收敛成 722 个源资产）【basement】。
+（实证：`case-studies/sanity-platform.md` §0）【basement】。
 
 **判级判据不是"有没有 Sanity"，是内容在哪个时点被烘进客户端可见的字节**。三形态：
 
@@ -43,8 +43,7 @@ sha1 是内容地址——"多少个不同图"的清点、变体归并、资产�
 ### 1.1 `--hosts` 清单（CDN 站假 GAP=0 的老课，Sanity 版）
 
 netcapture / mirror-site 的外部主机清单必含（按站取舍）：`cdn.sanity.io`、
-`<projectId>.api.sanity.io`、`<projectId>.apicdn.sanity.io`。hashgraphvc 实例：
-`--ext-hosts cdn.sanity.io,diak0tmr.api.sanity.io`【hashgraphvc】。
+`<projectId>.api.sanity.io`、`<projectId>.apicdn.sanity.io`（实证：`case-studies/sanity-platform.md` §1.1）。
 
 ⚠ **next/image 代理形态里 Sanity 主机是被编码嵌套的**：
 `/_next/image?url=https%3A%2F%2Fcdn.sanity.io%2F…&w=1200&q=75`——off-host 普查与
@@ -57,21 +56,16 @@ netcapture / mirror-site 的外部主机清单必含（按站取舍）：`cdn.sa
 JPEG/PNG；而真浏览器（`Accept: image/avif,image/webp,…`）同一 URL 拿到 webp。
 **同一 URL、两种字节，镜像与浏览器运行时就此分叉。**
 
-实证【basement，D5 全量定案】：魔数普查 391 个 `@@auto=format` 变体，59 个扩展名↔魔数
-分叉（56 `webp→jpeg`、3 `webp→png`——webp 源被转码回退，如 `…-1920x833@@auto=format
-&w=1200.webp` 魔数 JPEG）；**双 Accept 采样 6/6 全分叉**——jpg/png 源在浏览器 Accept
-下同样返回 webp（645KB png→54KB、**1.13MB png→61KB**）。即**分叉面是全部栅格变体，
+魔数普查见 59 个扩展名↔魔数分叉，而**双 Accept 采样 6/6 全分叉**——即**分叉面是全部栅格变体，
 不止扩展名穿帮的那 59 个**：魔数普查只看得见协商跨过扩展名边界的尖角，量化全貌必须
-双 Accept 采样。三个配套事实：
+双 Accept 采样（实证：`case-studies/sanity-platform.md` §1.2）。三个配套事实：
 
 - **响应自己声明了协商**：`Vary: origin, accept`——凡 Vary 含 `accept` 的条目，字节都
   随请求 profile 变（`lib/negotiate.mjs` 的 `isNegotiated()`）；
 - **裸 Accept 重抓 6/6 sha256 与镜像精确一致**——分叉是 profile 级不是时间漂移，镜像
   在 `*/*` 标尺下内部自洽；
-- **浏览器协商结果是一个分布，不是一种格式**：14islands 616 变体 604 webp / 4 avif / 8 png；
-  basement 全量重抓 391 变体 **311 webp / 79 avif** / 1 svg（3840×2160 大图多，avif 份额
-  随站与资产尺寸变）——basement 采样 6 全 webp 曾让"未见 avif"成为论断，样本放大即修正
-  【14islands】【basement】。
+- **浏览器协商结果是一个分布，不是一种格式**：avif 份额随站与资产尺寸变，小样本"未见 avif"
+  不成为论断，样本放大即修正【14islands】【basement】。
 
 后果三连：
 
@@ -95,7 +89,6 @@ JPEG/PNG；而真浏览器（`Accept: image/avif,image/webp,…`）同一 URL �
   记账树** `mirror-negotiated/`——自有 manifest/inventory、同一套 `lib/urlpath` 映射、
   账本记 `profile`/`vary`/`baseline`（旧 sha）；旧树零改动、两树同 URL 键逐条可对照、
   覆盖门无需改语义；以浏览器字节为参照的门用 `serve --fallback-root` 链 negotiated→mirror。
-  实测 391/391、217MB→39.5MB、新树五项全绿（项目侧 `scripts/regrab-negotiated.mjs` 可参照）。
 
 ### 1.3 变体阶梯：字节推导全集，两层展开
 
@@ -164,8 +157,7 @@ endpoint），应答按**完整 query 字符串为键**返回镜像实测的那�
 **M0 `--hosts` 预设**（按指纹删减）：`cdn.sanity.io`、`<projectId>.api.sanity.io`、
 `<projectId>.apicdn.sanity.io`、`fonts.googleapis.com` + `fonts.gstatic.com`、
 `stream.mux.com` 等 `*.mux.com` 族（视频，basement/14islands）、`www.googletagmanager.com`
-（遥测，通常 D5 登记不抓）。⚠ **预设不会自己进命令行**——14islands 实测：本卡写着
-mux 族，netcapture 命令里漏传，断网 sweep 才在 100/100 路由上把它报出来。开工时把
+（遥测，通常 D5 登记不抓）。⚠ **预设不会自己进命令行**（实证：`case-studies/sanity-platform.md` §4）：开工时把
 本行逐项抄进 mirror-site / netcapture 的 `--hosts`，抄完对着 off-host 普查核一遍。
 
 **⛔ 协商面三族**（全部实测；镜像账本 v0.3.9 起记 `vary`，关账前对账本 Vary 普查一遍即得全景）：
@@ -179,9 +171,9 @@ mux 族，netcapture 命令里漏传，断网 sweep 才在 100/100 路由上把�
    的 header 形态），镜像收 HTML 形态、flight 走 `?_rsc=` 变体入镜（rsc-reconstruction §2）。
 
 **运行时资源族清单**（BFS 看不见、netcapture/推导要补的；⭐ **能从字节推导的先推导，再拿
-netcapture 对账**——14islands 实测：webpack runtime 的 `h.u`（chunk id→hash 表）+ `h.miniCssF`
-+ `_buildManifest` 推出 28 chunk + 11 css + 9 页 chunk，其中 28 条是预览分支的死 chunk，任何路由
-都跑不到；`_next/data/<buildId>/<route>.json` 按路由表推导 98 条得 95）：`?_rsc=` 预取载荷、
+netcapture 对账**——webpack runtime 的 `h.u`（chunk id→hash 表）+ `h.miniCssF` + `_buildManifest`
+推出 chunk/css 清单，`_next/data/<buildId>/<route>.json` 按路由表推导；实证见
+`case-studies/sanity-platform.md` §4）：`?_rsc=` 预取载荷、
 next/image srcset 阶梯（§1.3 两层展开）、动态 OG 图（`og:image`/`twitter-image` 指向的
 爬虫专供路由）、well-known 探测（`/sitemap.xml` `/robots.txt` `/llms.txt` `/openapi.json`
 `/*.md` 孪生——darkroom 实测五种都有）、`/_vercel/insights`（快照入 public/，登记）。

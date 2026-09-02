@@ -5,4 +5,4 @@
  * Every script prints this under --help / --version so a copy that fell behind
  * can be told apart from the skill (selftest pins it to SKILL.md's frontmatter).
  */
-export const SKILL_VERSION = "0.3.18";
+export const SKILL_VERSION = "0.3.19";

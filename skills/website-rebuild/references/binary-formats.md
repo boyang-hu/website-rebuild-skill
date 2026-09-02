@@ -6,12 +6,11 @@
 
 **"数据文件直接搬运 + 播放器行为对齐"优先于"重实现格式"。** 处置顺序（从省力到费力，逐级降级）：
 
-1. **资产原件从镜像直接搬运**——绝不"找相似替代资源"（lando 的字体/GLB/HDRI/KTX2/.riv 全部来自镜像原件，没有任何替代环节）【lando】。
+1. **资产原件从镜像直接搬运**——绝不"找相似替代资源"【lando】。（实证：`case-studies/binary-formats.md` §0）
 2. **播放器用同版本现成库**：
-   - 版本从 bundle 取证：lando 的 Rive 版本从 bundle 内 wasm URL 取证，钉 @rive-app/canvas-lite@2.26.4【lando】；
-   - 源站 vendored 的库若有 npm 同款，先证明"同库同算法"再替换并登记偏差（samsy 的 layout-bmfont-text、word-wrapper 等 9 项）【samsy】；
-   - oryzo 的 three-msdf-text-utils 即源站 vendored 的同一库【oryzo】。
-3. **解码逻辑就在 bundle 里 → 1:1 移植解码器**，而非黑盒猜格式（oryzo 的 BufLoader 是从 bundle 直译的）【oryzo】。
+   - 版本从 bundle 取证（版本字符串、wasm URL）【lando】；
+   - 源站 vendored 的库若有 npm 同款，先证明"同库同算法"再替换并登记偏差【samsy】【oryzo】。
+3. **解码逻辑就在 bundle 里 → 1:1 移植解码器**，而非黑盒猜格式【oryzo】。
 4. 只有以上都不可行，才走"推导布局与量化公式"的完整逆向（§2）。
 
 ## 1. 分诊：三个判断
@@ -33,15 +32,15 @@
 拿到未知二进制文件，先回答三问再动手：
 
 **问 1：格式是否有开源参照？**
-grep 文件魔数/结构特征，对照开源生态。oryzo 的 `.sog` 被识别为 **PlayCanvas SOG 标准格式**（无压缩 ZIP + webp 平面 + codebook）——可借开源实现比对验证，不必从零逆向【oryzo】。判据：能找到开源参照 → 解析器对照开源实现写，验证用开源实现当 oracle。
+grep 文件魔数/结构特征，对照开源生态。判据：能找到开源参照 → 解析器对照开源实现写，验证用开源实现当 oracle。【oryzo】（实证：`case-studies/binary-formats.md` §1）
 
 **问 2：它是"数据文件"还是"需要理解的格式"？**
-- **数据文件**（有现成播放器消费）：直接搬运 + 播放即可。lando 的 `.riv` 就是数据文件，"直接播放即可；**难点在 DOM 集成层**"——预载缓存、resize 注册表、状态机接线，做法是把 bundle 里的全局变量表逐字 dump 后照抄，页面过渡链路（taxi 生命周期 → Rive 遮罩 → 1000ms 揭开）按 boot 时序图移植【lando】。
-- **需解析的格式**：消费端逻辑要自己重建时才需要理解布局（oryzo 的 `.buf` 由自研引擎解码消费，必须移植解码器）【oryzo】。
+- **数据文件**（有现成播放器消费）：直接搬运 + 播放即可。**难点在 DOM 集成层**——预载缓存、resize 注册表、状态机接线，做法是把 bundle 里的全局变量表逐字 dump 后照抄【lando】。（实证：`case-studies/binary-formats.md` §1）
+- **需解析的格式**：消费端逻辑要自己重建时才需要理解布局【oryzo】。
 
 **问 3：消费者代码在哪？**
 - 主 bundle 里 → 从 `_pretty/` 行号定位解码函数，1:1 移植【oryzo】。
-- Web Worker 里 → 把 worker 也 beautify 进 `_pretty/`（samsy 的 baker worker 展开 33,458 行），**逆向 worker 协议**写进逆向笔记，再移植烘焙管线（samsy M6 的 VRM/VAT worker 烘焙管线）【samsy】。注意 worker 文件本身是运行时才 fetch 的，静态镜像抓不到，需实跑补录【oryzo】【samsy】。
+- Web Worker 里 → 把 worker 也 beautify 进 `_pretty/`，**逆向 worker 协议**写进逆向笔记，再移植烘焙管线【samsy】。注意 worker 文件本身是运行时才 fetch 的，静态镜像抓不到，需实跑补录【oryzo】【samsy】。（实证：`case-studies/binary-formats.md` §1）
 
 分诊 checklist：
 - [ ] 三问均有书面答案，写进逆向笔记（只陈述事实，未坐实标"未确认"）
@@ -54,20 +53,17 @@ grep 文件魔数/结构特征，对照开源生态。oryzo 的 `.sog` 被识别
 当必须解析格式时，按以下四步走：
 
 **步骤 1：从消费端代码推导布局与量化公式。**
-不做黑盒 hexdump 猜测——bundle 里的解码逻辑就是格式规格书。oryzo 逆向结论：
-- 布局：`[uint32 头长][JSON 头][顺序属性载荷]`；
-- 量化解包公式：`value = (raw + half) * q * delta + from`；
-- 同格式的非显然用法也要挖出来：相机轨迹同样是 `.buf`（Points 类型，每 vertex = 一帧的 position/orient/focal），运镜按帧插值（lerp + slerp + focal→fov）【oryzo】。
+不做黑盒 hexdump 猜测——bundle 里的解码逻辑就是格式规格书。同格式的非显然用法也要挖出来【oryzo】。（实证：`case-studies/binary-formats.md` §2）
 逆向结论先写进 `docs/engine-notes.md`（含"对复刻的直接结论"），再写解析器代码【oryzo】。
 
 **步骤 2：解析器 1:1 移植，不重新设计。**
-`BufLoader.ts` 是源站解码逻辑的直译；死参数（`mipFilter`）、错误赋值（`format="R8"`）照抄不修——"修正它们反而会偏离源站的实际渲染结果"【oryzo】。
+死参数（`mipFilter`）、错误赋值（`format="R8"`）照抄不修——"修正它们反而会偏离源站的实际渲染结果"【oryzo】。（实证：`case-studies/binary-formats.md` §2）
 
 **步骤 3：配专用调试页。**
-每个格式解析器配一个可视化调试路由（oryzo：`/debug/buf`，模型下拉 + OrbitControls + 贴图验证 + 相机轨迹可视化）——"比在主站里调试快得多"【oryzo】。
+每个格式解析器配一个可视化调试路由——"比在主站里调试快得多"【oryzo】。（实证：`case-studies/binary-formats.md` §2）
 
 **步骤 4：量化验收。**
-验收标准必须是可数的：oryzo 的门是 **25/25 模型全部解析成功**【oryzo】。"看起来能渲染"不是验收。
+验收标准必须是可数的（全量资产 N/N 解析成功）【oryzo】。"看起来能渲染"不是验收。（实证：`case-studies/binary-formats.md` §2）
 
 Checklist：
 - [ ] 布局/公式结论带 pretty 行号写进逆向笔记
@@ -77,12 +73,12 @@ Checklist：
 
 ## 3. 标准格式的非标准用法：GLB 时间线【noomo】
 
-标准容器（GLB）被当作私有数据载体时（noomo：三条 Blender 烘焙的动画时间线 GLB，相机 + 约 40 条参数曲线），处置方式不是"重实现"，而是**先 dump 成数值账本**：
+标准容器（GLB）被当作私有数据载体时，处置方式不是"重实现"，而是**先 dump 成数值账本**（实证：`case-studies/binary-formats.md` §3）：
 
-1. **手写最小解析器 dump 曲线成 JSON**：`scripts/dump-timelines.mjs`（手写 GLB 二进制解析器）把全部动画曲线 dump 成 JSON 数值基准入库 `docs/timeline-baseline/`（2.4MB：dev.glb 38 条参数轨道×481 帧、cam.glb 相机 601 帧 + 7 个 project 空物体 TRS）。脚本注释点明动机："careers-kimi lesson: **compare recorded values, not screenshots**"【noomo】。
+1. **手写最小解析器 dump 曲线成 JSON**：把全部动画曲线 dump 成 JSON 数值基准入库。脚本注释点明动机："careers-kimi lesson: **compare recorded values, not screenshots**"【noomo】。
 2. **数值账本先于任何引擎代码产出**（数据基准先行，在 M1 逆向阶段完成）【noomo】。
 3. **验收用数值全等而非截图**：复刻引擎的验收是"相机位置在 t=0/5/10/19 与基准插值**小数点后三位全等**"【noomo】。
-4. **账本兼任排障 oracle**：F3 残差排查用 dev.json 采样值逐项核对 8 个现场弹簧值，**证明参数绑定链无 bug 后**才定性为弱视觉差登记【noomo】。
+4. **账本兼任排障 oracle**：**证明参数绑定链无 bug 后**才定性为弱视觉差登记【noomo】。
 5. 运行时消费仍然直接播放原 GLB 文件（重资产挂载镜像，不复制入库）——账本只是验证基准，不替代数据文件本身【noomo】。
 
 这个模式可泛化：**一切被数据文件驱动的动画，先把数据 dump 成 JSON 数值账本，再谈移植与验收**【noomo】。
@@ -90,9 +86,9 @@ Checklist：
 ## 4. worker 协议与烘焙管线【samsy】
 
 VAT（Vertex Animation Texture）类"运行时烘焙"格式的要点：
-- 数据不在磁盘文件里，而在 **worker 协议**中——把 baker worker 与主 bundle 一样用钉死版本的 js-beautify 展开进 `_pretty/`（samsy：33,458 行），协议全量写进 engine-notes 再移植【samsy】。
+- 数据不在磁盘文件里，而在 **worker 协议**中——把 baker worker 与主 bundle 一样用钉死版本的 js-beautify 展开进 `_pretty/`，协议全量写进 engine-notes 再移植【samsy】。
 - 关联硬编码常量照抄：MSDF bmfont 字体（JSON+PNG 4 套）直接镜像，布局算法用 npm 同库替代并登记，`msdfunit = 6/图集尺寸` 等硬编码照抄【samsy】。
-- 验收走引擎状态数值断言（15 NPC / 7 舞者 / instancer / 25 作品）而非目测【samsy】。
+- 验收走引擎状态数值断言而非目测【samsy】。（实证：`case-studies/binary-formats.md` §4）
 
 ## 5. 各格式速查表
 
@@ -106,17 +102,12 @@ VAT（Vertex Animation Texture）类"运行时烘焙"格式的要点：
 
 ## 6. 常见坑
 
-1. **worker / WASM 是运行时才 fetch 的，静态镜像必漏**：oryzo 的 `.sog` WASM 排序 worker、samsy 的 baker.worker 都是事后用真实浏览器实跑抓 network 补录的。发现私有格式时立即检查其 worker/解码器是否已在镜像里【oryzo】【samsy】。
-2. **数据类资产用脚本抽取，不手抄**：bundle 内嵌的数据一律脚本反解成 JSON 入库。
-   - samsy：works.json（25 条）、cityLayout.json（35 处摆放，L65917-66615 逐字反解）、animations.json（1.64MB）、mixamoRig.json、preloaderFrames.json【samsy】；
-   - kimi：i18n 用括号配平 + 隔离 vm 求值抽取，键集交叉校验（80=80），生成物不手改——"连源站的拼写错误都免费保真"【kimi】。
-3. **bundle 内联 base64 资产容易漏**：noomo 的 colorsMap 光谱 LUT 藏在 bundle base64 里，缺了玻璃整体变灰白；提取到 `_extracted/`，复刻侧再内嵌时要做字节级一致性验证【noomo】。
+1. **worker / WASM 是运行时才 fetch 的，静态镜像必漏**：发现私有格式时立即检查其 worker/解码器是否已在镜像里【oryzo】【samsy】。（实证：`case-studies/binary-formats.md` §6）
+2. **数据类资产用脚本抽取，不手抄**：bundle 内嵌的数据一律脚本反解成 JSON 入库。生成物不手改——"连源站的拼写错误都免费保真"【samsy】【kimi】。（实证：`case-studies/binary-formats.md` §6）
+3. **bundle 内联 base64 资产容易漏**：提取到 `_extracted/`，复刻侧再内嵌时要做字节级一致性验证【noomo】。（实证：`case-studies/binary-formats.md` §6）
 4. **格式里的死参数/错误赋值照抄**：`mipFilter`、`format="R8"` 修掉才是偏离【oryzo】。
-5. **移动端变体有独立命名规则**：oryzo 的 `getMobileUrl(url)` 在扩展名前插 `_MOBILE`（纹理上限 800px vs 桌面 2560px）——镜像时按规则补全变体，否则移动分支 404（oryzo 曾一次补录 16 个移动端文件）【oryzo】。
-6. **动态拼接的资产 URL 正则抓不到**：`` `/models/crystal${e}.glb` `` 类模板字面量要人工静态求解后逐个补抓（noomo 把 `${e}` 解为 0–6）；lando 的 GL 资产基址 `vQ`、Rive 基址 `mj` 都是变量拼接，靠人工从 bundle 求解【noomo】【lando】。
-7. **自写二进制工具必须对参照实现验证**：
-   - kimi 的零依赖 PNG 编解码器对 Pillow 逐格验证过才可信；
-   - 起因是 M7.3 事故——Chrome 截图是 colorType 2 三通道而临时诊断代码硬编码 `*4` 索引，画出一整轮几何假象；
-   - 诊断工具与验收门要用不同的正确性标准，一份解码代码同时服务两者时，坏账会藏在全绿里【kimi】。
+5. **移动端变体有独立命名规则**：oryzo 的 `getMobileUrl(url)` 在扩展名前插 `_MOBILE`——镜像时按规则补全变体，否则移动分支 404【oryzo】。（实证：`case-studies/binary-formats.md` §6）
+6. **动态拼接的资产 URL 正则抓不到**：`` `/models/crystal${e}.glb` `` 类模板字面量要人工静态求解后逐个补抓；变量拼接的资产基址同样靠人工从 bundle 求解【noomo】【lando】。（实证：`case-studies/binary-formats.md` §6）
+7. **自写二进制工具必须对参照实现验证**：诊断工具与验收门要用不同的正确性标准，一份解码代码同时服务两者时，坏账会藏在全绿里【kimi】。（实证：`case-studies/binary-formats.md` §6）
 8. **别在主站里调试格式解析器**：没有专用调试页时，格式 bug 与场景 bug 混在一起无法归因——先建调试路由再接主站【oryzo】。
-9. **模型的内在变换不要"归一化"**：rogier 的 `me.gltf` 按源站原样使用，不做旋转翻转/包围盒归一化——模型自带 31.17 的内在 scale 是行为的一部分【rogier】。
+9. **模型的内在变换不要"归一化"**：按源站原样使用，不做旋转翻转/包围盒归一化——模型自带的内在 scale 是行为的一部分【rogier】。（实证：`case-studies/binary-formats.md` §6）

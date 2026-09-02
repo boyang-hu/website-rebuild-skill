@@ -228,6 +228,7 @@ cp -R skills/website-rebuild ~/.claude/skills/website-rebuild
 skills/website-rebuild/    # 技能本体，目录结构遵循 agentskills.io 规范
 ├── SKILL.md               #   主流程 + 判级 + 纪律（激活时整体加载）
 ├── references/            #   23 份分场景指南（按需加载）
+│   └── case-studies/      #     各文档的实证记录（战史），不在必经集合
 ├── assets/templates/      #   文档模板
 ├── scripts/               #   零依赖 Node 工序脚本与验收门 + lib/ 共用模块
 │                          #     判级与源码化之前的全部工序都住这里
@@ -260,7 +261,7 @@ README.en.md               # 英文版 README
 
 版本随真实复刻项目递进：每个版本发布的功能与修复，都先在至少一个完整项目上验证过。
 
-完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.18**：lib 收拢——四份 CDP 客户端、三份 findChrome、五份 UA、四份请求头梯子、23 处 sha256、四写六读的账本 TSV 各收成一份（`lib/cdp` / `lib/hash` / `lib/ledger` / `lib/negotiate` / `lib/chrome`），scripts + tools 净减 219 行；账本与服务回放 before/after 逐字节一致，真 Chrome 冒烟 probe CLEAN / sweep 2/2 / pixelcompare 0.00；损坏的账本不再被当空账本覆盖；selftest 114→140。
+完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.19**：战史外置——24 份文档各拆成「规则」与「实证」两半，故事逐字搬进 `references/case-studies/`（不在必经集合，只在追问「这条规则为什么存在」时读），规则原处留指针、【代号】不丢；零丢失由 `check-cases.mjs` 逐句比对证明（6,800+ 句全部 missing 0，过程中救回两次子代理中途失败造成的缺口）；必经集合 12.6–17.8 万 → 11.3–15.9 万 token；selftest 140→143（案例文件的三条不变量：有母文档、标题对得上、指针不指向空处）。
 
 ## 贡献
 

@@ -228,6 +228,7 @@ Representatives from 43 probed sites that drew the boundary — **the boundary i
 skills/website-rebuild/    # the skill itself, laid out per the agentskills.io standard
 ├── SKILL.md               #   main pipeline + triage + disciplines (loaded whole on activation)
 ├── references/            #   23 scenario guides (loaded on demand)
+│   └── case-studies/      #     the evidence behind each doc's rules; never in a mandatory set
 ├── assets/templates/      #   document templates
 ├── scripts/               #   zero-dependency Node stage scripts and gates + lib/ shared modules
 │                          #     every stage before sourcification lives here
@@ -260,7 +261,7 @@ Before anything goes public, per-asset copyright **forensics** must be completed
 
 Versions advance with real rebuild projects: every feature and fix shipped was first validated on at least one complete project.
 
-Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.18** — library consolidation: four CDP clients, three findChrome copies, five UA strings, four header ladders, 23 sha256 spellings and the four-writer/six-reader ledger TSV code each collapse into one module (`lib/cdp` / `lib/hash` / `lib/ledger` / `lib/negotiate` / `lib/chrome`), scripts + tools net −219 lines; ledgers and serve replay byte-identical before/after, live-Chrome smoke probe CLEAN / sweep 2/2 / pixelcompare 0.00; a corrupt ledger is no longer overwritten as if empty; selftest 114→140.
+Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.19** — war stories externalized: all 24 docs split into rules and evidence, the stories moved verbatim into `references/case-studies/` (outside every mandatory set, read only when you ask why a rule exists), each rule keeping a pointer and its 【codename】 provenance; zero loss is proven sentence-by-sentence by `check-cases.mjs` (6,800+ sentences, all `missing 0`, and it caught two gaps left by interrupted workers); the mandatory set drops from 126–178K to 113–159K tokens; selftest 140→143 (three case-study invariants: parent exists, headings match, no pointer into thin air).
 
 ## Contributing
 

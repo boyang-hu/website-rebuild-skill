@@ -4,7 +4,7 @@
 
 ## 0. 分层模型（本指南的组织逻辑）
 
-一个 Shopify 店铺的产物必须拆成**四层**看，**四层的复刻策略完全不同**，混作一团是 B 类最常见的失控源。前三层由 racing.shop 立起，第四层由 objectandarchive 实测补入：**主题层必须再切一刀**，把被 fork 的上游主题带来的**存量样板**与**店铺自研**分开【objectarchive】。
+一个 Shopify 店铺的产物必须拆成**四层**看，**四层的复刻策略完全不同**，混作一团是 B 类最常见的失控源。**主题层必须再切一刀**，把被 fork 的上游主题带来的**存量样板**与**店铺自研**分开【objectarchive】（实证：`case-studies/shopify-platform.md` §0）。
 
 | 层 | 代号 | 归属 | 各店是否相同 | 复刻策略 |
 |---|---|---|---|---|
@@ -13,12 +13,12 @@
 | **主题层·上游存量** | `T-上游` | 被 fork 的上游主题（Dawn / Prestige / Ella …） | 同一上游的店之间**相同** | **原样带过**：既不是剥离目标（它不是 Shopify 运行时），也不是移植目标（不是店主写的）。判据见 §0.2 |
 | **主题层·站点自研** | `T-站点` | 店铺自己 | **各店不同** | 签名交互全部住这里。按 A 类手法**逐字移植**（`porting-discipline.md` + `dom-shell-strategies.md` 策略 A）。形态变量见 §4 |
 
-**为什么第四层非切不可**：`T-上游` 混进任一边都会直接损坏工作量估算——混进 `T-站点` 让移植任务表虚高（objectandarchive 实测 **+65%**），混进 `P` 则让剥离清单多出一批**本该原样保留**的块，删了就是未登记偏差。四层模型的直接产出就是"**你要移植多少东西**"（实测规模见 §0.3）。主题若非 fork 而来（从零定制），`T-上游` 为空集，四层退化回三层——但**"为空"必须是核验后的结论，不是默认假设**（§4 读法）。
+**为什么第四层非切不可**：`T-上游` 混进任一边都会直接损坏工作量估算——混进 `T-站点` 让移植任务表虚高，混进 `P` 则让剥离清单多出一批**本该原样保留**的块，删了就是未登记偏差。四层模型的直接产出就是"**你要移植多少东西**"（实测规模见 `case-studies/shopify-platform.md` §0.3）。主题若非 fork 而来（从零定制），`T-上游` 为空集，四层退化回三层——但**"为空"必须是核验后的结论，不是默认假设**（§4 读法）。
 
 判层的机械判据（对每个 `<script src>` / 每条网络请求执行）：
 
 - 路径含 `/cdn/shopifycloud/`、`/.well-known/shopify/`、`/checkouts/`、`/cart/*.js`、`/shopify_pay/`、`cdn.shopify.com/storefront/`、`shop.app`、`monorail-edge.shopifysvc.com` → **平台层 `P`**。
-- 路径形如 `/cdn/shop/t/<主题号>/assets/*` → **主题层**（`racing.shop` 是 `t/17`、allbirds `t/4159`、pangram `t/52`、simply-chocolate `t/126`、mana `t/18`、objectandarchive `t/11`）——落到 `T-上游` 还是 `T-站点` 再按 §0.2 判。
+- 路径形如 `/cdn/shop/t/<主题号>/assets/*` → **主题层**——落到 `T-上游` 还是 `T-站点` 再按 §0.2 判（各站主题号实例：`case-studies/shopify-platform.md` §0）。
 - 路径形如 `cdn.shopify.com/extensions/<uuid>/<app>-<ver>/assets/*`，或指向第三方域（klaviyo / weglot / wunderkind / stape …）→ **应用层 `A`**。
 
 **上面这组判据只对"有 URL 的东西"有效。** 内联 `<script>` 块没有 URL，四层可以**交织在同一批内联块里**，分离方法见 §0.3。
@@ -36,25 +36,16 @@
 被 fork 的主题会往页面里塞一批**店主一行没碰过**的块与资产。总判据是**这段字节是谁写的，不是它作用在谁的 DOM 上**——一段专门去改 Dawn 组件的代码是店主写的（`T-站点`），一段 Dawn 原样带来的 JSON-LD 是上游写的（`T-上游`）。按序执行，前一条能定就不必用后一条：
 
 1. **上游对照（最硬）**：取 `Shopify.theme.schema_version` 与血统年代（§4.1），去上游仓库（Dawn 直接读 `github.com/Shopify/dawn`）找同名 snippet/section 与块正文对照。**只有 Liquid 插值出来的值不同（文案、商品 JSON、路由前缀）→ `T-上游`**；结构、函数、类名有增删改 → `T-站点`。
-2. **资产名清单**：`/cdn/shop/t/<N>/assets/` 里上游标准件与店主自加件并存。Dawn 标准件名固定：`constants.js` / `pubsub.js` / `global.js` / `cart-drawer.js` / `cart-notification.js` / `details-disclosure.js` / `details-modal.js` / `quantity-popover.js` / `localization-form.js` / `predictive-search.js` / `animations.js`；店主自加件带站点前缀（objectandarchive：`oa-wishlist.js` / `oa-color-library.js` / `color-swatches.js`）。
+2. **资产名清单**：`/cdn/shop/t/<N>/assets/` 里上游标准件与店主自加件并存。Dawn 标准件名固定：`constants.js` / `pubsub.js` / `global.js` / `cart-drawer.js` / `cart-notification.js` / `details-disclosure.js` / `details-modal.js` / `quantity-popover.js` / `localization-form.js` / `predictive-search.js` / `animations.js`；店主自加件带站点前缀（实证：`case-studies/shopify-platform.md` §0.2）。
 3. **命名前缀**：自研代码几乎必然带站点前缀（`oa-*` 类名、`oa-*` CSS 变量、`OA` 全局），上游存量不带。
-4. **注释里的人称（最强的一手证据）**：开发者注释**用第三人称提上游主题** —— objectandarchive 原文 `wraps Dawn's #CartDrawer`、`use oa-* classes to avoid Dawn's cart CSS`、`--- Currency: kill all Dawn disclosure def…`。**"提到 Dawn" = 站在 Dawn 外面写的 = `T-站点`**；上游自己的代码不会这样称呼自己。
+4. **注释里的人称（最强的一手证据）**：开发者注释**用第三人称提上游主题**（原文实证：`case-studies/shopify-platform.md` §0.2）。**"提到 Dawn" = 站在 Dawn 外面写的 = `T-站点`**；上游自己的代码不会这样称呼自己。
 5. **角色**：只向上游组件**发布数据/文案**（`window.routes`、`cartStrings`、`variantStrings`、`accessibilityStrings`、JSON-LD、designMode class、selected-variant JSON 岛）→ `T-上游`；**动上游的 DOM / 打补丁 / 覆盖其行为**（搬 `<quantity-input>` 节点以保住 cart.js 的 handler、强显隐私横幅、用自定义事件把 scroll lock 与上游解耦）→ `T-站点`。
 
 **边界情形**：上游块里被店主改过 Liquid 插值**值**的（如把 `Add to cart` 改成 `Add to Bag`）仍记 `T-上游`——代码形状是上游的，文案是内容不是行为；在归属表里加一条 note 说明即可。**判不出来的不许猜**：归属门要把它报成 UNCLASSIFIED / AMBIGUOUS 并挡住关账（§0.3 步骤 5），因为猜错一块就是几十 KB 在两层之间无声搬家。
 
 ### 0.3 内联交织形态：没有文件边界时怎么分层【objectarchive】
 
-**四层不一定分处不同文件。** racing.shop 三层各有各的 `<script src>`，按 §0 的路径判据即可分层；objectandarchive **既没有 bundle、也没有分层的文件边界**——三条路由合计 **62 个唯一内联 `<script>` 块**，四层混装其中：
-
-| 层 | 块数 | 字节（逐块取各页最大值） | 备注 |
-|---|---|---|---|
-| `P` 平台 | 26 | 814,361 | **96% 是两块数据**（collection 页 629 KB 的 analytics 商品元数据、product 页 162 KB 的 wpmLoader）——**剥离成本与字节数无关**，别被总量吓到 |
-| `A` 第三方 App | 4 | 15,259 | Klaviyo ×3 + Hulk Form Builder |
-| `T-上游`（Dawn 存量） | 6 | 87,548 | JSON-LD ×3、`window.routes`/`cartStrings` 块、designMode class、selected-variant JSON 岛 |
-| `T-站点`（自研） | **26** | **134,532** | **这 26 块就是移植任务表** |
-
-把 87.5 KB 的 Dawn 存量误记成自研，任务表就是 222 KB 而不是 134.5 KB（**虚高 65%**），工期估算与里程碑切分一起偏。
+**四层不一定分处不同文件。** 无 bundle 的站上四层可以混装在同一批内联块里；`P` 层的字节大头往往是数据块，**剥离成本与字节数无关**，别被总量吓到；把上游存量误记成自研，工期估算与里程碑切分一起偏（62 块四层交织的普查表与虚高比例：`case-studies/shopify-platform.md` §0.3）。
 
 分离按下列步骤执行，**产出必须是机器可校验的归属表，不是文档里的一句话**：
 
@@ -62,7 +53,7 @@
 2. **按内容哈希建表，不按块序号或行号**：内联块的序号与行号会随渲染漂（证据与坐标系定义见 `reverse-engineering.md` §0.1）。哈希做主键还有一个副产品——同一块在三条路由上出现在三组不同行号，按哈希编目自动收敛成一行记录。
 3. **逐块判层**：`P` 用平台特征字面量（`Shopify.analytics` / `wpmLoader` / `trekkie` / `__st` / `monorailEndpoint` / `ShopifyAnalytics.meta`）；`A` 用 App 名与其外部域；`T-上游` vs `T-站点` 用 §0.2。**每块起一个语义 id**（`oa-lenis-gsap-orchestration`、`oa-pdp-frame-compositor`，不要 `block-37`）——序号会漂，而这些名字要直接当移植任务表的行标题用。
 4. **带 nonce 的块用锚点兜底**：少数平台块含逐请求 nonce（`eventMetadataId` / `requestId` / `reqid`），字节一变哈希就变。给这类条目补一条**只在该块出现、别处不出现的字面量**作探针；探针会**嵌套**（trekkie 引导块包含 shim 队列全文、analytics 载荷里含整个商品 JSON），所以要支持"必须出现在块首"的锚点形式。
-5. **归属门**：写脚本把普查结果与归属表 join，**任何未归属的块打印 UNCLASSIFIED、任何匹配到两条的打印 AMBIGUOUS，两者非零即退非零码**，并把它列进 M1 关账条件。这道门**本 skill 尚未提供现成脚本**（见 `scripts/README.md` TODO），按上面的判据自己写一个即可；可参照 objectandarchive 项目侧的 `layer-report.mjs` + `docs/layer-map.json`（三页 **0 UNCLASSIFIED / 0 AMBIGUOUS**）。**歧义不许用启发式自动消解**——猜一次就是几百 KB 在层间无声搬家。**归属门要跑在"构建层实际产出的每一份文档"上，不是"约定的那几条路由"上**——objectandarchive 的 404 页与被动入镜的 vendor 页因此在 M1 从未过门，直到 M2 的块级门把它们报成 UNCLASSIFIED 才补上。
+5. **归属门**：写脚本把普查结果与归属表 join，**任何未归属的块打印 UNCLASSIFIED、任何匹配到两条的打印 AMBIGUOUS，两者非零即退非零码**，并把它列进 M1 关账条件。这道门**本 skill 尚未提供现成脚本**（见 `scripts/README.md` TODO），按上面的判据自己写一个即可（项目侧样例：`case-studies/shopify-platform.md` §0.3）。**歧义不许用启发式自动消解**——猜一次就是几百 KB 在层间无声搬家。**归属门要跑在"构建层实际产出的每一份文档"上，不是"约定的那几条路由"上**（实证：`case-studies/shopify-platform.md` §0.3）。
 
 6. **把归属表当门用，不要止步于分类**：分层的结论必须落成**对产物字节的断言**，否则 `T-上游`「原样带过」只是一句口号——没人能证明它真的没被动过。断言的形状（objectandarchive 的 `verify-shell.mjs` BLOCKS 门，逐块按内容哈希 join 归属表）：
 
@@ -75,10 +66,10 @@
 
    它挡住的是三件 hunk 级 diff 看不清的事：
    - **构建层在改移植目标**：无 bundle 的站上**外壳就是行为源**（签名行为住在内联 `<script>` 里，见 `reverse-engineering.md` §0.1），构建层动 `T-站点` 一个字节，就是构建层在改源程序——这也是这类站上策略 A 不是"省事的做法"而是唯一自洽做法的原因；
-   - **上游存量被"顺手修好"**：`T-上游` 的字节是上游写的，改它等于为零收益污染上游产物。objectandarchive 实测差点修掉 Dawn JSON-LD 里的一处转义绝对 URL（`"url":"https:\/\/<源站主机>"`），正解是**在 `external.txt` 里逐条判定，而不是"修"**；判据仍是 §0.2 那句"这段字节是谁写的，不是它作用在谁的 DOM 上"（该拼写为什么会漏判，见 `verification-gates.md` §1.6 第 4 类）；
+   - **上游存量被"顺手修好"**：`T-上游` 的字节是上游写的，改它等于为零收益污染上游产物。正解是**在 `external.txt` 里逐条判定，而不是"修"**（实证：`case-studies/shopify-platform.md` §0.3）；判据仍是 §0.2 那句"这段字节是谁写的，不是它作用在谁的 DOM 上"（该拼写为什么会漏判，见 `verification-gates.md` §1.6 第 4 类）；
    - **整块无声消失**：这恰恰是 hunk 级 diff 最不可读的一种失败——删掉一个 18 KB 的块只是"一个巨大的 hunk"，只有块级门报得出"哪个语义 id 没了"。
 
-   **与步骤 5 的分工**：步骤 5 断言**每块都归了层**（零 UNCLASSIFIED），本步断言**每层都按自己的规则被处置了**；两道门都要，且都进关账。objectandarchive M2 实测：`T-站点` 26 / `T-上游` 6 / `A` 4 唯一块全部"逐字或只被本地化"，唯一被移除的块 = wpmLoader，0 UNCLASSIFIED；配套的 hunk 级门 5 页 **1,048 个差异 hunk 全部可由变换表重放**（变换表侧的下限纪律见 `dom-shell-strategies.md` §2 步骤 3）。
+   **与步骤 5 的分工**：步骤 5 断言**每块都归了层**（零 UNCLASSIFIED），本步断言**每层都按自己的规则被处置了**；两道门都要，且都进关账（实证：`case-studies/shopify-platform.md` §0.3；变换表侧的下限纪律见 `dom-shell-strategies.md` §2 步骤 3）。
 
 这条与 §6 坑 1（"内联遥测只能按属性或唯一起始字面量定位，不要凭印象删"）是同一件事的两端：**先有全量归属表，才谈得上删哪块**；而步骤 6 是第三端——**删完之后还要能证明只删了该删的那块**。
 
@@ -95,18 +86,20 @@
 | `/.well-known/shopify/monorail/**`（实见 `unstable/produce_batch`） | web-pixels-manager 的同源遥测批量上报口（HTML 内联配置 `monorailEndpoint`） | 服务层 200 `{}` | D5 |
 | `/api/collect` | `shopify-perf-kit-3.8.0` 的 RUM beacon 口（脚本属性 `data-shs-beacon-endpoint`），sendBeacon + fetch 双通道 | 服务层 200 `{}` | D5；allbirds 亦见此端点【probe】 |
 | 路径含 `web-pixels` 或 `/wpm@` | Web Pixels manager 沙箱与 loader | 200 `export {};`（JS） | D5 |
-| `/cdn/shopifycloud/shop-js/**` | shop-js loader 及其运行时 chunk 图。loader 文件内静态列出 `./chunk.*.esm.js` 约 37 个 + `client.*.esm.js`；HTML 的 `window.Shopify.featureAssets['shop-js']` 声明 **22 个 feature**（cart-sync、follow-button、login、toast-manager、avatar、windoid、fed-cm、cash-offers、checkout-modal、pay-button、payment-terms、lead-capture、user-recognition、customer-accounts…） | 整前缀 200 `export {};` | D6 |
+| `/cdn/shopifycloud/shop-js/**` | shop-js loader 及其运行时 chunk 图（chunk 数与 feature 清单实证：`case-studies/shopify-platform.md` §1.1） | 整前缀 200 `export {};` | D6 |
 | `/cdn/shopifycloud/storefront/assets/storefront/{load_feature,event_observer_reporter}*` | 特性加载器与其动态 import 的遥测 reporter chunk | 200 `export {};` | D5 |
-| `/cart.js` | Ajax Cart 读取（theme.js L1122 / L2237） | 200 空车 JSON | D2 |
-| `/cart/{add,update,change,clear}(.js)?` | 加购 / 改量 / 清空（theme.js add L2199·L2222、change L1248·L1275、update L1165·L1230·L1377） | 200 空车 JSON | D2 |
-| `/search/suggest*` | predictive-search（theme.js L3003 拼 `${Shopify.routes.root}search/suggest?q=…&section_id=predictive-search`） | 200 —— **形状须核，见坑 2** | D4 |
-| `/recommendations/products*` | product-recommendations（theme.js L4357-4364） | 200 空 section —— **形状须核，见坑 2** | D2 |
+| `/cart.js` | Ajax Cart 读取 | 200 空车 JSON | D2 |
+| `/cart/{add,update,change,clear}(.js)?` | 加购 / 改量 / 清空 | 200 空车 JSON | D2 |
+| `/search/suggest*` | predictive-search（拼 `${Shopify.routes.root}search/suggest?q=…&section_id=predictive-search`） | 200 —— **形状须核，见坑 2** | D4 |
+| `/recommendations/products*` | product-recommendations | 200 空 section —— **形状须核，见坑 2** | D2 |
 | `/cdn/shopifycloud/portable-wallets/**` | Shop Pay 加速结算按钮资源 | 200 空 `<svg/>` | D3 |
 | `/cdn/shopifycloud/checkout-web/**` | 结算 web 运行时 | 200 `export {};` | D3 |
 | `/shopify_pay/**`（含 `accelerated_checkout`） | Shop Pay 会话 / 钱包 | 200 `{}` | D3 |
 | `/checkouts/**`（含 `internal/preloads.js`） | 结算流程 | 200 `export {};` | D3 |
 | `/cdn-shopify/storefront/web-components/account/**` | 客户账号 web components 懒加载 chunk | 200 `export {};` | D6 |
 | 未命中任何静态文件 | —— | 回落 `404.html` 且**真返回 HTTP 404**（复刻 Shopify 语义，不要 200） | —— |
+
+（theme.js 调用点坐标见 `case-studies/shopify-platform.md` §1.1。）
 
 空车 JSON 用 Shopify Cart 对象的完整字段形状（`token/note/attributes/original_total_price/total_price/total_discount/total_weight/item_count/items/requires_shipping/currency/items_subtotal_price`），不要只回 `{}`——调用方会读字段。
 
@@ -128,9 +121,9 @@
 
 对每个镜像 HTML 只做**登记在案**的变换，其余逐字保留（策略 A）【lando】【racingshop】：
 
-1. **D1a 同源绝对/协议相对 → 根相对**：`https://<host>/`、`http://<host>/`、`//<host>/` → `/`。**必须同时处理 JSON 转义形式** `https:\/\/<host>\/` → `\/`（内联 JSON-LD / 配置块里全是这种写法，漏了就留下真实外域引用）。**四种形态一个都不能少**：绝对 / 协议相对 / **转义绝对** `https:\/\/host\/` / **转义协议相对** `\/\/host\/`——objectandarchive 的主题注入脚本正是最后这种写法，只处理前三种时它会在 127.0.0.1 上解析成 `http://<源站>/…`，**离线镜像向线上真站要图**【objectarchive】。另见 D1c。
-2. **D1b 外部 Shopify CDN / 其它外部主机 → 本地目录**：`https://cdn.shopify.com/` 与 `//cdn.shopify.com/` → `/cdn-shopify/`（含转义形式），对应镜像的 `assets/cdn.shopify.com/` 树。**转义形式对外部主机同样成立，别只给源站主机开**：objectandarchive 的 D1a 一开始只处理了源站主机的转义写法，外部主机漏掉，5 页共 25 处 `"input_custom_font_url":"https:\/\/cdn.shopify.com\/s\/files\/…woff2"` 就这样留在了一个已经关账、断言全绿的镜像里（登记为 D-T8；为什么每一道门都看不见它，见 `verification-gates.md` §1.6 第 4 类）【objectarchive】。
-3. **D1c 裸主机基址常量 → 本地基址**【objectarchive】：遥测与主题代码常把基址写成**不带尾斜杠**的常量再拼路径（`"https://otlp-http-production.shopifysvc.com"`、`window.shopUrl='https://<host>'`）。只改写"带尾斜杠"形式时，objectandarchive 实测漏了 4 个遥测外联 + 2 个到线上源站的主题资产请求（那份资产一直在盘上）。**改写规则按主机匹配，不要求尾斜杠**；验收侧的配套要求见 `mirroring.md` §8。
+1. **D1a 同源绝对/协议相对 → 根相对**：`https://<host>/`、`http://<host>/`、`//<host>/` → `/`。**必须同时处理 JSON 转义形式** `https:\/\/<host>\/` → `\/`（内联 JSON-LD / 配置块里全是这种写法，漏了就留下真实外域引用）。**四种形态一个都不能少**：绝对 / 协议相对 / **转义绝对** `https:\/\/host\/` / **转义协议相对** `\/\/host\/`【objectarchive】（漏掉第四种的后果实证：`case-studies/shopify-platform.md` §2）。另见 D1c。
+2. **D1b 外部 Shopify CDN / 其它外部主机 → 本地目录**：`https://cdn.shopify.com/` 与 `//cdn.shopify.com/` → `/cdn-shopify/`（含转义形式），对应镜像的 `assets/cdn.shopify.com/` 树。**转义形式对外部主机同样成立，别只给源站主机开**【objectarchive】（实证：`case-studies/shopify-platform.md` §2；为什么每一道门都看不见它，见 `verification-gates.md` §1.6 第 4 类）。
+3. **D1c 裸主机基址常量 → 本地基址**【objectarchive】：遥测与主题代码常把基址写成**不带尾斜杠**的常量再拼路径（`"https://otlp-http-production.shopifysvc.com"`、`window.shopUrl='https://<host>'`）。**改写规则按主机匹配，不要求尾斜杠**（只匹配尾斜杠形式的漏网实证：`case-studies/shopify-platform.md` §2）；验收侧的配套要求见 `mirroring.md` §8。
    > **D1c 与"转义写法"是同族不同格，两格都要单独想过**：D1c 是**没有尾斜杠**（`"https://host"` + 代码自己拼路径），D1a/D1b 的转义形式是**斜杠被转义**（`https:\/\/host\/`）。两者都会让"只匹配 `https://host/`"的提取 / 改写 / 断言规则天然失明，且失明时的表现都是绿灯。断言面见 `verification-gates.md` §1.6（第 4 类给了可执行查法）。
 4. **D5b 内联遥测块移除**：按 `data-source-attribution="shopify.event_observer.bootstrap"` 属性、以及 `<script>(function(){var wpmLoader=` 起始字面量定位删除。这两块是纯分析、无视觉/行为角色；wpmLoader 在其后端模块被 stub 后还会 `.init` on undefined 抛错，不删则污染 CLEAN 门。
 5. **D3/D5/D6 脚本 stub**：§1.2 清单。
@@ -140,13 +133,13 @@
 
 **"变换没发生就 throw"防御（硬规则）**：`applyTransforms` 统计变换次数，**逐条**校验命中数——任一条为 0 或低于其登记下限 → 直接抛错终止构建【lando】【racingshop】【objectarchive】。意义：镜像/主题结构一变（换主题、Shopify 改 head 契约），脚本会**立刻大声失败**，而不是静默产出一批引用真实外域、没有 noindex 的坏 shells。没有这道防御的生成脚本不许合入。
 
-⛔ **计数必须逐条，不能用"总数 `n === 0` 才抛"这个弱形式**：本表的 D1a/D1b 在一个页面里就可能命中数千次（objectandarchive 单次构建 5 条变换命中 15 / 5 / **2,540** / 20 / 5），URL 本地化一条就让"有变换发生"永远为真，而 **D8 noindex 注入失效不会有任何人发现**——弱形式在 Shopify 站上基本恒绿。完整判据、下限怎么量、以及"验收要从产物字节反推而不是读构建脚本的计数器"见 `dom-shell-strategies.md` §2 步骤 3；块级的配套断言见本文 §0.3 步骤 6。
+⛔ **计数必须逐条，不能用"总数 `n === 0` 才抛"这个弱形式**：本表的 D1a/D1b 在一个页面里就可能命中数千次，URL 本地化一条就让"有变换发生"永远为真，而 **D8 noindex 注入失效不会有任何人发现**——弱形式在 Shopify 站上基本恒绿（命中数实证：`case-studies/shopify-platform.md` §2）。完整判据、下限怎么量、以及"验收要从产物字节反推而不是读构建脚本的计数器"见 `dom-shell-strategies.md` §2 步骤 3；块级的配套断言见本文 §0.3 步骤 6。
 
 ---
 
 ## 3. 零外联的完整断言面（本次实测发现的门盲区）
 
-**`零外联` 不等于"资源级探针没抓到外部请求"。** racingshop 的全页型 probe 报告零外联、零缺失资产，但构建产物里实际残留三类联网面【racingshop】：
+**`零外联` 不等于"资源级探针没抓到外部请求"。** 构建产物里实际残留三类联网面【racingshop】（实证：`case-studies/shopify-platform.md` §3）：
 
 **① 连接意图（无资源请求，探针天然抓不到）** —— 实测残留两条：
 
@@ -209,7 +202,7 @@
 
 ## 5. localhost 语义分叉（Shopify 主题的 dev 逃生门）
 
-Shopify 主题（尤其 Vite 工作流的定制主题）常在页面尾部内联按 host 分叉的 dev 探测。racing.shop 每页至少 1 处（首页 2 处：carousel-3d 与 pixel-footer），实测原文【racingshop】：
+Shopify 主题（尤其 Vite 工作流的定制主题）常在页面尾部内联按 host 分叉的 dev 探测，实测原文【racingshop】（出现位置实证：`case-studies/shopify-platform.md` §5）：
 
 ```js
 if (location.hostname === '127.0.0.1' || location.hostname === 'localhost') {
@@ -237,15 +230,15 @@ if (location.hostname === '127.0.0.1' || location.hostname === 'localhost') {
 
 ## 6. 常见坑
 
-1. **内联遥测比 `<script src>` 难删，且极易漏**：src 能按 URL 前缀批量 stub，内联块只能按 `data-source-attribution` 属性或唯一起始字面量正则定位。racingshop 删了 2 块（event_observer.bootstrap、wpmLoader），**漏了 analytics/trekkie 块与 pagehide 弃单块**（§3②）。做法：先枚举全部无 src 的 `<script>`（racing.shop 首页 **38 个**、objectandarchive 首页 **51 个**），逐个分类为"配置 / 结构化数据 / 主题逻辑 / 遥测"，再删——不要凭印象删。**这份枚举与 §0.3 的归属表是同一件事，做一次即可**：归属表落到层（`P`/`A`/`T-上游`/`T-站点`），删哪块是在层内再做的处置决定。
-2. **stub 的响应形状必须按调用方的解析路径确定，不是"回 200 就行"**。racingshop 实测两处形状不匹配：`/recommendations/products` 回 `<div class="product-recommendations">`，而 theme.js L4364 用 `querySelector("product-recommendations")`（**标签名**）→ null → 读 `.childElementCount` 抛错；`/search/suggest` 回 JSON，而 theme.js L3003 走 `DOMParser` + `querySelector(".shopify-section")` → null → `importNode(null)` 抛错。**这类错只在交互态出现，load-time 探针全绿**——所以 §3 的交互态断言不是可选项。写 stub 前先去 bundle 里读一遍调用方怎么解析响应。
-3. **no-op stub 必须同时是合法的 classic script 与 module**：racingshop 曾用 `export {}` 导致 classic script SyntaxError，改为纯注释文件才对。硬规则与判定方法见 `porting-discipline.md` §6.1。
-4. **协议相对 URL 会被爬虫拼错**：`//<host>/x` 被误拼成 `https://<host>//<host>/x`，racingshop M0 因此产生 77 个假 404。修法是**旁路 gapfill 归一重解**（确认 76 个真实路径已在盘、1 个是目录基址属预期 404），**不要改共享爬虫脚本**。
-5. **HLS 视频阶梯是静态爬取的盲区**：`.m3u8` 的 renditions 与 segments 不在 HTML 里，只有运行时才拉取——需单独补录（racingshop 补 3 renditions + 12 segments）。
-6. **nonce 类字节不是内容差异，别判 D**：`<meta name="shopify-y">` 每请求变 UUID（racingshop、simply-chocolate 均实测），`__st` 里的 `reqid` / 用户 token `u` 也逐请求变（koox 实测）【probe】。冻结镜像值 + 对拍掩码即可。
+1. **内联遥测比 `<script src>` 难删，且极易漏**：src 能按 URL 前缀批量 stub，内联块只能按 `data-source-attribution` 属性或唯一起始字面量正则定位（漏删实证：`case-studies/shopify-platform.md` §6 坑 1）。做法：先枚举全部无 src 的 `<script>`，逐个分类为"配置 / 结构化数据 / 主题逻辑 / 遥测"，再删——不要凭印象删。**这份枚举与 §0.3 的归属表是同一件事，做一次即可**：归属表落到层（`P`/`A`/`T-上游`/`T-站点`），删哪块是在层内再做的处置决定。
+2. **stub 的响应形状必须按调用方的解析路径确定，不是"回 200 就行"**（两处形状不匹配的实证：`case-studies/shopify-platform.md` §6 坑 2）。**这类错只在交互态出现，load-time 探针全绿**——所以 §3 的交互态断言不是可选项。写 stub 前先去 bundle 里读一遍调用方怎么解析响应。
+3. **no-op stub 必须同时是合法的 classic script 与 module**（实证：`case-studies/shopify-platform.md` §6 坑 3）。硬规则与判定方法见 `porting-discipline.md` §6.1。
+4. **协议相对 URL 会被爬虫拼错**：`//<host>/x` 被误拼成 `https://<host>//<host>/x`。修法是**旁路 gapfill 归一重解**，**不要改共享爬虫脚本**（实证：`case-studies/shopify-platform.md` §6 坑 4）。
+5. **HLS 视频阶梯是静态爬取的盲区**：`.m3u8` 的 renditions 与 segments 不在 HTML 里，只有运行时才拉取——需单独补录（实证：`case-studies/shopify-platform.md` §6 坑 5）。
+6. **nonce 类字节不是内容差异，别判 D**：`<meta name="shopify-y">` 每请求变 UUID，`__st` 里的 `reqid` / 用户 token `u` 也逐请求变【probe】（实证：`case-studies/shopify-platform.md` §6 坑 6）。冻结镜像值 + 对拍掩码即可。
 7. **`section_id` 查询参数请求会命中静态页的假 200**：facets-form 发 `/collections/x?section_id=…` 期待 section 片段，静态服务器忽略 query 返回整页——**200 但内容错，探针不报错**。要么在服务层为带 `section_id` 的请求单独 stub，要么登记为已知降级。
 8. **过度 stub 平台脚本**：perf-kit / privacy-banner / hcaptcha / origin_trials / standard-actions / es-modules-shim 该留则留（§1.3）。一律 stub 会改变 DOM 与加载时序，本身即未登记偏差。
-9. **后端 stub 区的像素差是预期噪声，别用自创 CSS 去补**：racingshop 静态页对拍 FAQ 99% / Terms 96.9%，worstCell 精确落在 header 的账号头像（`shopify-account` 由被 stub 的 `account.js` 渲染）。归因到 stub 就结案，动 CSS 就是发明。
+9. **后端 stub 区的像素差是预期噪声，别用自创 CSS 去补**（实证：`case-studies/shopify-platform.md` §6 坑 9）。归因到 stub 就结案，动 CSS 就是发明。
 
 ---
 

@@ -975,6 +975,34 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
   truthy("cdp — cdpUrlFor gives up and says so (v0.3.18)", /could not reach CDP/.test(reach), reach);
 }
 
+// ------------------------------- v0.3.19: case-studies mirror their parent doc (战史外置的不变量)
+// Stories moved out of references/*.md into references/case-studies/<name>.md.
+// Three things must stay true as both sides evolve: every case file has a parent
+// doc; every numbered heading in a case file exists in the parent (same id);
+// every pointer in a parent ("case-studies/<name>.md §x.y") lands on a section
+// the case file actually has — a pointer to nothing is a rule with its evidence
+// silently gone.
+{
+  const REF = path.join(SKILL, "references");
+  const CS = path.join(REF, "case-studies");
+  const headingIds = (text) => new Set(text.split("\n").map((l) => l.match(/^#{1,5}\s+§?\s*(\d+(?:\.\d+)*)\b/)?.[1]).filter(Boolean));
+  const orphans = [], badHeadings = [], badPointers = [];
+  const caseFiles = existsSync(CS) ? readdirSync(CS).filter((f) => f.endsWith(".md")) : [];
+  for (const f of caseFiles) {
+    const parent = f === "skill.md" ? path.join(SKILL, "SKILL.md") : path.join(REF, f);
+    if (!existsSync(parent)) { orphans.push(f); continue; }
+    if (f === "skill.md") continue; // SKILL.md sections are unnumbered; pointers use section names
+    const parentIds = headingIds(readFileSync(parent, "utf8"));
+    const caseIds = headingIds(readFileSync(path.join(CS, f), "utf8"));
+    for (const id of caseIds) if (!parentIds.has(id)) badHeadings.push(`${f} §${id}`);
+    const doc = readFileSync(parent, "utf8");
+    for (const m of doc.matchAll(new RegExp(`case-studies/${f.replace(".", "\\.")}\`?\\s*§\\s?(\\d+(?:\\.\\d+)*)`, "g"))) if (!caseIds.has(m[1])) badPointers.push(`${f} §${m[1]}`);
+  }
+  truthy(`docs — every case-studies file has a parent doc (${caseFiles.length} case files)`, orphans.length === 0, orphans.join(", "));
+  truthy("docs — every case-studies heading exists in its parent doc", badHeadings.length === 0, badHeadings.slice(0, 8).join("; "));
+  truthy("docs — every 实证 pointer lands on a section the case file has", badPointers.length === 0, badPointers.slice(0, 8).join("; "));
+}
+
 // ---------------------------------------------------------------- summary
 rmSync(TMP, { recursive: true, force: true });
 console.log(`\n${fail ? "FAIL" : "PASS"} — ${pass} passed, ${fail} failed.`);

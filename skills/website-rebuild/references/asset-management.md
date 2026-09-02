@@ -22,14 +22,14 @@
 
 决定因素只有两个：
 
-- **资产体量**：百 MB 级资产**必须走不复制路线**（samsy 238MB、lando 37MB/508 文件都没有进源码树）；十几 MB 也建议不复制（kimi 15MB 用符号链接，"源站字节不复制两遍"）。
+- **资产体量**：百 MB 级资产**必须走不复制路线**；十几 MB 也建议不复制（实证：`case-studies/asset-management.md` §1）。
 - **构建器能力**：dev server 能不能挂中间件（vite 可以）、框架有没有静态资产挂载点（nitro `publicAssets`）、`public/` 是否接受符号链接（Next 可以）。
 
 ## 2. 六种做法（六个项目各一种，按代际排列）
 
 | 做法 | 项目 | 要点 |
 |---|---|---|
-| ① 全量复制 + 哈希验证 | 【rogier】 | `public/` 与源站逐字节一致，且真的验证过：116 个非视频文件 byte-identical、23 个视频 size 匹配、3 个不一致的 png 替换为源站字节；约 111MB 媒体直接进 git，部署只上 `dist/`。**一代做法，后代全部演进为不复制** |
+| ① 全量复制 + 哈希验证 | 【rogier】 | `public/` 与源站逐字节一致，且真的验证过；约 111MB 媒体直接进 git，部署只上 `dist/`。**一代做法，后代全部演进为不复制**（实证：`case-studies/asset-management.md` §2） |
 | ② 三目录分离 | 【oryzo】 | `mirror/`（只读逆向依据）→ `public/`（运行资产）→ `dist/`（部署产物）三层分离，镜像永远不动。仍有复制，但确立了"镜像 ≠ 运行资产"的边界 |
 | ③ dev 中间件回落 | 【samsy】 | vite dev 中间件 `mirrorFallback()` 把根路径资产请求（/textures、/videos 等 11 个目录）回落到 `mirror/`，238MB 二进制不进 `public/` |
 | ④ 符号链接 | 【kimi】 | `public/` 用符号链接指向 `mirror/`——"让『这些不是我写的』这件事在文件系统层面就成立"，资产比对只有一个 sha256 来源（inventory.tsv），登记为偏差 §6.4 |
@@ -50,24 +50,24 @@
 - **抓取期补齐 Referer**：源站资产域要求同源 Referer、缺失时返回 403，抓取按其要求带 `Referer: {源站域}`【lando】。
 - **运行期 CDN 基址改写**：samsy 的源 bundle 把音频路径无条件改写为 BunnyCDN 前缀且该 CDN 要求同源引用——`serve.mjs` 在响应层把 CDN 基址动态替换为 `/cdn/` 并按扩展名映射回本地目录【samsy】；复刻侧还可利用源站自带的 `?cdn=false` 查询参数分流到本地媒体【samsy】。
 - **改写的副作用要登记**：lando 服务层改写文本响应后字节无法匹配原 SRI 哈希，因此剥离 integrity 属性并登记为偏差 6.10【lando】。
-- **一代反例**：rogier 直接改磁盘 bundle（禁 service worker、detect-gpu benchmarks 本地化），但把每处重写登记在案（PHASE1_AUDIT "Known local JS rewrites"）并在对比时扣除——后代演进为"干脆不改磁盘"【rogier】。若被迫改磁盘，必须照此逐处登记。
+- **一代反例**：后代演进为"干脆不改磁盘"【rogier】。若被迫改磁盘，必须把每处重写登记在案并在对比时扣除（实证：`case-studies/asset-management.md` §3）。
 
 ## 4. 分层细则：轻资产可入库，重资产必不复制
 
 noomo 的双通道是范本【noomo】：模板直接引用的轻资产（图片/音频/字体）进 `public/`、`app/assets/` 走构建管线；重资产（模型/纹理/时间线/视频/解码库）一律留在镜像、挂载消费。
 
-kimi 的"省力路径"同理【kimi】：美术资产直接复用镜像；职位数据、i18n、metadata 从 bundle 抽成 JSON——"自己只重写编排层"。第三方在线依赖也可本地化进运行资产（rogier 把 detect-gpu 的 unpkg benchmarks 本地化到 `public/vendor/detect-gpu/`）【rogier】，但改写 bundle 指向它的每一处都要登记（见 §3 一代反例）。
+第三方在线依赖也可本地化进运行资产（rogier 把 detect-gpu 的 unpkg benchmarks 本地化到 `public/vendor/detect-gpu/`）【rogier】，但改写 bundle 指向它的每一处都要登记（见 §3 一代反例；实证：`case-studies/asset-management.md` §4）。
 
 数据类资产（作品列表、布局、i18n）如何反解入库不属于本文件范畴——那是"用脚本从 bundle 抽成 JSON"的移植问题【samsy】【kimi】。
 
 ## 4.5 移动端变体：规则要逆向，不要猜
 
-移动端资产往往是同名变体，命名规则藏在 bundle 里，必须逆向出来再补抓：oryzo 逆向出 `properties.getMobileUrl(url)` 在扩展名前插 `_MOBILE`、纹理上限 800px vs 桌面 2560px【oryzo】——静态爬取漏掉的 16 个移动端专属文件正是靠真实运行路径 404 才暴露、再从源站补录的【oryzo】。lando 的镜像同样含桌面 webp + 移动 ktx2 双端纹理变体（后补提交）【lando】。
+移动端资产往往是同名变体，命名规则藏在 bundle 里，必须逆向出来再补抓（实证：`case-studies/asset-management.md` §4.5）。
 
 ## 5. 资产保真细则（复用镜像时逐条执行）
 
-- **逐字节一致才算复用**：rogier 镜像漏抓的字体补齐后，验证二进制与源 `/fonts/*` 逐字节一致——About 页的排版差异正是靠这个定位的【rogier】。
-- **模型原样使用，不做归一化**：`me.gltf` 不做旋转翻转/包围盒归一化——模型自带 31.17 的内在 scale，是行为的一部分【rogier】。
+- **逐字节一致才算复用**：把复用的二进制与源站原件逐字节验证【rogier】（实证：`case-studies/asset-management.md` §5）。
+- **模型原样使用，不做归一化**：不做旋转翻转/包围盒归一化——模型自带内在 scale，是行为的一部分【rogier】。
 - **"坏资产"也要复刻**：源站 `favicon.svg` 是 404，rogier 删除本地占位文件但保留 head 里的 link——复刻"这个链接在源站就是坏的"【rogier】。
 - **MSDF bitmap 字体直接镜像**：bmfont JSON+PNG 原件照用，`msdfunit = 6/图集尺寸` 等硬编码照抄；布局算法用同库同算法的 npm 包替代 vendored 版时登记偏差【samsy】。
 - **第三方 WASM 也从镜像出**：Rive WASM 从本地镜像 `/ext/unpkg.com/...` 提供，使复刻离线自包含（登记为偏差 6.6）【lando】。
@@ -85,7 +85,7 @@ kimi 的"省力路径"同理【kimi】：美术资产直接复用镜像；职位
 
 ### 6.2 自托管字体：默认照抄原件，拒绝"顺手优化"
 
-kimi 的"4.8MB 像素字体不子集化"决策是偏差登记的范本（全项目最完整的一次决策记录）【kimi】。字体含 35,825 字形而全站只用 538 个汉字，可压四十余倍，但拒绝子集化的五条理由按杀伤力排序：
+自托管字体拒绝子集化的决策是偏差登记的范本【kimi】（实证：`case-studies/asset-management.md` §6.2）。拒绝子集化的五条理由按杀伤力排序：
 
 1. **字体是首屏渲染门控**：deck 等 `document.fonts.ready` 才渲染，子集化会污染时序基线；
 2. canvas `measureText` 折行结果会变；

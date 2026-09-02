@@ -3,7 +3,7 @@ name: website-rebuild
 description: 1:1 rebuild of award-winning creative websites (WebGL / scroll-animation / portfolio sites). Evidence-driven pipeline - mirror-first forensics, line-number-traceable reverse engineering of minified bundles, verbatim porting, quantitative verification gates. Use when user asks to "复刻网站", "重建网站", "1:1 rebuild", "clone this site", or provides a URL of a creative/award site to reproduce.
 compatibility: Requires Node 22+ (bundled scripts use built-in WebSocket to talk to CDP), npx, and a local Chrome/Chromium for headless comparison. POSIX shell optional - the Step 0 probe protocol has a zero-dependency Node equivalent (scripts/fingerprint.mjs) for shells without curl/cmp/tr/perl (e.g. Windows PowerShell); everything after Step 0 (headless Chrome process groups, npx spawns, ps) is POSIX-only (macOS / Linux / WSL). Agent-agnostic - works in any Agent Skills-compatible runtime.
 metadata:
-  version: "0.3.18"
+  version: "0.3.19"
 ---
 
 # Website Rebuild（获奖创意站 1:1 复刻）
@@ -25,7 +25,7 @@ metadata:
 
 1. **决定权在用户**：skill 收集事实（逐资产归属、许可状态、第三方权利人、源站是否仍在营业、产物内第三方标识符）、列出选项与各自的风险边界、给出建议与理由；凡涉及"能不能公开 / 部署 / 再分发 / 对外展示"，**必须用下文「User Input Tools」显式交回用户**，不许 agent 自行下法律结论后继续往下走。
 2. **未获用户明确决定前按安全默认执行**：私有仓库 + `noindex` + 不公开部署 + 不再分发。写给用户时说明这是**默认动作**（"在你决定之前我不会把它发出去"），**不是** agent 已作出的法务结论——两者责任归属完全不同。agent 只能往保守侧执行默认，往公开侧走必须有用户的明确决定。
-3. ⛔ **法务考量不得削减镜像完整性或门的覆盖面**：镜像是证据基座，**完整性是技术不变量**（四遍法、闭包门、GAP=0 全建立在它之上）。不抓只能有**技术性理由**（不是文件 / 服务端不提供 / 需授权或登录态 / 源站明令禁止），一律登记；**不得**以"反正不公开""不该多存一份"这类法务理由留洞。实证：某项目以"产出永不公开"为由对一类资产"登记、不补抓"，**缺了约 60% 的资产而五道门始终全绿**，藏了四个里程碑【objectarchive】。法务决定作用于**产出怎么被使用**，不是证据基座是否完整。
+3. ⛔ **法务考量不得削减镜像完整性或门的覆盖面**：镜像是证据基座，**完整性是技术不变量**（四遍法、闭包门、GAP=0 全建立在它之上）。不抓只能有**技术性理由**（不是文件 / 服务端不提供 / 需授权或登录态 / 源站明令禁止），一律登记；**不得**以"反正不公开""不该多存一份"这类法务理由留洞【objectarchive】（实证：`references/case-studies/skill.md`「使用前提与授权」）。法务决定作用于**产出怎么被使用**，不是证据基座是否完整。
 
 ## 适用范围 ⛔ 必读
 
@@ -34,11 +34,11 @@ metadata:
 **有条件支持（B 类）**：管线成立但需要额外场景处理（Shopify 平台层剥离、第三方存储桶资产、运行时 API 快照、SSG payload 展开）。当前版本的指南覆盖大部分 B 类场景，遇到未覆盖的要向用户明示风险。
 
 **明确拒绝（C/D 类）**：
-- **C1（v0.3 起可做：重构式逆向）**：服务端组件源确实不下发，但**它的完整输出（flight 流）内联在每页 HTML 里，是可对拍的规格书**。路线：flight-decode 建坐标系 → 重构一个可构建的 Next 工程（客户端一方组件按 C2 逐字译，服务端组件从 flight 树反推为显式登记的推断物）→ verify-flight 语义门收口（模块 id 全局双射）。实测 rauchg.com（Next 16/Turbopack）：18/18 路由语义一致，盲逆向对答案结构 ≈95%/行为 ≈98%。⚠ C1 的 L2/L3 合并——第一份产物就是「人写的源码 + 门证明的等价」。全流程见 [references/rsc-reconstruction.md](references/rsc-reconstruction.md)。
-- **C2（可做，按 A 类跑）**：⭐ 写法是声明式但**源码下发**（R3F / Theatre / Vue SFC 编译产物）。实测一个 R3F 站：`useFrame` 回调里就是 `MathUtils.damp(x, y, 7, t)` 这样的普通命令式代码，逐字切片 18 个模块换进页面后 **CLEAN、8 个 canvas 齐全、跨侧 99.5%**。**切片器不关心范式——它切的是字节。** 渲染器当平台层从镜像伺服。⛔ 判别器不是库名，是「客户端是否持有行为源」（`scope-and-fingerprint.md` §4.0.1）。
+- **C1（v0.3 起可做：重构式逆向）**：服务端组件源确实不下发，但**它的完整输出（flight 流）内联在每页 HTML 里，是可对拍的规格书**。路线：flight-decode 建坐标系 → 重构一个可构建的 Next 工程（客户端一方组件按 C2 逐字译，服务端组件从 flight 树反推为显式登记的推断物）→ verify-flight 语义门收口（模块 id 全局双射；实证：`references/case-studies/skill.md`「适用范围」）。⚠ C1 的 L2/L3 合并——第一份产物就是「人写的源码 + 门证明的等价」。全流程见 [references/rsc-reconstruction.md](references/rsc-reconstruction.md)。
+- **C2（可做，按 A 类跑）**：⭐ 写法是声明式但**源码下发**（R3F / Theatre / Vue SFC 编译产物）。**切片器不关心范式——它切的是字节。** 渲染器当平台层从镜像伺服（实证：`references/case-studies/skill.md`「适用范围」）。⛔ 判别器不是库名，是「客户端是否持有行为源」（`scope-and-fingerprint.md` §4.0.1）。
 - **D**：行为主体在服务端（CMS 内容站、电商 cart/库存、A/B 实验分桶、个性化注水）——客户端没有可移植的目标物，且确定性验收无基准。
 
-**X 类（可抢救）**：原站已消失（域名易主 / 平台回收 / 路径移除 / 原地被替换），但 Internet Archive 往往有捕获——`scripts/wayback-mirror.mjs` 从 CDX 索引按**锚点 + 时间窗**选一个连贯时刻、以 `id_` 原始字节抓成**标准镜像**（下游门原样工作），洞按既成事实登记进 `wayback-holes.txt`（读法与流程见 [references/archival-rescue.md](references/archival-rescue.md)）。⭐ 抢救产出是**标准镜像**——X 类可走完 L3 全程（实测 first-launch：策略 A 外壳 + 数值门 9,856 样本全等 + 像素带宽内 + 自包含门，无一道门需改语义）。⛔ **"CDX 无覆盖才是真不可做"按资产层读，不按站读**：IA 爬虫不执行 JS，清单/拼接驱动的站可以代码层覆盖 100% 而画面层为零（实测 157/160 资产任何年代零捕获,断网即白屏）——Step 0 先做分层覆盖侦察（推导 + CDX 前缀查询）预判抢救深度,见 `archival-rescue.md` §1.9。历年获奖站实测消失率约 29%——这也是"第一时间镜像"是本 skill 第一纪律的原因。
+**X 类（可抢救）**：原站已消失（域名易主 / 平台回收 / 路径移除 / 原地被替换），但 Internet Archive 往往有捕获——`scripts/wayback-mirror.mjs` 从 CDX 索引按**锚点 + 时间窗**选一个连贯时刻、以 `id_` 原始字节抓成**标准镜像**（下游门原样工作），洞按既成事实登记进 `wayback-holes.txt`（读法与流程见 [references/archival-rescue.md](references/archival-rescue.md)）。⭐ 抢救产出是**标准镜像**——X 类可走完 L3 全程（实证：`references/case-studies/skill.md`「适用范围」）。⛔ **"CDX 无覆盖才是真不可做"按资产层读，不按站读**：IA 爬虫不执行 JS，清单/拼接驱动的站可以代码层覆盖 100% 而画面层为零（实证：`references/case-studies/skill.md`「适用范围」）——Step 0 先做分层覆盖侦察（推导 + CDX 前缀查询）预判抢救深度,见 `archival-rescue.md` §1.9。历年获奖站实测消失率约 29%——这也是"第一时间镜像"是本 skill 第一纪律的原因。
 
 判级由 Step 0 指纹侦察决定，完整判定树见 [references/scope-and-fingerprint.md](references/scope-and-fingerprint.md)。**拒绝时要解释原因并说明该站属于哪一类**，不要硬跑。
 
@@ -97,7 +97,7 @@ metadata:
 
 **M0 / M0.5 — 镜像取证**。加载 [references/mirroring.md](references/mirroring.md)。用 `scripts/mirror-site.mjs` BFS 爬取 + `scripts/netcapture.mjs` 真实浏览器补录，manifest 逐文件登记 sha256，`redirect: manual` 纪律，外部依赖逐项决策。`scripts/verify-mirror.mjs` 是**镜像自己的门**（五项断言，跑在断网门之前——下游所有门问的都是"渲染得出来吗"，错的镜像能让它们全绿；**一个 HTTP 200 也不是"你拿到了那个资源"的证据**）。`scripts/serve.mjs` 伺服镜像，断网验收。**这一步永远最先做**——原站随时可能消失或改版，镜像是全项目唯一证据基准，也是后续一切对拍的参照服。
 
-**M1 — 逆向建坐标系**。加载 [references/reverse-engineering.md](references/reverse-engineering.md)。⛔ **第一个动作是判 bundle 形态**（扁平拼接 / 模块化打包 / 多 chunk），再选工具——分层表扫顶层声明，而 webpack 打包产物的顶层声明数是 **0**，边界与依赖边由打包器给定（实测 24,378 行 → 569 个现成模块，用 `scripts/module-map.mjs`）。认不出容器时 FATAL，**禁止回退到分层表**（§0.5）。`scripts/beautify-bundle.mjs`（js-beautify 钉 1.15.1）展开 bundle 到 `_pretty/`，此后行号是全项目唯一溯源坐标系。先写 `docs/engine-notes.md`（模板：[assets/templates/engine-notes.md](assets/templates/engine-notes.md)）再写任何代码。技术栈从 bundle 取证钉死精确版本。数据驱动动画先 dump 数值账本。建立 `REBUILD_PLAN.md`（模板：[assets/templates/rebuild-plan.md](assets/templates/rebuild-plan.md)）。
+**M1 — 逆向建坐标系**。加载 [references/reverse-engineering.md](references/reverse-engineering.md)。⛔ **第一个动作是判 bundle 形态**（扁平拼接 / 模块化打包 / 多 chunk），再选工具——分层表扫顶层声明，而 webpack 打包产物的顶层声明数是 **0**，边界与依赖边由打包器给定（用 `scripts/module-map.mjs`；实证：`references/case-studies/skill.md`「Workflow / Flow — M1」）。认不出容器时 FATAL，**禁止回退到分层表**（§0.5）。`scripts/beautify-bundle.mjs`（js-beautify 钉 1.15.1）展开 bundle 到 `_pretty/`，此后行号是全项目唯一溯源坐标系。先写 `docs/engine-notes.md`（模板：[assets/templates/engine-notes.md](assets/templates/engine-notes.md)）再写任何代码。技术栈从 bundle 取证钉死精确版本。数据驱动动画先 dump 数值账本。建立 `REBUILD_PLAN.md`（模板：[assets/templates/rebuild-plan.md](assets/templates/rebuild-plan.md)）。
 
 **M2+ — 严格溯源移植**。加载 [references/porting-discipline.md](references/porting-discipline.md)，并按分支路由表加载对应场景指南。每个移植文件头部注明源行号区间；GLSL/魔数/数据逐字提取；数据资产脚本抽取入库不手抄。
 
@@ -105,7 +105,7 @@ metadata:
 
 **M(n) — 收口**。冷头评审：对 bundle 顶层类/模块清单逐一核对落点（功能测试测不出整块遗漏，只有清单式核对能）。加载 [references/legal-and-deploy.md](references/legal-and-deploy.md) 完成版权**取证**并把决定**呈交用户**——在用户决定之前按安全默认执行（**私有 + noindex + 不部署**），公开前必须逐资产取证、显著标注非官方复刻。
 
-**M(n+1) — 源码化**。加载 [references/readable-source.md](references/readable-source.md)。到 M(n) 为止产物**已证明正确但人读不了**（实测：14,271 行挤在一个文件里，`e` 出现 2962 次，注释占 0.2%）。本阶段把 `port/` 重写成 `src/`：拆模块 → 作用域安全地去混淆重命名 → 补分档注释 → 复制资产做到自包含。⛔ **拆分粒度不是自由选择**——扁平脚本的声明顺序即求值顺序，粒度由三条硬约束决定（互相引用 / 求值顺序 / import 绑定不可赋值），**先出划分方案让人过目，再切**；遇到巨型模块时**先测「延迟绑定少数末尾单例」的收益曲线再决定**（实测 6 个绑定即从 11,246 行降到 1,013 行，而换模块系统要赔上整条工具链才换来同样粒度）。⭐ **"这件事做不到"这个判断极不可靠**——实测两次判为结构性不可能，两次真凶都是自己工具里的一行 bug；先怀疑测量它的工具，再怀疑对象（`readable-source.md` §3.1–3.1.3）。⛔ **前置条件不可协商：必须先有全绿的门。** 没有裁判的重构是盲改；有了 `meanAbsDiff 0.00` 的裁判，每一步都能被证死——**这是重构能有的最好条件，也是它必须排在最后的原因**。现有门全部原样复用（目标换成 `src/` 构建产物，**容差不许放宽**），另加符号映射门与自包含门。⛔ 结构性重写（合并重复、提取公共函数、改算法）**默认禁止**——它会让门从"证明等价"退化为"没测出不等价"。⭐ **纪律 4 在本阶段依然有效**：你现在读得懂了，"这明显是个 bug"的冲动会比任何阶段都强，而它依然可能是行为本身。
+**M(n+1) — 源码化**。加载 [references/readable-source.md](references/readable-source.md)。到 M(n) 为止产物**已证明正确但人读不了**（实证：`references/case-studies/skill.md`「Workflow / Flow — M(n+1)」）。本阶段把 `port/` 重写成 `src/`：拆模块 → 作用域安全地去混淆重命名 → 补分档注释 → 复制资产做到自包含。⛔ **拆分粒度不是自由选择**——扁平脚本的声明顺序即求值顺序，粒度由三条硬约束决定（互相引用 / 求值顺序 / import 绑定不可赋值），**先出划分方案让人过目，再切**；遇到巨型模块时**先测「延迟绑定少数末尾单例」的收益曲线再决定**（换模块系统要赔上整条工具链才换来同样粒度；实证：`references/case-studies/skill.md`「Workflow / Flow — M(n+1)」）。⭐ **"这件事做不到"这个判断极不可靠**（实证：`references/case-studies/skill.md`「Workflow / Flow — M(n+1)」）——先怀疑测量它的工具，再怀疑对象（`readable-source.md` §3.1–3.1.3）。⛔ **前置条件不可协商：必须先有全绿的门。** 没有裁判的重构是盲改；有了 `meanAbsDiff 0.00` 的裁判，每一步都能被证死——**这是重构能有的最好条件，也是它必须排在最后的原因**。现有门全部原样复用（目标换成 `src/` 构建产物，**容差不许放宽**），另加符号映射门与自包含门。⛔ 结构性重写（合并重复、提取公共函数、改算法）**默认禁止**——它会让门从"证明等价"退化为"没测出不等价"。⭐ **纪律 4 在本阶段依然有效**：你现在读得懂了，"这明显是个 bug"的冲动会比任何阶段都强，而它依然可能是行为本身。
 
 ⭐ **无容器 scope-hoisted 产物（Vite/esbuild,逐字分层交付的站）走另一条路：不重写,切**——拼接式分解（`scripts/census-bundles.mjs` 出 chunk 图与坐标 → `scripts/slice-esm.mjs` 按声明切成语义命名的部件,按序拼接逐字节等于原件 → `scripts/verify-reassembly.mjs` 一门定案,字节等价成立时全部运行时门的裁决免费转移）。执行侧不变,浏览器继续跑原 chunk。详见 `readable-source.md` §3.0.6。
 
@@ -151,9 +151,9 @@ Step 0 → M(n) 全程不装任何东西；**复刻项目要到 M(n+1) 才获得
 
 ⛔ **任何门不许 import 任何工具**（`verification-gates.md` §2.1.2）——检查者不能是生产者。
 
-⭐ **前面的阶段需要真正的 parser 怎么办？外挂，不要 import。** `beautify-bundle.mjs`（js-beautify）与 `module-map.mjs`（acorn）都是 `spawn` 一个**钉死版本的 npx**，脚本自身仍然零依赖、仍然可独立审查。⛔ **不要改成手写词法器**——本 skill 里试过，一个含引号的正则字面量把它带偏了 16,177 行（F27）。**token 流上的括号匹配是精确的，文本上的括号匹配是对字符串/正则/注释的猜测。**
+⭐ **前面的阶段需要真正的 parser 怎么办？外挂，不要 import。** `beautify-bundle.mjs`（js-beautify）与 `module-map.mjs`（acorn）都是 `spawn` 一个**钉死版本的 npx**，脚本自身仍然零依赖、仍然可独立审查。⛔ **不要改成手写词法器**（实证：`references/case-studies/skill.md`「Script Directory」）。**token 流上的括号匹配是精确的，文本上的括号匹配是对字符串/正则/注释的猜测。**
 
-⚠ 这条线是**被违反之后才被发现的**：`module-map.mjs` 依赖 `@babel/*`，却在 `scripts/` 里住了整整八个版本，而同一份纪律的原话就写在它上面三行。**一条只写在文档里、没有任何东西去查的规矩，会安静地失效。**
+⚠ 这条线是**被违反之后才被发现的**（实证：`references/case-studies/skill.md`「Script Directory」）。**一条只写在文档里、没有任何东西去查的规矩，会安静地失效。**
 
 | 脚本 | 用途 | 使用阶段 |
 |---|---|---|
@@ -283,6 +283,7 @@ Step 0 → M(n) 全程不装任何东西；**复刻项目要到 M(n+1) 才获得
 - [archival-rescue.md](references/archival-rescue.md) — X 类死站抢救：CDX 分层覆盖侦察、锚点 + 时间窗、洞登记
 - [beyond-the-rebuild.md](references/beyond-the-rebuild.md) — 交接：拿产出做自己的项目（脚手架化不是本 skill 的阶段）
 - [assets/templates/rebuild-plan.md](assets/templates/rebuild-plan.md)、[assets/templates/engine-notes.md](assets/templates/engine-notes.md) — 文档模板
+- [case-studies/skill.md](references/case-studies/skill.md) 与 `references/case-studies/<doc>.md` — 各文档的实证记录（战史），不在必经集合里；只在需要证据时读
 
 ## Notes
 
