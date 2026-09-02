@@ -418,3 +418,13 @@ shopify.design 上，出厂 shim 冻的三样（rAF + `setTimeout` + visibility�
 - 确定性自检记录：单侧两次哈希相等 + 同会话位姿哈希互异
 - 无头启动参数清单（旗标、视口、预种脚本）写进门脚本，环境变量参数化
 - 对拍产物成对入库（见 `references/verification-gates.md` §8）
+
+## 6. ⛔ 像素门两侧必须同经 serve.mjs【darkroom】
+
+`serve.mjs` 只对**自己伺服**的 HTML 注入 probe-shim(`?__probe` 冻结时钟)。重建侧若直接跑
+`next start`,它那一侧不冻结——镜像帧 BLANK、重建帧有画,自比带宽不可比,跨侧差异全是
+"冻结不对称"制造的。解法:`tools/assemble-static.mjs` 把 `next build` 的 `.next/server/app/**.html`
+摊成 `<route>/index.html`、`_next/static` 与 `public/*` 软链进去,用 `serve --side rebuild`
+伺服——两侧同一份 shim、同一个 t(darkroom:自比带宽全 0,home/contact/developers/privacy 0.00)。
+⚠ 只供对拍;`?_rsc=` 软导航载荷不在静态树,sweep 仍跑 `next start` 拓扑。
+

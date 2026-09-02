@@ -1,5 +1,33 @@
 # 更新记录
 
+## v0.3.12 — 声明体里的边：React Compiler 把模块塞进了 e.s()（darkroom C1 收口回哺）
+
+darkroom.engineering（Next 16.3.2/Turbopack + React 19.3 experimental + React Compiler + StyleX +
+three r185 WebGPU/R3F，8 路由，Satus 半开卷靶）无人值守跑到 M(n)：**verify-flight 8/8 双射 32 对**、
+28 客户端组件逐字图（158 模块/5.1MB）经 `next start` 拓扑 sweep 8/8 CLEAN、像素门 home/contact/
+developers/privacy/about 0.00（自比带宽 0）、冷头审计 PASS、DEPLOY 权利表；三处像素残差如实登记
+UNCLASSIFIED（=未过）交下一段续跑。§F 十条回哺，本版落五条工具级 + 五条文档级：
+
+**核心新知——`e.s()` 不再是声明，是模块本身**（§F-1）：React Compiler 下 Turbopack 把导出的
+**整个实现内联进声明**——`e.s(["useTheatre", 0, function(o,a,s,l){ …整个组件… }], 59278)`。
+module-map 的 `s` 分支"收完导出名跳过调用体"于是跳过了整个模块：体内每个 `.A(id)`/`.i(id)`
+从 `requires` 消失，闭包看似闭合，运行时报"依赖未映射"（12712 藏在 useEffect 的 `e.A` 后）。
+修法：导出名只在声明数组的**元素起始位**（深度 2 扁平形 / 深度 3 配对形）读，体内字符串不再被
+当导出名；扫描**继续进入调用体**。实弹：59278 requires 从 3 条到 5 条（+12712/+2074），导出名
+精确到 `useTheatre`。这条与 v0.3.7 的"三形态同权"是同一课的下半句——同权的前提是扫得到。
+
+**其余工具级**：verify-flight N2 css-module 哈希位宽 `{8}`→`{6,8}`（Turbopack 7 位 hash + 下划线
+开头 local 段被判"有行为"）+ LayoutRouter `notFound/loading` 元组尾部空样式槽剥除（镜像的槽被
+N5 strip 成 null、重建侧 `[]` 化石保留 → `[tree]` vs `[tree, []]` 假红）；cold-audit-modules 认
+merged map（`locations[]` 取 canonical 位，`source` 优先于 `<chunk>.pretty.js` 命名——此前要摊平
++ 软链目录才能读）；新 `tools/assemble-static.mjs`（像素门两侧同经 serve.mjs：`next start` 侧
+不注入 probe-shim → 镜像帧 BLANK/重建有画的冻结不对称）。selftest 62→66。
+
+**文档级**：rsc-reconstruction §3.3 从 flight 反推 next.config 的行为证据（`cacheComponents` 由
+`ClientPageRoot.serverProvidedParams===null` 发射、experimental React 四旗）+ §3.4 flight-to-tsx
+四陷阱；porting-discipline §2.5.2 逐字图三条硬规则（全站单图单例、T-SSRGUARD 浏览器≠服务端
+chunk、坏字节用同形抛错工厂顶替）；determinism §6 像素门两侧同经 serve.mjs。
+
 ## v0.3.11 — 正签名的下半句：单模块 chunk 也是容器（14islands L3 收口回哺）
 
 14islands 续跑到 **L3**：`7753`（token 流上切 652 个压缩原字节部件，覆盖 99.8%）与 `2186`

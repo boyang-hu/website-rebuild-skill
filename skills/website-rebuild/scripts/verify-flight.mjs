@@ -90,7 +90,11 @@ const normStr = (s) =>
     .replace(/\/_next\/static\/(?:[a-z]+\/)?chunks\/(turbopack-)?[a-z0-9_-]{8,}\.(js|css)/g, "/_next/static/chunks/CHUNK.$2")
     .replace(/\/_next\/static\/(?:[a-z]+\/)?media\/[A-Za-z0-9_.-]+\.(woff2|ttf)/g, "/_next/static/media/MEDIA.$1")
     .replace(/\/_next\/static\/(?:[a-z]+\/)?media\/([A-Za-z0-9_-]+?)[.-][a-z0-9_-]{8,}\.(png|jpe?g|svg|gif|webp|avif|tsx)/g, "/_next/static/media/$1.HASH.$2")
-    .replace(/\b([a-z0-9_]+?)(?:sans|mono)?_[0-9a-f]{8}-module__[A-Za-z0-9_-]{4,10}__/g, "$1-MOD__")
+    // N2 位宽:Turbopack css-module 哈希不恒为 8 位 hex——darkroom 重建侧 next/font 类名
+    // `mono_39c065e-module___Kbuzq__variable`(7 位 + 下划线开头的 local 段)对源站
+    // `mono_5da033d2-module__n1AzdG__variable`,{8} 把 7 位漏成"有行为"的差异。{6,8} 仍是
+    // "证明不携带行为"的构建哈希命名空间。
+    .replace(/\b([a-z0-9_]+?)(?:sans|mono)?_[0-9a-f]{6,8}-module__[A-Za-z0-9_-]{4,10}__/g, "$1-MOD__")
     // react-tweet 一类库的 css-module:<stem>-module__<hash>__<local>
     .replace(/\b([a-z0-9-]+)-module__[A-Za-z0-9_-]{4,10}__/g, "$1-MOD__");
 
@@ -217,6 +221,13 @@ function stripPreloads(v) {
       // flight 保留键)≡ 缺键——React 渲染等价,删键比较。
       if (val === "\u00abundef\u00bb") continue;
       let sv = stripPreloads(val);
+      // N5 的对称补丁(darkroom):LayoutRouter 的 notFound/loading 槽是 [tree, styles, scripts]
+      // 元组。镜像的 styles=[precedence link] 被 N5 strip 成 null 后从元组消失,重建侧
+      // styles=[](本就空)按"空列表化石保留"留下——[tree] vs [tree, []] 假红。空数组与
+      // 被 strip 的槽渲染等价(都是"没有样式链接"),在这两个 prop 上剥尾部空数组/null。
+      if ((k === "notFound" || k === "loading") && Array.isArray(sv)) {
+        while (sv.length > 1 && (sv[sv.length - 1] === null || (Array.isArray(sv[sv.length - 1]) && sv[sv.length - 1].length === 0))) sv.pop();
+      }
       // N13(N8 的推广):children 的数组嵌套形状随源码表达式写法(平铺 JSX vs
       // {[…]} 分组 vs map 结果),React 渲染时递归打平——不携带 DOM 行为。
       // 深度打平 + 去空数组,直接元素包装为单元素列表,两侧同规则。

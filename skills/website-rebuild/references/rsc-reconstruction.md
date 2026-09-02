@@ -115,6 +115,27 @@ C1(服务端组件源不下发)从"拒绝"改为**可做:重构式逆向**。定
 5. ⛔ 选择器分词陷阱:数字开头类名的 CSS 转义带尾随空格(`.\33 xl\:…` =
    `3xl:…`),naive 的 `\\.` 分词在空格处截断——`2xl/3xl` 断点变体整族漏判。
 
+### §3.3 从 flight 反推 next.config 的行为证据【darkroom】
+
+配置猜不出来,但**行为会发射进 flight**,逐条对着 Next 源码核:
+- `cacheComponents`:`"use client"` 页的 `ClientPageRoot` 带 `serverProvidedParams === null`
+  **只在该旗下发射**(Next 16.3.2 `create-component-tree.js` 逐行核对)——行为证据比配置猜测硬。
+- React experimental 通道(构建串 `19.3.0-experimental-…`):由 `needsExperimentalReact` 四旗
+  之一触发(blockingSSR / taint / transitionIndicator / gestureTransition;16.3.2 已无
+  `viewTransition` 键),哪一旗不可从字节恢复——开最惰性的一旗(`taint`)并登记偏差。
+- `react.view_transition` 符号出现在 flight 元素类型里 → `<ViewTransition>`(该 commit 两通道都
+  导出,非 `unstable_`)。
+
+### §3.4 flight-to-tsx 生成器的四个陷阱(darkroom 对 basement 版的适配,全部实测)
+
+生成器仍是站点侧工具(basement / darkroom 各一份适配),机制通用,陷阱通用:
+1. **LayoutRouter 按 `default#<id>` 判,不按 id 判**——同一模块 id 可同时导出 LoadingBoundaryProvider,
+   按 id 判会把整个 `(site)` 层吞成 `{children}`。
+2. **loading 槽的顶层 key `"l"` 是 Next 给的,不是源码 key**——照抄成 `key="l"` 渲染出 `"l,l"`。
+3. **"文件存在即跳过"只能跳过写,不能跳过 harvest**——否则后续路由的组件清单缺一截。
+4. head 树 → `metadata`/`viewport` 导出;ClientPageRoot → `"use client"` 转发页;层体仅 `{children}`
+   的 layout 不生成文件(Next 的隐式层)。
+
 ## §4 语义门(scripts/verify-flight.mjs)
 
 字节门到不了 C1 收口:chunk 名/模块 id/css-module 类/媒体哈希是**构建哈希

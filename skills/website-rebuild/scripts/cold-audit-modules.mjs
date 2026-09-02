@@ -42,13 +42,29 @@ const CLO = JSON.parse(await readFile(path.resolve(flag("closure", "docs/app-clo
 // and a site-wide map (merged from per-chunk maps) tags every module with the
 // chunk it lives in. Read each module's own chunk; a single-file map still
 // works unchanged (no `chunk` field -> MAP.source).
+// ⭐ A MERGED map (tools/merge-module-maps.mjs) tags a module with `locations[]`
+// — one entry per chunk it is packed into, each carrying its own `source` path
+// and line/char span — instead of a flat `chunk` + `startLine`. This audit used
+// to accept only the flat shape and to name the file `<chunk>.pretty.js` beside
+// MAP.source, so a merged darkroom map (339 modules / 60 chunks) needed a
+// flattening pass plus a directory of symlinks just to be read (darkroom §F-9).
+// Normalize once: the canonical location (first) supplies chunk/source/lines.
+for (const m of MAP.modules) {
+  if (Array.isArray(m.locations) && m.locations.length && m.startLine == null) {
+    const loc = m.locations[0];
+    Object.assign(m, { chunk: loc.chunk, source: loc.source, startLine: loc.startLine, endLine: loc.endLine, startChar: loc.startChar, endChar: loc.endChar });
+  }
+}
 const srcCache = new Map();
 const srcOf = async (m) => {
-  const file = m.chunk ? path.join(path.dirname(path.resolve(MAP.source)), `${m.chunk}.pretty.js`) : path.resolve(MAP.source);
+  // A module that names its own source file wins; otherwise the flat-map
+  // convention (`<chunk>.pretty.js` beside MAP.source) still applies.
+  const file = m.source ? path.resolve(m.source)
+    : m.chunk ? path.join(path.dirname(path.resolve(MAP.source)), `${m.chunk}.pretty.js`) : path.resolve(MAP.source);
   if (!srcCache.has(file)) srcCache.set(file, (await readFile(file, "utf8")).split("\n"));
   return srcCache.get(file);
 };
-const SRC = MAP.chunks ? null : await srcOf({});
+const SRC = (MAP.chunks || MAP.modules.some((m) => m.source)) ? null : await srcOf({});
 
 const ported = new Set(CLO.modules.map(String));
 const all = MAP.modules;

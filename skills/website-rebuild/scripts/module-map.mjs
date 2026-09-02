@@ -407,17 +407,28 @@ for (const { id, fi } of entries) {
         // sub-ids are require-able from other chunks (`ctx.i(subId)`), so a map
         // that only knows factory ids leaves the closure unclosed: 87 required
         // ids "missing" on basement.studio, every one an in-factory merge.
+        // ⛔ DO NOT SKIP THE CALL BODY. With the React Compiler, Turbopack puts the
+        // export's whole implementation INSIDE the declaration —
+        //   e.s(["useTheatre", 0, function(o, a, s, l) { …the entire component… }], 59278)
+        // — so "collect names, then jump past the matching `)`" jumped past the
+        // module: every `.A(id)` / `.i(id)` inside the component vanished from
+        // `requires`, the closure looked closed, and the runtime said "dependency
+        // not mapped" (darkroom §F-1: 12712 behind e.A inside useEffect). Names are
+        // read only at element-start positions of the declaration array (depth 2
+        // flat form, depth 3 paired form) so body strings are not mistaken for
+        // exports; the scan then continues INTO the call.
         let d2 = 0, lastNum = null;
         for (let j = k + 3; j < end; j++) {
           const l = lab(j);
-          if (OPEN.has(l)) d2++;
-          else if (CLOSE.has(l)) { d2--; if (d2 === 0) { k = j; break; } }
-          else if (d2 >= 1 && l === "string") exportNames.add(String(val(j)));
+          if (OPEN.has(l)) { d2++; continue; }
+          if (CLOSE.has(l)) { d2--; if (d2 === 0) break; continue; }
+          const startsElement = lab(j - 1) === "[" || lab(j - 1) === ",";
+          if ((d2 === 2 || d2 === 3) && l === "string" && startsElement) exportNames.add(String(val(j)));
           else if (d2 === 1 && l === "num") lastNum = String(val(j));
         }
         if (lastNum !== null && lastNum !== String(id)) subIds.add(lastNum);
         exportsAssigned++;
-        continue;
+        continue; // k advances by one: the call body is scanned like any other code
       }
     }
 

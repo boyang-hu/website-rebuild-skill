@@ -1,7 +1,7 @@
 # website-rebuild-skill
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.11-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.12-blue.svg)](CHANGELOG.md)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-brightgreen.svg)](https://agentskills.io/)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522-339933.svg)](#quick-start)
 
@@ -37,7 +37,7 @@ It follows the [Agent Skills open standard](https://agentskills.io/) and is buil
 - **Line-traceable reverse engineering** — every line in the rebuild points back to a line in the source bundle; bugs and oddities are copied verbatim, never "fixed"
 - **Quantified acceptance** — five automated comparison layers: console / network / DOM / geometry / **pixel-by-pixel**; every difference is either fixed or registered, never glossed over
 - **Source-form delivery** — the verbatim port is rewritten into a human-readable project (split into modules, named from evidence, provenance headers added) that **runs offline anywhere you copy it**
-- **Zero-dependency toolchain** — 65 Node scripts (51 stage scripts and gates + 9 shared libs + 5 sourcification/reconstruction tools); until the final stage, the pipeline installs no npm packages
+- **Zero-dependency toolchain** — 66 Node scripts (51 stage scripts and gates + 9 shared libs + 6 sourcification/reconstruction tools); until the final stage, the pipeline installs no npm packages
 - **Dead sites can be rescued** — Wayback archive salvage: anchor + time-window selection of a coherent moment, raw bytes landed as a standard mirror, permanent holes honestly registered; five dead-site salvages in practice (four revived, one to full L3; one art layer certifiably lost — the failure mode is in the book)
 - **Even RSC sites can be reconstructed** — server component source is never shipped (React Server Components / Next.js App Router), but its complete output (the flight stream) inlined in every page's HTML *is* the spec: reconstruct a buildable Next project from it and close with flight-semantics gates. Measured on a Next 16/Turbopack blog: 18/18 routes semantically identical, and on a 144-route heavyweight: PASS 144/144; blind reverse-engineering graded against the public source scored ≈95% structure / ≈98% behavior
 - **Legal decisions belong to the user** — the skill only collects evidence and presents it; output defaults to private + noindex + not deployed
@@ -260,7 +260,7 @@ Before anything goes public, per-asset copyright **forensics** must be completed
 
 Versions advance with real rebuild projects: every feature and fix shipped was first validated on at least one complete project.
 
-Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.11** — the second half of the positive signature: a single-module chunk is a container too. v0.3.10's webpack push signature was corrected the same day by live data: a `members < 2` threshold treated single-factory chunks as "not found" and fell through to the array reader (a troika worker table counted as 31 modules); a positively identified container is now the container at any member count; the overlap invariant moves from lines to characters (a minified original puts every module on line 1); verify-module-map strips keys identically on both branches and accepts exponent-form ids; make-standalone exits on a missing `--shell`, entity-decodes references, emits no build step without an entry module, and gains `--keep-own` (a verbatim multi-chunk port's shells are no longer rewritten to a single build output — blank first paint with CLEAN green, caught only by the pixel gate's non-empty-frame precondition). 14islands.com ran unattended to **L3** (verify-module-map 25/25, standalone deliverable byte-manifest 2,808/2,808). Selftest 59→62.
+Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.12** — edges inside the declaration: under the React Compiler, Turbopack inlines an export's entire implementation into `e.s([name, 0, function…], id)`; module-map used to collect the names and skip the call body — skipping the whole module, losing every `.A`/`.i` edge inside while the closure looked closed. It now scans into the declaration and reads names only at element-start positions (darkroom 59278: 3→5 requires). verify-flight accepts 6–8 hex css-module hashes and symmetric empty notFound/loading style slots; cold-audit reads merged maps; new `tools/assemble-static.mjs` puts both pixel-gate sides behind serve.mjs. darkroom.engineering ran unattended to M(n): verify-flight 8/8 with 32 bijective pairs, verbatim graph 8/8 CLEAN under `next start`, pixel 0.00 on five routes. Selftest 62→66.
 
 ## Contributing
 

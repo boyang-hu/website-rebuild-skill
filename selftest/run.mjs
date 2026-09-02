@@ -202,11 +202,12 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
   // prefixed, no terminator), an EMPTY-ID :HL row (the first walker broke its
   // chain here), an I row (module ref), and a row-0 router payload.
   const mkStream = (opts) => {
-    const { moduleId = 123, chunk = "abc12345", text = "hello", moduleId2 = null } = opts || {};
+    const { moduleId = 123, chunk = "abc12345", text = "hello", moduleId2 = null, cls = null, slot = null } = opts || {};
     const tHex = Buffer.byteLength(text).toString(16);
     const kids = [["$", "$L2", null, {}]];
     if (moduleId2 != null) kids.push(["$", "$L6", null, {}]); // second ref, same export name
-    kids.push(["$", "p", null, { children: "$3" }]);
+    kids.push(["$", "p", null, { ...(cls ? { className: cls } : {}), children: "$3" }]);
+    if (slot) kids.push(["$", "div", null, { loading: slot, children: "x" }]);
     const row0 = {
       P: null, b: "BUILDX", c: ["", ""], q: "", i: false,
       f: [[
@@ -281,6 +282,13 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
   // three files) — trees equal, bijection violated, gate must go red.
   writeFileSync(path.join(BUILT, "index.html"), wrap(mkStream({ moduleId: 456, chunk: "fedcba98", moduleId2: 789 })));
   truthy("verify-flight — one origin module split in two goes red (v0.3.2)", (() => { const g = gateOut(); return !g.ok && g.out.includes("123"); })());
+  // v0.3.12 / darkroom: Turbopack css-module hashes are not always 8 hex (a 7-hex
+  // next/font class with an underscore-led local segment read as "behavior"), and a
+  // LayoutRouter loading/notFound tuple keeps an EMPTY styles slot on the rebuild
+  // side after N5 stripped the mirror's — [tree] vs [tree, []] must be equal.
+  writeFileSync(path.join(MIR, "index.html"), wrap(mkStream({ cls: "mono_5da033d2-module__n1AzdG__variable", slot: [["$", "span", null, {}], []] })));
+  writeFileSync(path.join(BUILT, "index.html"), wrap(mkStream({ moduleId: 456, chunk: "fedcba98", cls: "mono_39c065e-module___Kbuzq__variable", slot: [["$", "span", null, {}]] })));
+  truthy("verify-flight — 7-hex css-module hash + empty loading styles slot normalize (v0.3.12)", gate());
 }
 
 // --------------- 5c. module graph: turbopack merged/async shapes (v0.3.3)
@@ -363,6 +371,35 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
       eq(`module-map — ${label}`, JSON.parse(readFileSync(o, "utf8")).modules.map((m) => String(m.id)).sort(), want);
     } catch (e) { bad(`module-map — ${label}`, String(e.stderr || e.stdout || e.message).split("\n")[0]); }
   }
+
+  // v0.3.12 / darkroom §F-1: with the React Compiler, Turbopack inlines the whole
+  // implementation inside e.s([name, 0, function(){…}], id). The reader used to
+  // skip the call body, losing every edge inside it.
+  const TS = path.join(TMP, "turbo-inline-export.js");
+  writeFileSync(TS, `(globalThis.TURBOPACK = globalThis.TURBOPACK || []).push([void 0,
+  111, e => {
+    "use strict";
+    var r = e.i(222);
+    e.s(["useX", 0, function(o, a) {
+      console.error("not an export name");
+      return e.A(777).then(() => e.i(888));
+    }], 111);
+  },
+  222, e => { e.s([["Bar", () => 2]], 222); },
+  777, e => { e.v(t => t(888)); },
+  888, e => {}
+]);\n`);
+  const TSO = path.join(TMP, "turbo-inline-export.json");
+  try {
+    execFileSync(process.execPath, [path.join(SKILL, "scripts/module-map.mjs"), "--in", TS, "--out", TSO], { stdio: "pipe" });
+    const mm = JSON.parse(readFileSync(TSO, "utf8"));
+    const m111 = mm.modules.find((m) => String(m.id) === "111");
+    truthy("module-map — edges inside an inlined e.s(…) export body are collected (v0.3.12)",
+      !!m111 && ["222", "777", "888"].every((x) => m111.requires.map(String).includes(x)), JSON.stringify(m111 && m111.requires));
+    eq("module-map — only element-start strings are export names (v0.3.12)", m111 && m111.exportNames, ["useX"]);
+    const m222 = mm.modules.find((m) => String(m.id) === "222");
+    eq("module-map — paired-form export names still read (v0.3.12)", m222 && m222.exportNames, ["Bar"]);
+  } catch (e) { bad("module-map — inlined export body", String(e.stderr || e.stdout || e.message).split("\n")[0]); }
 
   // F4: token stream equality sees a nested-template content change that
   // parses fine. Same code with different whitespace is EQUAL; a changed
