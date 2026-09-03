@@ -4,7 +4,7 @@
 <a href="https://trendshift.io/repositories/128679" target="_blank"><img src="https://trendshift.io/api/badge/trendshift/repositories/128679/daily" alt="#14 Repository Of The Day | Trendshift" width="250" height="55"/></a>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.19-blue.svg)](CHANGELOG.md)
+[![npm](https://img.shields.io/npm/v/website-rebuild-skill.svg)](https://www.npmjs.com/package/website-rebuild-skill)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-brightgreen.svg)](https://agentskills.io/)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522-339933.svg)](#快速开始)
 
