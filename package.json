@@ -1,9 +1,45 @@
 {
-  "name": "website-rebuild-skill-repo",
-  "private": true,
+  "name": "website-rebuild-skill",
+  "version": "0.3.19",
   "type": "module",
-  "description": "Repo harness only — the skill itself lives in skills/website-rebuild and stays zero-dependency.",
+  "description": "Agent Skill that rebuilds a website line by line from its own minified code and proves the rebuild with automated diffs — mirror-first forensics, verbatim porting, pixel-level verification gates. 复刻网站的 Agent Skill。",
+  "keywords": [
+    "agent-skill",
+    "agent-skills",
+    "claude-code",
+    "codex",
+    "website-rebuild",
+    "website-clone",
+    "reverse-engineering",
+    "webgl",
+    "web-archiving",
+    "forensics"
+  ],
+  "license": "MIT",
+  "author": "Boyang Hu",
+  "homepage": "https://github.com/boyang-hu/website-rebuild-skill#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/boyang-hu/website-rebuild-skill.git"
+  },
+  "bugs": {
+    "url": "https://github.com/boyang-hu/website-rebuild-skill/issues"
+  },
+  "bin": {
+    "website-rebuild-skill": "bin/install.mjs"
+  },
+  "files": [
+    "bin/",
+    "skills/website-rebuild/"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "test": "node selftest/run.mjs"
+    "test": "node selftest/run.mjs",
+    "version-gate": "node selftest/version-gate.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

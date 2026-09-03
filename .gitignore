@@ -7,3 +7,6 @@ node_modules/
 
 # OS
 .DS_Store
+
+# npm pack 产物
+*.tgz

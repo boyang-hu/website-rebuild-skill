@@ -1,0 +1,38 @@
+name: release
+
+# A tag is the release trigger. Nothing publishes from a branch, and nothing
+# publishes until the version gate and the full selftest are green.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write # trusted publishing (OIDC) — no npm token is stored anywhere
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: version gate — tag == package.json == SKILL.md == lib/version.mjs
+        run: node selftest/version-gate.mjs "${GITHUB_REF_NAME}"
+
+      - name: selftest
+        run: npm test
+
+      - name: what would ship
+        run: npm pack --dry-run
+
+      # Trusted publishing needs a recent npm; the one bundled with Node 22 is older.
+      - name: npm >= 11.5.1
+        run: npm install -g npm@latest
+
+      - name: publish
+        run: npm publish --provenance --access public
