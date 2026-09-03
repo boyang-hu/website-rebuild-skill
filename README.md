@@ -79,6 +79,20 @@
 
 ### 安装
 
+两种方式都行，装的是同一份目录。
+
+**方式一：npx（一条命令，不用克隆仓库）**
+
+```bash
+npx website-rebuild-skill                    # → ~/.claude/skills/website-rebuild
+npx website-rebuild-skill --project          # → ./.claude/skills/website-rebuild
+npx website-rebuild-skill --dir <skills 目录>  # 其他 runtime，目录名 website-rebuild 会自动追加
+```
+
+安装器**只拷文件**——不跑 skill、不开浏览器、不联网，本身零依赖。拷完按 sha256 逐文件双向校验，全部匹配才算成功；目标已存在会打印在装的版本并拒绝，要 `--force` 才替换。`--dry-run` 可以先看它打算写什么。
+
+**方式二：手动拷贝（已经克隆了仓库）**
+
 把 `skills/website-rebuild/` 整个目录放进你的 agent 的 skills 目录。以 Claude Code 为例：
 
 ```bash

@@ -79,6 +79,20 @@ In each image the **left half is the read-only mirror of the source site, the ri
 
 ### Install
 
+Either way installs the same directory.
+
+**Option 1 — npx (one command, no clone needed)**
+
+```bash
+npx website-rebuild-skill                      # -> ~/.claude/skills/website-rebuild
+npx website-rebuild-skill --project            # -> ./.claude/skills/website-rebuild
+npx website-rebuild-skill --dir <skills dir>   # other runtimes; `website-rebuild` is appended
+```
+
+The installer **only copies files** — it never runs the skill, never opens a browser, never fetches anything, and has no dependencies of its own. Every copied file is verified against the source by sha256 before it reports success; an existing install is reported by version and left alone unless you pass `--force`. Use `--dry-run` to see what it would write.
+
+**Option 2 — copy by hand (you already cloned the repo)**
+
 Put the entire `skills/website-rebuild/` directory into your agent's skills directory. For Claude Code:
 
 ```bash
