@@ -1,5 +1,44 @@
 # 更新记录
 
+## v0.3.20 — 判红覆盖：每道离线门都有一个反例（selftest 143 → 193，变异测试三门五抓）
+
+**问题**：143 项断言里只有 **6 条**断言"门必须判红"（verify-mirror 的 WAF 体与单字节、verify-flight 单字节、
+verify-nextdata 改 pageProp、textref 非文本、negotiate 无 accept 的 Vary）。其余 130 项问的都是"好输入下门会不会绿"。
+一道悄悄失去牙齿的门从绿侧不可见——它产出的不是错误报告，是一份完美的绿报告（scripts/README 说端口串台时
+"**假绿是不可见的**"，这句原样适用于套件自己）。连续三个大手术版本（0.3.17 CLI 收拢、0.3.18 lib 收拢净减 219 行、
+0.3.19 战史外置）之后，这个洞正敞着；61 个脚本里 43 个从未进过测试。npm 分发面刚接上（`npx` 一条命令、tag 触发
+CI 自动发布），`npm test` 成了坏版本与使用者之间的最后一道闸。
+
+**做法**：每道离线门从**同一份 fixture** 驱动两次——原样必须退 0 并说 PASS；改坏**一处**必须退 1 且消息**点名**那处。
+有"没东西可查"分支的门钉死退 5，永不退 0。节内的 `green()` / `red()` 助手同时断言退出码与消息：只看退出码，
+"打印 FAIL 但退 0"看不见；只看消息，"退 1 但没说为什么"看不见。
+
+| 门 | 绿 | 红 | 钉住的语义 |
+|---|---|---|---|
+| verify-zerodep | 1 | 3 | 裸说明符点名到文件；门引 `tools/` 是"检查者不能是生产者"；空目录 FATAL 5 |
+| verify-reassembly | 2 | 4 | 改一字节红**在那个 part**；顺序错红在 join；重抓过的 chunk 让旧 manifest 失效（`--against`）；没有 slices.json 是 FAIL |
+| verify-symbols | 3 | 5 | 掉一个声明点名；无来源声明点名；`allow_orphans` 放行；rename map 解析；非单射；未知形状 map FATAL 5（不是"零重命名"）；0 声明 FATAL 5 |
+| verify-lenprefix | 2 | 2 | 一个 `é` 让 `T5` 下多出一字节即红；声明超过剩余；无 flight 流是 note |
+| verify-shell | 2 | 2 | 一个未登记字节红并显示两侧；**与镜像逐字节相同的 shell 过 HUNKS 但红 PORT-SUBSTITUTION**——否则每道下游门都在拿源站和自己比 |
+| verify-fresh | 3 | 3 | 桩 esbuild 逐字节复制：src 比 dist **新**但字节相同仍绿（mtime 不是裁判）；src 改了 dist 陈旧；site 不是 dist；无 esbuild FATAL 2；无 bundle 步 SKIPPED 退 0 |
+| verify-refs-served | 2 | 1 | （loopback `serve.mjs`）404 的引用带状态码列出；`--allow` 把洞变成登记洞 |
+| verify-offline | 1 | 3 | （loopback）外域 preconnect 是 class 1；内联 `sendBeacon` 是 class 2/3；没人监听 FATAL 5 且消息带 serve 命令 |
+| verify-payload | 2 | 6 | （两个 loopback）只差在资产路径**不红**；值差红在叶路径 `$.hero.n`；单侧缺叶；单侧无岛；求值失败（字节 diff 会说"一个字符"的地方）；`--allow-absent` 两侧一致才过 |
+| lib/png.compare | 1 | 2 | 全同 0.00；一像素差不为 0；尺寸不同**拒绝**而非比较重叠 |
+
+**变异测试**（证明反例会咬，不只是绿）：三门改哑——reassembly 永远退 0、symbols 删掉 orphans 断言、fresh 把 sha
+比较改成恒等——跑套件得 **5 FAIL，每条点名到门**。reassembly 那个仍在打印 `FAIL — 1 decomposition(s) do not
+reassemble` 却退 0：v0.3.16 修过的病，老套件从绿侧永远看不见。
+
+**范围外**（按套件头注保持离线）：浏览器门 probe / pixelcompare / pixel-walk / verify-routes / verify-crossside /
+verify-tween / verify-harvest，与 verify-module-map（`npx acorn`）。可分离的算术（lib/png）已覆盖。verify-ssr 是
+项目内配置形态，未进。
+
+**登记而未改的一条语义**：verify-lenprefix 对没有 flight 流的文档打 note 并退 0。对非 Next 站这是对的；但"没东西可查
+退 0"与 verify-zerodep / verify-reassembly 的"没东西可查是 FATAL / FAIL"不一致。这次钉住现状，去留待定。
+
+耗时 37 s（4 个 loopback serve + ~45 次脚本 spawn）。
+
 ## v0.3.19 — 战史外置：规则留在文档里，实证搬进 case-studies/（零丢失，逐句可证）
 
 评审清单的最后一项。每份 reference 里，规则与支撑它的实战故事是混写的——"实证 / 实测 / 【代号】"行在

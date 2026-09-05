@@ -1,6 +1,6 @@
 {
   "name": "website-rebuild-skill",
-  "version": "0.3.19",
+  "version": "0.3.20",
   "type": "module",
   "description": "Agent Skill that rebuilds a website line by line from its own minified code and proves the rebuild with automated diffs — mirror-first forensics, verbatim porting, pixel-level verification gates. 复刻网站的 Agent Skill。",
   "keywords": [

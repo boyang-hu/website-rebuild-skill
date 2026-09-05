@@ -278,7 +278,7 @@ Before anything goes public, per-asset copyright **forensics** must be completed
 
 Versions advance with real rebuild projects: every feature and fix shipped was first validated on at least one complete project.
 
-Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.19** — war stories externalized: all 24 docs split into rules and evidence, the stories moved verbatim into `references/case-studies/` (outside every mandatory set, read only when you ask why a rule exists), each rule keeping a pointer and its 【codename】 provenance; zero loss is proven sentence-by-sentence by `check-cases.mjs` (6,800+ sentences, all `missing 0`, and it caught two gaps left by interrupted workers); the mandatory set drops from 126–178K to 113–159K tokens; selftest 140→143 (three case-study invariants: parent exists, headings match, no pointer into thin air).
+Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.20** — red-path coverage: of 143 assertions only six asserted that a gate goes RED; the rest asked whether good input goes green, and a gate that has quietly stopped failing is invisible from the green side. Every offline gate is now driven twice from one fixture — as shipped exits 0, one deliberate defect exits 1 and names it — with "nothing to check" pinned to exit 5; ten gates + lib/png, 50 checks; mutation-testing three silenced gates caught 5; selftest 143→193.
 
 ## Contributing
 

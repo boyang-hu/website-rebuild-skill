@@ -1003,6 +1003,230 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
   truthy("docs — every 实证 pointer lands on a section the case file has", badPointers.length === 0, badPointers.slice(0, 8).join("; "));
 }
 
+// ------------------------------- v0.3.20: every offline gate has a RED twin
+// 143 checks proved the gates go green on good input; six proved a gate goes
+// red on bad input. A gate that has quietly stopped failing is invisible from
+// the green side — it files a perfect report that measures nothing (the same
+// 假绿 scripts/README warns about for port collisions). So each offline gate
+// below is driven twice from ONE fixture: as shipped (exit 0, says PASS) and
+// with one deliberate defect (exit 1, and the message NAMES the defect). Where
+// a gate has a "nothing to check" branch it is pinned to exit 5, never 0.
+// Out of scope, by the header: browser-driven gates (probe, pixelcompare,
+// pixel-walk, verify-routes, verify-crossside, verify-tween, verify-harvest)
+// and verify-module-map (npx acorn). Their arithmetic is covered where it is
+// separable (lib/png below).
+{
+  const { spawn } = await import("node:child_process");
+  const { chmodSync, utimesSync } = await import("node:fs");
+  const { sha256: sha } = await import(path.join(SKILL, "scripts/lib/hash.mjs"));
+  const run = (script, argv, opts = {}) => {
+    try { return { code: 0, out: String(execFileSync(process.execPath, [path.join(SKILL, script), ...argv], { stdio: "pipe", ...opts })) }; }
+    catch (e) { return { code: e.status, out: String(e.stdout || "") + String(e.stderr || "") }; }
+  };
+  const green = (name, r, re = /PASS/) => truthy(name, r.code === 0 && re.test(r.out), `exit ${r.code}: ${r.out.slice(-240)}`);
+  const red = (name, r, re, code = 1) => truthy(name, r.code === code && re.test(r.out), `exit ${r.code}: ${r.out.slice(-240)}`);
+  const W = (dir, files = {}) => {
+    mkdirSync(dir, { recursive: true });
+    for (const [f, c] of Object.entries(files)) { mkdirSync(path.dirname(path.join(dir, f)), { recursive: true }); writeFileSync(path.join(dir, f), c); }
+    return dir;
+  };
+  const serveOn = async (port, root) => {
+    const sv = spawn(process.execPath, [path.join(SKILL, "scripts/serve.mjs"), "--root", root, "--port", String(port)], { stdio: "pipe" });
+    let up = false;
+    for (let i = 0; i < 40 && !up; i++) { try { await fetch(`http://127.0.0.1:${port}/__wrs/identity`); up = true; } catch { await new Promise((r) => setTimeout(r, 100)); } }
+    if (!up) { sv.kill("SIGTERM"); throw new Error(`serve.mjs did not come up on ${port}`); }
+    return { base: `http://127.0.0.1:${port}`, stop: () => { sv.kill("SIGTERM"); return new Promise((r) => sv.once("exit", r)); } };
+  };
+
+  // verify-zerodep — the discipline every other gate's credibility rests on.
+  {
+    const D = path.join(TMP, "red-zerodep");
+    W(D, { "scripts/a.mjs": 'import { readFileSync } from "node:fs";\nimport "./lib/x.mjs";\n', "scripts/lib/x.mjs": "export const x = 1;\n" });
+    const A = ["--dir", path.join(D, "scripts")];
+    green("verify-zerodep — node:/relative imports only → PASS (v0.3.20)", run("scripts/verify-zerodep.mjs", A));
+    writeFileSync(path.join(D, "scripts/b.mjs"), 'import _ from "lodash";\n');
+    red("verify-zerodep — one bare specifier reds and is named (v0.3.20)", run("scripts/verify-zerodep.mjs", A), /FAIL 1 external import[\s\S]*b\.mjs\s+->\s+lodash/);
+    rmSync(path.join(D, "scripts/b.mjs"));
+    writeFileSync(path.join(D, "scripts/c.mjs"), 'import { make } from "../tools/make.mjs";\n');
+    red("verify-zerodep — a gate importing tools/ reds: the checker cannot be the producer (v0.3.20)", run("scripts/verify-zerodep.mjs", A), /import a producer[\s\S]*c\.mjs/);
+    red("verify-zerodep — an empty directory is FATAL 5, not a pass (v0.3.20)", run("scripts/verify-zerodep.mjs", ["--dir", W(path.join(D, "empty"))]), /finds nothing agrees with everything/, 5);
+  }
+
+  // verify-reassembly — "the parts ARE the chunk", re-derived from bytes.
+  {
+    const D = path.join(TMP, "red-reasm");
+    const p1 = "function a(){return 1}\n", p2 = "function b(){return 2}\n";
+    const manifest = (parts) => JSON.stringify({ chunk: "chunk.js", chunkSha256: sha(p1 + p2), parts });
+    const inOrder = [{ file: "part-0.js", sha256: sha(p1) }, { file: "part-1.js", sha256: sha(p2) }];
+    W(D, { "readable/k/part-0.js": p1, "readable/k/part-1.js": p2, "readable/k/slices.json": manifest(inOrder), "site/chunk.js": p1 + p2 });
+    const A = ["--dir", path.join(D, "readable")], AG = [...A, "--against", path.join(D, "site")];
+    green("verify-reassembly — parts hash and join to the pinned chunk → PASS (v0.3.20)", run("scripts/verify-reassembly.mjs", A), /every one reassembles/);
+    green("verify-reassembly — --against confirms the live original (v0.3.20)", run("scripts/verify-reassembly.mjs", AG), /live original confirmed/);
+    writeFileSync(path.join(D, "readable/k/part-1.js"), "function b(){return 3}\n");
+    red("verify-reassembly — one edited byte in a part reds AT the part (v0.3.20)", run("scripts/verify-reassembly.mjs", A), /part-1\.js does not hash to its manifest entry/);
+    writeFileSync(path.join(D, "readable/k/part-1.js"), p2);
+    writeFileSync(path.join(D, "readable/k/slices.json"), manifest([inOrder[1], inOrder[0]]));
+    red("verify-reassembly — parts verify individually but in the wrong order red at the join (v0.3.20)", run("scripts/verify-reassembly.mjs", A), /do not join to the pinned chunk/);
+    writeFileSync(path.join(D, "readable/k/slices.json"), manifest(inOrder));
+    writeFileSync(path.join(D, "site/chunk.js"), p1 + p2 + "\n");
+    red("verify-reassembly — a re-crawled chunk under a stale manifest reds: the manifest cannot vouch for itself (v0.3.20)", run("scripts/verify-reassembly.mjs", AG), /no longer matches the LIVE original/);
+    red("verify-reassembly — no slices.json is a FAIL, not a pass (v0.3.20)", run("scripts/verify-reassembly.mjs", ["--dir", W(path.join(D, "none"))]), /nothing to verify is not a pass/);
+  }
+
+  // verify-symbols — did every ported declaration survive the rewrite?
+  {
+    const D = path.join(TMP, "red-symbols");
+    const port = "function a(){}\nconst b = 1;\nclass C {}\n";
+    W(D, { "port/_gen/x.js": port, "src/x.js": port });
+    const A = ["--port", path.join(D, "port/_gen"), "--src", path.join(D, "src"), "--map", path.join(D, "map.json")];
+    const V = (argv = A) => run("scripts/verify-symbols.mjs", argv);
+    green("verify-symbols — identical declaration sets → PASS 3/3 (v0.3.20)", V(), /PASS — 3\/3/);
+    writeFileSync(path.join(D, "src/x.js"), "function a(){}\nclass C {}\n");
+    red("verify-symbols — a declaration the rewrite dropped reds and is named (v0.3.20)", V(), /1 port declaration\(s\) absent from src[\s\S]*\bb\b/);
+    writeFileSync(path.join(D, "src/x.js"), port + "function invented(){}\n");
+    red("verify-symbols — a src declaration with no port origin reds (v0.3.20)", V(), /1 src declaration\(s\) with no port origin[\s\S]*invented/);
+    writeFileSync(path.join(D, "map.json"), JSON.stringify({ allow_orphans: ["invented"] }));
+    green("verify-symbols — a registered orphan is not a red (v0.3.20)", V());
+    writeFileSync(path.join(D, "src/x.js"), "function alpha(){}\nconst b = 1;\nclass C {}\n");
+    writeFileSync(path.join(D, "map.json"), JSON.stringify({ declarations: { a: "alpha" } }));
+    green("verify-symbols — a mapped rename resolves (v0.3.20)", V());
+    writeFileSync(path.join(D, "map.json"), JSON.stringify({ declarations: { a: "b" } }));
+    red("verify-symbols — two port declarations claiming one src symbol red: not injective (v0.3.20)", V(), /claimed by more than one port declaration[\s\S]*b\s+←\s+a, b/);
+    writeFileSync(path.join(D, "map.json"), JSON.stringify({ renames: { a: "alpha" } }));
+    red("verify-symbols — a map in an unknown shape is FATAL 5, never 'zero renames' (v0.3.20)", V(), /neither "declarations" nor "allow_orphans"/, 5);
+    rmSync(path.join(D, "map.json"));
+    writeFileSync(path.join(D, "port/_gen/x.js"), "// nothing here\n");
+    red("verify-symbols — 0 port declarations is FATAL 5 (v0.3.20)", V(), /0 declarations found in port/, 5);
+  }
+
+  // verify-lenprefix — no rewrite may change a payload's length without re-declaring it.
+  {
+    const D = path.join(TMP, "red-lenprefix");
+    const page = (rows) => `<html><body><script>self.__next_f.push([1,${JSON.stringify(rows)}])</script></body></html>`;
+    const A = ["--dir", path.join(D, "site")];
+    W(D, { "site/index.html": page('0:T5,hello\n1:["$","div"]\n') });
+    green("verify-lenprefix — a declared length that matches → PASS (v0.3.20)", run("scripts/verify-lenprefix.mjs", A), /1 length-prefixed row\(s\) walked[\s\S]*PASS/);
+    W(D, { "site/index.html": page('0:T5,héllo\n1:["$","div"]\n') }); // é is two bytes: 6 B of text under a 5 B declaration
+    red("verify-lenprefix — a rewrite that changed the byte count under a T-row reds (v0.3.20)", run("scripts/verify-lenprefix.mjs", A), /declares 5 B, and nothing that follows starts a row/);
+    W(D, { "site/index.html": page("0:T9,hello\n") });
+    red("verify-lenprefix — a declaration longer than what remains reds (v0.3.20)", run("scripts/verify-lenprefix.mjs", A), /declares 9 B but only 6 B remain/);
+    W(D, { "site/index.html": "<html>no stream here</html>" });
+    green("verify-lenprefix — a document without a flight stream is a NOTE, not a claim (v0.3.20)", run("scripts/verify-lenprefix.mjs", A), /nothing here declares its own length/);
+  }
+
+  // verify-shell — the rebuild differs from the mirror ONLY where the transform table says.
+  {
+    const D = path.join(TMP, "red-shell");
+    const mirror = '<html><head><title>x</title></head><body>\n<script src="/static/app.abc123.js"></script>\n<p>hi</p>\n</body></html>\n';
+    const site = mirror.replace("/static/app.abc123.js", "/assets/js/app.js");
+    const cfg = (extra = "") => 'export default {\n  pages: [{ rel: "index.html", route: "/" }],\n  originHosts: [],\n' +
+      '  transforms: [{ id: "T-SCRIPT", dev: "D-B2", what: "own bundle -> our build",\n' +
+      '    apply: (html, { bump }) => html.replace(/\\/static\\/app\\.[a-f0-9]+\\.js/g, () => (bump(), "/assets/js/app.js")) }],\n' + extra + "};\n";
+    W(D, { "mirror/index.html": mirror, "site/index.html": site, "cfg.mjs": cfg(),
+      "cfg-ps.mjs": cfg('  portSubstitution: { mustNotMatch: "app\\\\.[a-f0-9]+\\\\.js", mustMatch: "/assets/js/app\\\\.js" },\n') });
+    const A = (c) => ["--config", path.join(D, c), "--mirror", path.join(D, "mirror"), "--site", path.join(D, "site")];
+    green("verify-shell — the only hunk replays from the transform table → PASS (v0.3.20)", run("scripts/verify-shell.mjs", A("cfg.mjs")), /all 1 differing hunk\(s\) replay[\s\S]*T-SCRIPT=1/);
+    writeFileSync(path.join(D, "site/index.html"), site.replace("<p>hi</p>", "<p>hi!</p>"));
+    red("verify-shell — one unexplained byte in the shell reds and shows both sides (v0.3.20)", run("scripts/verify-shell.mjs", A("cfg.mjs")), /NOT reproducible by the transform table[\s\S]*mirror:[\s\S]*site:/);
+    writeFileSync(path.join(D, "site/index.html"), site);
+    green("verify-shell — port-substitution: every shell loads OUR build (v0.3.20)", run("scripts/verify-shell.mjs", A("cfg-ps.mjs")), /1\/1 shells load our build/);
+    writeFileSync(path.join(D, "site/index.html"), mirror); // byte-identical to the mirror: zero hunks — and the source site's bundle
+    red("verify-shell — a shell identical to the mirror passes HUNKS and reds PORT-SUBSTITUTION: it would test the source against itself (v0.3.20)",
+      run("scripts/verify-shell.mjs", A("cfg-ps.mjs")), /ok   hunks — all 0[\s\S]*still load the source site's own bundle/);
+  }
+
+  // verify-fresh — is what is on disk what the generator would produce now? Bytes, not mtimes.
+  {
+    const D = path.join(TMP, "red-fresh");
+    const entry = "console.log(1);\n";
+    W(D, { "src/index.js": entry, "dist/site.js": entry, "site/site.port.js": entry,
+      // stands in for the project's pinned esbuild: --outfile gets the entry's bytes, verbatim
+      "esbuild.mjs": '#!/usr/bin/env node\nimport { readFileSync, writeFileSync } from "node:fs";\nconst a = process.argv.slice(2);\nwriteFileSync(a.find((x) => x.startsWith("--outfile=")).slice(10), readFileSync(a[0]));\n' });
+    chmodSync(path.join(D, "esbuild.mjs"), 0o755);
+    const A = ["--entry", path.join(D, "src/index.js"), "--dist", path.join(D, "dist/site.js"), "--served", path.join(D, "site/site.port.js"), "--esbuild", path.join(D, "esbuild.mjs")];
+    green("verify-fresh — src → dist → site in step → PASS (v0.3.20)", run("scripts/verify-fresh.mjs", A), /in step/);
+    const later = new Date(Date.now() + 86400e3);
+    utimesSync(path.join(D, "src/index.js"), later, later);
+    green("verify-fresh — src NEWER than dist but byte-identical is still green: a timestamp is not the judge (v0.3.20)", run("scripts/verify-fresh.mjs", A), /in step/);
+    writeFileSync(path.join(D, "src/index.js"), "console.log(2);\n");
+    red("verify-fresh — src edited after the bundle: dist is stale (v0.3.20)", run("scripts/verify-fresh.mjs", A), /differs from a fresh build of src/);
+    writeFileSync(path.join(D, "src/index.js"), entry);
+    writeFileSync(path.join(D, "site/site.port.js"), entry + "\n");
+    red("verify-fresh — site/ carries a bundle that is not dist/ (v0.3.20)", run("scripts/verify-fresh.mjs", A), /not the one in dist/);
+    red("verify-fresh — no esbuild at the given path is FATAL 2 (v0.3.20)", run("scripts/verify-fresh.mjs", [...A.slice(0, 6), "--esbuild", path.join(D, "nope")]), /no esbuild at/, 2);
+    green("verify-fresh — a port with no bundle step SKIPS with exit 0 and says so (v0.3.20)", run("scripts/verify-fresh.mjs", ["--entry", path.join(D, "src/missing.js")]), /SKIPPED — no bundle step/);
+  }
+
+  // verify-refs-served — every reference in the built site must be answered by the SERVER.
+  {
+    const D = path.join(TMP, "red-refs");
+    W(D, { "site/index.html": '<html><img src="/img/a.png"><script src="/js/app.js"></script></html>', "site/img/a.png": "\x89PNG", "site/js/app.js": "1" });
+    const S = await serveOn(29996, path.join(D, "site"));
+    try {
+      const A = ["--base", S.base, "--dir", path.join(D, "site")];
+      green("verify-refs-served — every reference answered → PASS (v0.3.20)", run("scripts/verify-refs-served.mjs", A), /every reference in the built site is answered/);
+      writeFileSync(path.join(D, "site/index.html"), '<html><img src="/img/a.png"><img src="/img/gone.webp"></html>');
+      red("verify-refs-served — a reference the server 404s reds and is listed with its status (v0.3.20)", run("scripts/verify-refs-served.mjs", A), /404 \/img\/gone\.webp[\s\S]*FAIL — 1 reference\(s\) the server cannot answer/);
+      writeFileSync(path.join(D, "allow.txt"), "# registered holes\n/img/gone.webp\n");
+      green("verify-refs-served — an --allow line turns the listed hole into a registered one (v0.3.20)", run("scripts/verify-refs-served.mjs", [...A, "--allow", path.join(D, "allow.txt")]));
+    } finally { await S.stop(); }
+  }
+
+  // verify-offline — the static half of the zero-outbound gate, read from the SERVED bytes.
+  {
+    const D = path.join(TMP, "red-offline");
+    W(D, { "site/index.html": '<html><head><link rel="stylesheet" href="/s.css"></head><body><a href="https://example.com/x">link</a></body></html>' });
+    const S = await serveOn(29995, path.join(D, "site"));
+    try {
+      const A = ["--base", S.base, "--routes", "/"];
+      green("verify-offline — a page whose only external URL is an <a href> → PASS (v0.3.20)", run("scripts/verify-offline.mjs", A), /0 static outbound problem/);
+      writeFileSync(path.join(D, "site/index.html"), '<html><head><link rel="preconnect" href="https://fonts.gstatic.com"></head><body></body></html>');
+      red("verify-offline — class 1: a preconnect to an external host reds (v0.3.20)", run("scripts/verify-offline.mjs", A), /FAIL class 1 — connection warm-up[\s\S]*fonts\.gstatic\.com/);
+      writeFileSync(path.join(D, "site/index.html"), '<html><body><script>navigator.sendBeacon("https://t.example.net/collect", "1")</script></body></html>');
+      red("verify-offline — class 2: an inline sendBeacon to an absolute external URL reds (v0.3.20)", run("scripts/verify-offline.mjs", A), /FAIL class 2\/3[\s\S]*sendBeacon\("https:\/\/t\.example\.net/);
+    } finally { await S.stop(); }
+    red("verify-offline — nothing listening is FATAL 5 with the serve command in the message, never a pass (v0.3.20)", run("scripts/verify-offline.mjs", ["--base", "http://127.0.0.1:1", "--routes", "/"]), /nothing answered[\s\S]*serve\.mjs --root/, 5);
+  }
+
+  // verify-payload — the SSG payload gate: a program whose output is data, compared as data.
+  {
+    const D = path.join(TMP, "red-payload");
+    const page = (data) => `<html><body><script>window.__NUXT__=${data};</script></body></html>`;
+    W(D, { "a/index.html": page('{"title":"Hi","hero":{"img":"/img/a.png","n":3}}'), "b/index.html": page('{"title":"Hi","hero":{"img":"/img/b.png","n":3}}') });
+    const SA = await serveOn(29994, path.join(D, "a")), SB = await serveOn(29993, path.join(D, "b"));
+    try {
+      const A = ["--a", SA.base, "--b", SB.base, "--routes", "/"];
+      const V = (argv = A) => run("scripts/verify-payload.mjs", argv);
+      green("verify-payload — sides agree; a difference confined to an asset path is not a red (v0.3.20)", V(), /differ ONLY inside a URL or asset path[\s\S]*payload agrees across sides/);
+      writeFileSync(path.join(D, "b/index.html"), page('{"title":"Hi","hero":{"img":"/img/b.png","n":4}}'));
+      red("verify-payload — one value changed outside any URL reds at the leaf path (v0.3.20)", V(), /1 value mismatch\(es\) OUTSIDE any URL[\s\S]*\$\.hero\.n/);
+      writeFileSync(path.join(D, "b/index.html"), page('{"title":"Hi","hero":{"img":"/img/b.png"}}'));
+      red("verify-payload — a leaf missing on one side reds as only-in-A (v0.3.20)", V(), /1 only-in-A/);
+      writeFileSync(path.join(D, "b/index.html"), "<html><body>no island</body></html>");
+      red("verify-payload — side B without a payload island reds (v0.3.20)", V(), /payload missing on side B/);
+      writeFileSync(path.join(D, "a/index.html"), page('{"title":"Hi"'));
+      red("verify-payload — a payload that no longer evaluates reds here, where a byte diff would have said 'one char' (v0.3.20)", V(), /payload does not evaluate/);
+      writeFileSync(path.join(D, "a/index.html"), "<html><body>static</body></html>");
+      red("verify-payload — no payload island on side A reds unless declared absent (v0.3.20)", V(), /no known SSG payload shape/);
+      writeFileSync(path.join(D, "b/index.html"), "<html><body>static</body></html>");
+      green("verify-payload — --allow-absent: both sides without an island agree (v0.3.20)", V([...A, "--allow-absent"]), /declared absent, sides agree/);
+      writeFileSync(path.join(D, "b/index.html"), page('{"x":1}'));
+      red("verify-payload — --allow-absent still reds when only side B carries an island (v0.3.20)", V([...A, "--allow-absent"]), /side A has no payload but side B carries/);
+    } finally { await SA.stop(); await SB.stop(); }
+  }
+
+  // lib/png — the pixel gate's arithmetic, without a browser.
+  {
+    const { encodePng, decodePng, compare } = await import(path.join(SKILL, "scripts/lib/png.mjs"));
+    const frame = (w, h, fill) => { const b = Buffer.alloc(w * h * 4); for (let i = 0; i < w * h; i++) { b[i * 4] = b[i * 4 + 1] = b[i * 4 + 2] = fill(i); b[i * 4 + 3] = 255; } return decodePng(encodePng(w, h, b)); };
+    const a = frame(8, 8, () => 100), same = frame(8, 8, () => 100), one = frame(8, 8, (i) => (i === 0 ? 200 : 100));
+    eq("png.compare — identical frames measure 0.00 (v0.3.20)", compare(a, same).meanAbsDiff, 0);
+    truthy("png.compare — one pixel 100 levels off is not 0.00 (v0.3.20)", compare(a, one).meanAbsDiff > 0, String(compare(a, one).meanAbsDiff));
+    let threw = null; try { compare(a, frame(4, 4, () => 0)); } catch (e) { threw = e.message; }
+    truthy("png.compare — frames of different size refuse rather than compare what overlaps (v0.3.20)", /size mismatch/.test(threw || ""), threw || "did not throw");
+  }
+}
+
 // ---------------------------------------------------------------- summary
 rmSync(TMP, { recursive: true, force: true });
 console.log(`\n${fail ? "FAIL" : "PASS"} — ${pass} passed, ${fail} failed.`);
