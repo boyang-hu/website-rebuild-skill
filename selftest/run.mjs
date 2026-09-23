@@ -17,7 +17,7 @@
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { ROOT, SKILL, scratch, ok, bad, eq, truthy, finish, run, green, red, W, serveOn } from "./harness.mjs";
+import { ROOT, SKILL, scratch, ok, bad, eq, truthy, finish, run, green, red, W, serveOn, importAbs } from "./harness.mjs";
 
 const TMP = scratch(".tmp");
 
@@ -51,7 +51,7 @@ const TMP = scratch(".tmp");
 
 // ------------------------------------------------- 3. lib/urlpath fixtures
 {
-  const { localRelPath, canonicalUrl, serveCandidates } = await import(path.join(SKILL, "scripts/lib/urlpath.mjs"));
+  const { localRelPath, canonicalUrl, serveCandidates } = await importAbs(path.join(SKILL, "scripts/lib/urlpath.mjs"));
   // v0.1.6/objectarchive: query variants are DISTINCT files.
   const a = localRelPath("https://x.com/i.jpg?width=320", "x.com");
   const b = localRelPath("https://x.com/i.jpg?width=1200", "x.com");
@@ -90,7 +90,7 @@ const TMP = scratch(".tmp");
 
 // --------------------------------------------- 4. lib/extract-refs fixtures
 {
-  const { createRefExtractor, isTextRefSource } = await import(path.join(SKILL, "scripts/lib/extract-refs.mjs"));
+  const { createRefExtractor, isTextRefSource } = await importAbs(path.join(SKILL, "scripts/lib/extract-refs.mjs"));
   const extract = createRefExtractor({ origin: "https://x.com", originHost: "x.com", assetHosts: new Set(["x.com", "cdn.x.com"]), onOffHost: () => {} });
   const refs = (text, base = "https://x.com/index.html") => [...extract(text, base)];
 
@@ -161,7 +161,7 @@ const TMP = scratch(".tmp");
   // landed 391 fallback-format variants (webp transcoded back to JPEG) while
   // every gate stayed green. These pin the one-yardstick contract.
   const { IMG_ACCEPT, imageAcceptFor, isNegotiated, sanityEvidence } =
-    await import(path.join(SKILL, "scripts/lib/negotiate.mjs"));
+    await importAbs(path.join(SKILL, "scripts/lib/negotiate.mjs"));
   eq("negotiate — sanity image gets browser Accept (v0.3.9)",
     imageAcceptFor("https://cdn.sanity.io/images/9syto90m/production/ab-1920x833.webp?auto=format&w=1200"), IMG_ACCEPT);
   eq("negotiate — next/image proxy gets browser Accept (v0.3.9)",
@@ -507,7 +507,7 @@ const TMP = scratch(".tmp");
 // that references Google Fonts and a Vimeo player. This pins the contract the
 // way the fixed consumer uses it: first arg counts as a host, no URL parse.
 {
-  const { createRefExtractor } = await import(path.join(SKILL, "scripts/lib/extract-refs.mjs"));
+  const { createRefExtractor } = await importAbs(path.join(SKILL, "scripts/lib/extract-refs.mjs"));
   const census = new Map();
   const extract = createRefExtractor({
     origin: "http://x.com", originHost: "x.com", assetHosts: new Set(["x.com"]),
@@ -716,7 +716,7 @@ const TMP = scratch(".tmp");
     p4.code === 2 && /--rounds must be an integer/.test(p4.out) && !existsSync(path.join(TMP, "ms-nan")), `exit ${p4.code}: ${p4.out.slice(0, 120)}`);
   // chrome sweep: orphan = the browser's LAUNCHER is gone, decided at the root
   // of the process tree — never "its parent is another Chrome".
-  const { markOrphans } = await import(path.join(SKILL, "scripts/lib/chrome.mjs"));
+  const { markOrphans } = await importAbs(path.join(SKILL, "scripts/lib/chrome.mjs"));
   const tree = (ppid) => [{ pid: 4000001, ppid }, { pid: 4000002, ppid: 4000001 }, { pid: 4000003, ppid: 4000002 }];
   truthy("chrome — renderers of a LIVE sibling browser are not orphans (v0.3.16)", markOrphans(tree(process.pid)).every((f) => !f.orphan));
   truthy("chrome — a browser reparented to pid 1 is an orphan, renderers included (v0.3.16)", markOrphans(tree(1)).every((f) => f.orphan));
@@ -848,7 +848,7 @@ const TMP = scratch(".tmp");
 // nothing knew.
 {
   const fm = readFileSync(path.join(SKILL, "SKILL.md"), "utf8").match(/^metadata:\n\s+version:\s*"([^"]+)"/m);
-  const { SKILL_VERSION } = await import(path.join(SKILL, "scripts/lib/version.mjs"));
+  const { SKILL_VERSION } = await importAbs(path.join(SKILL, "scripts/lib/version.mjs"));
   eq("version — lib/version.mjs matches SKILL.md frontmatter (v0.3.17)", SKILL_VERSION, fm && fm[1]);
   const scripts = [
     ...readdirSync(path.join(SKILL, "scripts")).filter((f) => /\.mjs$/.test(f) && !/example/.test(f)).map((f) => "scripts/" + f),
@@ -887,7 +887,7 @@ const TMP = scratch(".tmp");
 // 64-hex pin in every slice header) — a ledger row and the gate that reads it
 // cannot disagree about what "the sha256 of this file" means.
 {
-  const { sha256, sha256Short, sha256File } = await import(path.join(SKILL, "scripts/lib/hash.mjs"));
+  const { sha256, sha256Short, sha256File } = await importAbs(path.join(SKILL, "scripts/lib/hash.mjs"));
   eq("hash — sha256 of hello is the known digest (v0.3.18)", sha256("hello"), "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
   const hp = path.join(TMP, "hash-me.bin");
   const hbytes = Buffer.from("the quick brown fox\n".repeat(4096));
@@ -902,7 +902,7 @@ const TMP = scratch(".tmp");
 // as the bare header, and a corrupt manifest must THROW — mirror-site used to
 // start a fresh ledger over it and overwrite it at the end.
 {
-  const L = await import(path.join(SKILL, "scripts/lib/ledger.mjs"));
+  const L = await importAbs(path.join(SKILL, "scripts/lib/ledger.mjs"));
   const dir = path.join(TMP, "ledger");
   const files = {
     "https://x.com/b.js": { path: "b.js", bytes: 22, sha256: "b".repeat(64) },
@@ -940,7 +940,7 @@ const TMP = scratch(".tmp");
 // recorded not chased — so each is exercised against a tiny origin that answers
 // one way, counting which rungs it saw.
 {
-  const { fetchProfiles, fetchLadder, BROWSER_UA, BARE_UA } = await import(path.join(SKILL, "scripts/lib/negotiate.mjs"));
+  const { fetchProfiles, fetchLadder, BROWSER_UA, BARE_UA } = await importAbs(path.join(SKILL, "scripts/lib/negotiate.mjs"));
   const http = await import("node:http");
   const rungs = fetchProfiles("https://cdn/x.jpg", { origin: "https://x.com" });
   eq("negotiate — the ladder is std then bare (v0.3.18)", rungs.map((r) => r.name), ["std", "bare"]);
@@ -977,13 +977,13 @@ const TMP = scratch(".tmp");
 
 // ------------------------------- v0.3.18: lib/chrome — one flag set, one candidate list; lib/cdp — a dead port fails loudly
 {
-  const { headlessArgs, CHROME_CANDIDATES } = await import(path.join(SKILL, "scripts/lib/chrome.mjs"));
+  const { headlessArgs, CHROME_CANDIDATES } = await importAbs(path.join(SKILL, "scripts/lib/chrome.mjs"));
   const args = headlessArgs({ port: 21012, width: 100, height: 50, sentinelUrl: "about:blank" });
   truthy("chrome — headlessArgs carries the debug port and window size, sentinel URL last (v0.3.18)",
     args.includes("--remote-debugging-port=21012") && args.includes("--window-size=100,50") && args[args.length - 1] === "about:blank", args.join(" "));
   truthy("chrome — CHROME_CANDIDATES is a non-empty list of paths (v0.3.18)",
     Array.isArray(CHROME_CANDIDATES) && CHROME_CANDIDATES.length > 0 && CHROME_CANDIDATES.every((c) => typeof c === "string"));
-  const { connectCdp, cdpUrlFor } = await import(path.join(SKILL, "scripts/lib/cdp.mjs"));
+  const { connectCdp, cdpUrlFor } = await importAbs(path.join(SKILL, "scripts/lib/cdp.mjs"));
   const open = await connectCdp("ws://127.0.0.1:1/").then(() => "", (e) => e.message);
   truthy("cdp — connectCdp against a closed port rejects instead of hanging (v0.3.18)", /CDP websocket failed to open/.test(open), open);
   const reach = await cdpUrlFor(1, { attempts: 2, intervalMs: 10 }).then(() => "", (e) => e.message);
@@ -1039,7 +1039,7 @@ const TMP = scratch(".tmp");
 // separable (lib/png below).
 {
   const { chmodSync, utimesSync } = await import("node:fs");
-  const { sha256: sha } = await import(path.join(SKILL, "scripts/lib/hash.mjs"));
+  const { sha256: sha } = await importAbs(path.join(SKILL, "scripts/lib/hash.mjs"));
   // run / green / red / W / serveOn come from harness.mjs (v0.3.22: shared with the browser lane)
 
   // verify-zerodep — the discipline every other gate's credibility rests on.
@@ -1224,7 +1224,7 @@ const TMP = scratch(".tmp");
 
   // lib/png — the pixel gate's arithmetic, without a browser.
   {
-    const { encodePng, decodePng, compare } = await import(path.join(SKILL, "scripts/lib/png.mjs"));
+    const { encodePng, decodePng, compare } = await importAbs(path.join(SKILL, "scripts/lib/png.mjs"));
     const frame = (w, h, fill) => { const b = Buffer.alloc(w * h * 4); for (let i = 0; i < w * h; i++) { b[i * 4] = b[i * 4 + 1] = b[i * 4 + 2] = fill(i); b[i * 4 + 3] = 255; } return decodePng(encodePng(w, h, b)); };
     const a = frame(8, 8, () => 100), same = frame(8, 8, () => 100), one = frame(8, 8, (i) => (i === 0 ? 200 : 100));
     eq("png.compare — identical frames measure 0.00 (v0.3.20)", compare(a, same).meanAbsDiff, 0);
@@ -1256,7 +1256,7 @@ const TMP = scratch(".tmp");
   const tmiss = readdirSync(path.join(SKILL, "tools")).filter((f) => f.endsWith(".mjs") && !tr.includes(f));
   truthy("tools/README — every tools/*.mjs is mentioned (v0.3.21)", tmiss.length === 0, tmiss.join(", "));
   // the spec that left the README is reachable where the README now points: --help
-  const { headerOf } = await import(path.join(SKILL, "scripts/lib/cli.mjs"));
+  const { headerOf } = await importAbs(path.join(SKILL, "scripts/lib/cli.mjs"));
   const moved = rows.filter((r) => headerOf(path.join(SKILL, r)).includes("中文规格（自 scripts/README.md 迁入"));
   truthy(`scripts/README — the moved spec answers --help (${moved.length}/${rows.length} rows carry a 中文规格 block) (v0.3.21)`, moved.length >= 55, `${moved.length}`);
 }
@@ -1341,8 +1341,8 @@ const TMP = scratch(".tmp");
 // asked with */* and reported the mirror as drifted from an origin that had not changed.
 {
   const http = await import("node:http");
-  const { writeLedgers } = await import(path.join(SKILL, "scripts/lib/ledger.mjs"));
-  const { sha256: sha } = await import(path.join(SKILL, "scripts/lib/hash.mjs"));
+  const { writeLedgers } = await importAbs(path.join(SKILL, "scripts/lib/ledger.mjs"));
+  const { sha256: sha } = await importAbs(path.join(SKILL, "scripts/lib/hash.mjs"));
   const WEBP = Buffer.concat([Buffer.from("RIFF"), Buffer.from([0x10, 0, 0, 0]), Buffer.from("WEBPVP8 "), Buffer.alloc(8, 1)]);
   const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(40, 2)]);
   const srv = http.createServer((req, res) => {
@@ -1373,7 +1373,7 @@ const TMP = scratch(".tmp");
 // built-in carve-out only knew Nuxt's spelling, so T-LOCALIZE walked into
 // 2–3 islands per page and rewrote them to "/".
 {
-  const { transformPage } = await import(path.join(SKILL, "scripts/lib/shell-build.mjs"));
+  const { transformPage } = await importAbs(path.join(SKILL, "scripts/lib/shell-build.mjs"));
   const cfg = { originHosts: ["x.com"], stubExtHosts: [], mirroredExtHosts: [], transforms: [] };
   const ld = `<script type="application/ld+json">{"@id":"https:\\/\\/x.com\\/","url":"https://x.com/"}</script>`;
   const sr = `<script type="speculationrules">{"prefetch":[{"where":{"href_matches":"https://x.com/*"}}]}</script>`;
@@ -1390,7 +1390,7 @@ const TMP = scratch(".tmp");
 // `"site_url":"https:\/\/lamalama.com"` — the build layer wrote "" and serve.mjs left it
 // untouched. Same disease as chungiyoo (unescaped bare form), one spelling over.
 {
-  const { localizeShapes } = await import(path.join(SKILL, "scripts/lib/shell-build.mjs"));
+  const { localizeShapes } = await importAbs(path.join(SKILL, "scripts/lib/shell-build.mjs"));
   const fx = `a="https://x.com/p";b="https://x.com";c="https:\\/\\/x.com\\/p";d="https:\\/\\/x.com";e="//x.com/q";`;
   const built = localizeShapes(fx, "x.com", "");
   eq("shell-build — escaped bare host localises to \\/ like the plain bare host localises to / (v0.3.23)",

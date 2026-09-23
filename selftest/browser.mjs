@@ -20,10 +20,10 @@
 // it is FATAL 5, never a silent pass. Runs in its own CI job. ~30–60 s.
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
-import { SKILL, scratch, ok, bad, eq, truthy, finish, run, green, red, W, serveOn } from "./harness.mjs";
+import { SKILL, scratch, ok, bad, eq, truthy, finish, run, green, red, W, serveOn, importAbs } from "./harness.mjs";
 
 const TMP = scratch(".tmp-browser");
-const { findChrome } = await import(path.join(SKILL, "scripts/lib/chrome.mjs"));
+const { findChrome } = await importAbs(path.join(SKILL, "scripts/lib/chrome.mjs"));
 const chrome = await findChrome();
 if (!chrome) {
   console.error("FATAL — no Chrome/Chromium found (lib/chrome.mjs CHROME_CANDIDATES). This lane needs a browser; the offline lane is `npm test`.");

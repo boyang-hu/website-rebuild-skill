@@ -6,10 +6,14 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync, spawn } from "node:child_process";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const SKILL = path.join(ROOT, "skills", "website-rebuild");
+
+/** import() of an absolute path — ESM wants a file:// URL, because on Windows `D:\…` parses as scheme `d:`
+ *  (ERR_UNSUPPORTED_ESM_URL_SCHEME). pathToFileURL is the one spelling that works on every platform. */
+export const importAbs = (p) => import(pathToFileURL(p).href);
 
 /** A lane's scratch directory — wiped on entry; finish() wipes it again. */
 export function scratch(name) {

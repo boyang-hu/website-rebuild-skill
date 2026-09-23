@@ -15,7 +15,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SK = path.join(ROOT, "skills/website-rebuild");
@@ -46,7 +46,7 @@ const sentences = (text) => {
 let headers = "";
 if (isScripts) {
   const { readdirSync } = await import("node:fs");
-  const { headerOf } = await import(path.join(SK, "scripts/lib/cli.mjs"));
+  const { headerOf } = await import(pathToFileURL(path.join(SK, "scripts/lib/cli.mjs")).href);
   for (const d of ["scripts", "scripts/lib", "tools"])
     for (const f of readdirSync(path.join(SK, d))) if (/\.(mjs|js)$/.test(f)) headers += headerOf(path.join(SK, d, f)) + "\n";
 }
