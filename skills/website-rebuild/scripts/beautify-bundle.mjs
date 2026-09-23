@@ -22,7 +22,7 @@
 // 薄封装：钉死 `js-beautify@1.15.1` 展开 bundle 到 `mirror/_pretty/` 并自动生成含再生成命令的 `_pretty/README.md`（版本漂移作废行号坐标系）
 // `node beautify-bundle.mjs mirror/assets/cdn.x.com/bundle.js`
 
-import { spawnSync } from "node:child_process";
+import { spawnNpx } from "./lib/npx.mjs";
 import { existsSync } from "node:fs";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -93,8 +93,7 @@ for (const file of FILES) {
     feed = path.join(tmpDir, `${entries.length}.${type}`);
     writeFileSync(feed, readFileSync(src));
   }
-  const r = spawnSync(
-    "npx",
+  const r = spawnNpx(
     ["-y", `js-beautify@${JS_BEAUTIFY_VERSION}`, "--type", type, "-f", feed, "-o", dest],
     { stdio: ["ignore", "inherit", "inherit"] },
   );
@@ -128,9 +127,9 @@ for (const file of FILES) {
     // error under sourceType "script", so the check used to reject every ESM
     // chunk as "corruption" and ship the 171,858-char line back as the
     // coordinates — i.e. no coordinates at all (lamalama). Try script, then module.
-    let chk = spawnSync("npx", ["-y", "acorn@8.14.0", "--ecma2022", "--silent", dest], { encoding: "utf8" });
+    let chk = spawnNpx(["-y", "acorn@8.14.0", "--ecma2022", "--silent", dest], { encoding: "utf8" });
     if (chk.status !== 0 && /sourceType: module/.test(chk.stderr || "")) {
-      chk = spawnSync("npx", ["-y", "acorn@8.14.0", "--ecma2022", "--module", "--silent", dest], { encoding: "utf8" });
+      chk = spawnNpx(["-y", "acorn@8.14.0", "--ecma2022", "--module", "--silent", dest], { encoding: "utf8" });
     }
     if (chk.status !== 0) {
       console.error(`  ⚠ beautified output DOES NOT PARSE (js-beautify corruption) — shipping the`);

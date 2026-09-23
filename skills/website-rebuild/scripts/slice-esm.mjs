@@ -44,7 +44,7 @@
  * `node slice-esm.mjs --in src/site/_nuxt/X.js --out src/readable/X`
  */
 import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
-import { spawnSync } from "node:child_process";
+import { spawnNpx } from "./lib/npx.mjs";
 import path from "node:path";
 import { cli } from "./lib/cli.mjs";
 import { sha256 } from "./lib/hash.mjs";
@@ -70,7 +70,7 @@ const CHUNK_SHA = sha256(SRC);
 // Tokenize with the same pinned-npx pattern as module-map.mjs — never a
 // hand-rolled lexer (a regex literal containing a quote once desynced one by
 // 16,177 lines). --module: these are ESM chunks, import/export are statements.
-const r = spawnSync("npx", ["-y", `acorn@${ACORN_VERSION}`, "--ecma2024", "--module", "--tokenize", path.resolve(IN)], {
+const r = spawnNpx(["-y", `acorn@${ACORN_VERSION}`, "--ecma2024", "--module", "--tokenize", path.resolve(IN)], {
   encoding: "utf8",
   maxBuffer: 1024 * 1024 * 1024,
 });

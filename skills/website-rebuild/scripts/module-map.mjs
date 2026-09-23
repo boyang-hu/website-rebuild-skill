@@ -28,7 +28,7 @@
 // 模块化 bundle 的分层表：spawn 钉死 `acorn@8.14.0 --tokenize`（**零依赖：外挂，从不 import**），逐模块给出行区间、`requires`、导出名。⛔ 认不出容器即 FATAL。⛔ 容器可以重复定义同一个 id——按对象字面量语义**后者胜出**，去重并报告被遮蔽的份数与其中实现不同的那些
 // `node scripts/module-map.mjs --in mirror/_pretty/main.built.js`
 import { writeFile, mkdir, readFile } from "node:fs/promises";
-import { spawnSync } from "node:child_process";
+import { spawnNpx } from "./lib/npx.mjs";
 import path from "node:path";
 import { cli } from "./lib/cli.mjs";
 
@@ -43,7 +43,7 @@ const OUT = path.resolve(flag("out", "docs/module-map.json"));
 
 const code = await readFile(IN, "utf8");
 
-const r = spawnSync("npx", ["-y", `acorn@${ACORN_VERSION}`, "--ecma2022", "--locations", "--tokenize", IN], {
+const r = spawnNpx(["-y", `acorn@${ACORN_VERSION}`, "--ecma2022", "--locations", "--tokenize", IN], {
   encoding: "utf8",
   maxBuffer: 1024 * 1024 * 1024,
 });

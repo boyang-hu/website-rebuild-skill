@@ -138,6 +138,7 @@
 | `scripts/lib/flight.mjs` | flight 流的解析与寻址（flight-decode / verify-flight / verify-refs-served 共用） | C1 与 flight 载荷门依赖 | rauchg 版谱系 | 高（selftest 合成流夹具） |
 | `scripts/lib/shell-build.mjs` | 策略 A 的变换表执行器（build-site 与 verify-shell 共用同一份，门不自带实现） | M2+（策略 A） | racingshop 版（v0.1.17） | 高（selftest 绿/红双面） |
 | `scripts/lib/version.mjs` | 这份 scripts/ 拷贝自哪个 skill 版本；`--help` / `--version` 都打印它 | 全部脚本 | v0.3.17 新写 | 高（selftest 钉 SKILL.md frontmatter） |
+| `scripts/lib/npx.mjs` | 唯一的「钉死版本 npx 调用」拼写：POSIX 直接 spawn，Windows 经 `cmd.exe /d /s /c npx`（.cmd 垫片不能直接 spawn） | beautify-bundle / module-map / slice-esm / cold-audit-decls / verify-module-map / lib/tokens 依赖 | Windows 兼容修复 | 中（Windows 上 selftest 实跑 acorn / js-beautify 用例） |
 
 范式行——本 skill 不提供实现，写在这里是因为它定义了一种门的形状：
 

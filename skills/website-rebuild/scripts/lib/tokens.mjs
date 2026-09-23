@@ -9,14 +9,14 @@
 //
 // 中文规格（自 scripts/README.md 迁入，v0.3.21）
 // token 流读法（acorn@8.14.0 钉死 spawn）+ 首分歧定位；beautify-bundle 自查与 verify-tokens 门共用（门不 import 生产者，只共享读法）
-import { spawnSync } from "node:child_process";
+import { spawnNpx } from "./npx.mjs";
 
 export const ACORN_VERSION = "8.14.0";
 const SEP = String.fromCharCode(1); // label 与 value 之间的分隔符（不会出现在任一侧）
 
 /** 文件 → token 字符串数组（`label<SEP>value`），空白/位置无关。 */
 export function tokenStream(file, { ecma = "2022" } = {}) {
-  const r = spawnSync("npx", ["-y", `acorn@${ACORN_VERSION}`, `--ecma${ecma}`, "--tokenize", file], {
+  const r = spawnNpx(["-y", `acorn@${ACORN_VERSION}`, `--ecma${ecma}`, "--tokenize", file], {
     encoding: "utf8",
     maxBuffer: 1 << 30,
   });

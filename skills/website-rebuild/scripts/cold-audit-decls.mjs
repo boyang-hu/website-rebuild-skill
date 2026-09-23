@@ -66,7 +66,7 @@
  * **冷头点名（M(n) 关账，扁平产物）**：scope-hoisted bundle 没有模块边界，点名单位是深度 0 声明。逐条判 cited / override(collapsed·omitted·ported) / named / UNKNOWN，报 `n/N examined`；范围 override 可带 `match` 只收编译期常量；找不到的 override 即 FATAL。手写移植 + 冻结快照当 port/ 的形态里，它就是 mirror→port 那一段唯一的机器裁判
  * `node cold-audit-decls.mjs --pretty mirror/_pretty/main.pretty.js --ranges a-b,… --port src [--overrides docs/cold-audit-overrides.json] [--slack 1]`
  */
-import { spawnSync } from "node:child_process";
+import { spawnNpx } from "./lib/npx.mjs";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { cli } from "./lib/cli.mjs";
@@ -103,7 +103,7 @@ for (let i = 0; i < src.length; i++) if (src.charCodeAt(i) === 10) lineStarts.pu
 const lineOf = (off) => { let lo = 0, hi = lineStarts.length - 1; while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (lineStarts[mid] <= off) lo = mid; else hi = mid - 1; } return lo + 1; };
 const totalLines = lineStarts.length;
 
-const r = spawnSync("npx", ["-y", `acorn@${ACORN_VERSION}`, "--ecma2022", "--module", "--tokenize", "--compact", PRETTY], { encoding: "utf8", maxBuffer: 2 ** 31 });
+const r = spawnNpx(["-y", `acorn@${ACORN_VERSION}`, "--ecma2022", "--module", "--tokenize", "--compact", PRETTY], { encoding: "utf8", maxBuffer: 2 ** 31 });
 if (r.status !== 0) { console.error(`FATAL: acorn@${ACORN_VERSION} failed on ${PRETTY}: ${(r.stderr || "").split("\n")[0]}`); process.exit(2); }
 const toks = JSON.parse(r.stdout).map((t) => ({ l: typeof t.type === "object" ? t.type.label : t.type, v: t.value, s: t.start }));
 const OPEN = new Set(["{", "(", "[", "${"]);

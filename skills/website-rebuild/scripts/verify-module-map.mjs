@@ -40,7 +40,7 @@
  * `node verify-module-map.mjs [--src port]`
  */
 import { readFile, readdir, writeFile, mkdtemp, rm } from "node:fs/promises";
-import { spawnSync } from "node:child_process";
+import { spawnNpx } from "./lib/npx.mjs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { cli } from "./lib/cli.mjs";
@@ -118,7 +118,7 @@ for (const id of ids) {
 const tokenize = async (chunks, label) => {
   const file = path.join(tmp, label + ".js");
   await writeFile(file, chunks.map((c) => `(${c})`).join(SEP));
-  const r = spawnSync("npx", ["-y", `acorn@${ACORN_VERSION}`, "--ecma2022", "--tokenize", file], { encoding: "utf8", maxBuffer: 1024 * 1024 * 1024 });
+  const r = spawnNpx(["-y", `acorn@${ACORN_VERSION}`, "--ecma2022", "--tokenize", file], { encoding: "utf8", maxBuffer: 1024 * 1024 * 1024 });
   if (r.status !== 0) { console.error(`FATAL — could not tokenize ${label}:\n${(r.stderr || "").slice(0, 400)}`); process.exit(5); }
   const all = JSON.parse(r.stdout);
   const out = [];
