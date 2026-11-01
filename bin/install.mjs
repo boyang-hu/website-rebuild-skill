@@ -4,9 +4,10 @@
  *
  * Copies the skill directory shipped inside this package into an agent's
  * skills directory, then verifies every copied byte against the source by
- * sha256. It installs FILES: it never runs the skill, never spawns a browser,
- * and never fetches anything. The skill itself stays zero-dependency — this
- * package has no dependencies either.
+ * sha256. The package's own README/LICENSE travel with it, because SKILL.md's
+ * references point at them. It installs FILES: it never runs the skill, never
+ * spawns a browser, and never fetches anything. The skill itself stays
+ * zero-dependency — this package has no dependencies either.
  *
  *   npx website-rebuild-skill                  ->  ~/.claude/skills/website-rebuild
  *   npx website-rebuild-skill --project        ->  ./.claude/skills/website-rebuild
@@ -37,6 +38,13 @@ const EXIT = { OK: 0, FAIL: 1, USAGE: 2 };
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SRC = path.join(HERE, "..", "skills", "website-rebuild");
 const LEAF = "website-rebuild";
+/**
+ * Repo-level docs that SKILL.md itself points at. Its "verified sites" table —
+ * the key every 【codename】 in SKILL.md resolves against — lives in README.md,
+ * so an install without it ships a dead reference. npm always packs these
+ * regardless of `files`, so they are already on disk next to this script.
+ */
+const DOC_NAMES = ["README.md", "README.en.md", "LICENSE"];
 
 const VALUE_FLAGS = new Set(["dir"]);
 const BOOL_FLAGS = new Set(["project", "force", "dry-run", "help", "version"]);
@@ -117,10 +125,12 @@ function main() {
   const files = walk(SRC);
   const bytes = files.reduce((n, f) => n + statSync(path.join(SRC, f)).size, 0);
   const mb = (bytes / 1024 / 1024).toFixed(1);
+  const docs = DOC_NAMES.map((n) => path.join(HERE, "..", n)).filter((p) => existsSync(p));
 
   console.log(`website-rebuild v${version} — ${files.length} files, ${mb} MB`);
   console.log(`  from  ${SRC}`);
   console.log(`  into  ${dest}`);
+  if (docs.length) console.log(`  docs  ${docs.map((p) => path.basename(p)).join(", ")}`);
 
   if (existsSync(dest)) {
     const had = skillVersion(dest);
@@ -158,7 +168,12 @@ function main() {
     process.exit(EXIT.FAIL);
   }
 
+  // Docs go in after the skill payload verifies, so the byte-for-byte check
+  // above still sees exactly the skill's own file set and nothing else.
+  for (const doc of docs) cpSync(doc, path.join(dest, path.basename(doc)));
+
   console.log(`\n✅ installed and verified — ${files.length}/${files.length} files match by sha256.`);
+  if (docs.length) console.log(`   plus ${docs.length} repo doc${docs.length > 1 ? "s" : ""} so SKILL.md's references resolve: ${docs.map((p) => path.basename(p)).join(", ")}`);
   console.log(`\nNext: tell your agent to rebuild a site, e.g.`);
   console.log(`   "复刻 https://example.com" / "1:1 rebuild https://example.com"`);
 }
