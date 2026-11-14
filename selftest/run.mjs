@@ -15,7 +15,7 @@
 // paren balance, spelling twins, …). Each assertion cites the version that
 // bled for it, so a regression names the lesson it just unlearned.
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, statSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import path from "node:path";
 import { ROOT, SKILL, scratch, ok, bad, eq, truthy, finish, run, green, red, W, serveOn, importAbs } from "./harness.mjs";
 
@@ -1440,6 +1440,52 @@ truthy("pixel-walk — the scroll seed sets history.scrollRestoration = \"manual
   const h = run("scripts/pixel-walk.mjs", ["--help"]);
   for (const f of ["seed", "freeze-css", "after-ready", "chunk"]) truthy(`pixel-walk — --help lists --${f} as a forwarded flag (v0.3.23)`, h.code === 0 && new RegExp(`--${f}\\b`).test(h.out), h.out.slice(-300));
   red("pixel-walk — a flag pixelcompare does not know is still FATAL 2 here (v0.3.23)", run("scripts/pixel-walk.mjs", ["--a", "http://127.0.0.1:1/", "--b", "http://127.0.0.1:2/", "--bogus", "1"]), /unknown|FATAL/i, 2);
+}
+
+// PR #3: an installed SKILL.md must carry its README site lookup and license.
+// Exercise an isolated package so no test can write into the user's skills.
+{
+  const D = path.join(TMP, "installer package");
+  const payload = { "SKILL.md": "---\nname: website-rebuild\nversion: 0.3.24\n---\n", "references/example.md": "evidence\n" };
+  const docs = { "README.md": "已验证过的网站\n", "README.en.md": "Verified sites\n", "LICENSE": "MIT\n" };
+  W(D, { "bin/install.mjs": readFileSync(path.join(ROOT, "bin/install.mjs")), ...docs });
+  W(path.join(D, "skills/website-rebuild"), payload);
+  const target = path.join(D, "target skills");
+  const dest = path.join(target, "website-rebuild");
+  const install = (args = [], nodeArgs = []) => {
+    const r = spawnSync(process.execPath, [...nodeArgs, path.join(D, "bin/install.mjs"), "--dir", target, ...args], { encoding: "utf8" });
+    return { code: r.status ?? 1, out: String(r.stdout || "") + String(r.stderr || "") };
+  };
+  green("installer — dry-run lists docs and writes nothing (PR #3)", install(["--dry-run"]), /docs.*README.md, README.en.md, LICENSE/);
+  truthy("installer — dry-run leaves target absent", !existsSync(target));
+  green("installer — payload and docs all verify", install(), /5\/5 files match by sha256/);
+  for (const [f, data] of Object.entries({ ...payload, ...docs })) {
+    eq(`installer — copied ${f} byte for byte`, readFileSync(path.join(dest, f)).toString("hex"), Buffer.from(data).toString("hex"));
+  }
+  writeFileSync(path.join(dest, "README.md"), "local edit");
+  writeFileSync(path.join(dest, "stale.txt"), "old version");
+  red("installer — existing install is refused", install(), /already installed/);
+  green("installer — force dry-run writes nothing", install(["--force", "--dry-run"]), /nothing written/);
+  eq("installer — force dry-run preserves edited docs", readFileSync(path.join(dest, "README.md"), "utf8"), "local edit");
+  green("installer — force replaces and verifies docs", install(["--force"]), /5\/5 files match by sha256/);
+  truthy("installer — force removes stale files", !existsSync(path.join(dest, "stale.txt")));
+  eq("installer — force restores README bytes", readFileSync(path.join(dest, "README.md"), "utf8"), docs["README.md"]);
+
+  // Corrupt a copied doc before verification: success must cover docs too.
+  const corruptor = path.join(D, "corrupt-doc.mjs");
+  writeFileSync(corruptor, `import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
+const copy = fs.cpSync;
+fs.cpSync = (source, dest, options) => {
+  copy(source, dest, options);
+  if (String(source).endsWith("README.md")) fs.writeFileSync(dest, "corrupted");
+};
+syncBuiltinESMExports();
+`);
+  red("installer — corrupted README fails verification", install(["--force"], ["--import", corruptor]), /sha256 differs: README.md/);
+  for (const f of Object.keys(docs)) rmSync(path.join(D, f));
+  green("installer — package without optional docs still verifies", install(["--force"]), /2\/2 files match by sha256/);
+  truthy("installer — no stale docs survive the payload-only reinstall", Object.keys(docs).every((f) => !existsSync(path.join(dest, f))));
 }
 
 finish(TMP);

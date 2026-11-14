@@ -1,5 +1,16 @@
 # 更新记录
 
+## 未发布 — 安装时携带站点清单与许可证（社区 PR #3）
+
+[PR #3](https://github.com/boyang-hu/website-rebuild-skill/pull/3)
+（zhuchongba-01 贡献）修复安装后的 SKILL.md 无法查阅 README「已验证过的网站」的问题：
+安装器额外复制包根的 `README.md`、`README.en.md`、`LICENSE`，手动安装说明同步补齐。
+全部安装文件（含文档）统一纳入双向文件清单与 SHA-256 校验；精简包缺少文档时仍可安装。
+
+实测：macOS / Node 24.15，`npm test` **253 passed / 0 failed**；新增安装器用例覆盖
+预览、首次安装、已安装拒绝、强制替换、文档损坏拒绝与缺文档降级。
+真实 `npm pack` 解压安装 **134/134** 文件哈希一致，预览不落盘、覆盖重装清除旧文件。
+
 ## v0.3.24 — 第二个社区 PR：Windows 原生跑通离线道(lianghua 贡献)
 
 Windows 原生(非 WSL)此前 `npm test` 在第 3 组断言即崩,后面 200+ 条一条

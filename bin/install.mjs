@@ -41,8 +41,8 @@ const LEAF = "website-rebuild";
 /**
  * Repo-level docs that SKILL.md itself points at. Its "verified sites" table —
  * the key every 【codename】 in SKILL.md resolves against — lives in README.md,
- * so an install without it ships a dead reference. npm always packs these
- * regardless of `files`, so they are already on disk next to this script.
+ * so an install without it ships a dead reference. These docs ship at the
+ * package root, next to bin/ and skills/.
  */
 const DOC_NAMES = ["README.md", "README.en.md", "LICENSE"];
 
@@ -151,15 +151,18 @@ function main() {
 
   mkdirSync(skillsDir, { recursive: true });
   cpSync(SRC, dest, { recursive: true });
+  for (const doc of docs) cpSync(doc, path.join(dest, path.basename(doc)));
+  const manifest = new Map(files.map((f) => [f, path.join(SRC, f)]));
+  for (const doc of docs) manifest.set(path.basename(doc), doc);
 
   // Verify the copy the way the skill verifies a mirror: per-file sha256, both directions.
   const copied = walk(dest);
   const bad = [];
-  if (copied.length !== files.length) bad.push(`file count ${copied.length} != ${files.length}`);
-  for (const f of files) {
+  if (copied.length !== manifest.size) bad.push(`file count ${copied.length} != ${manifest.size}`);
+  for (const [f, source] of manifest) {
     const d = path.join(dest, f);
     if (!existsSync(d)) { bad.push(`missing: ${f}`); continue; }
-    if (sha256(path.join(SRC, f)) !== sha256(d)) bad.push(`sha256 differs: ${f}`);
+    if (sha256(source) !== sha256(d)) bad.push(`sha256 differs: ${f}`);
   }
   if (bad.length) {
     console.error(`\n⛔ copy did not verify (${bad.length} problem${bad.length > 1 ? "s" : ""}):`);
@@ -168,12 +171,8 @@ function main() {
     process.exit(EXIT.FAIL);
   }
 
-  // Docs go in after the skill payload verifies, so the byte-for-byte check
-  // above still sees exactly the skill's own file set and nothing else.
-  for (const doc of docs) cpSync(doc, path.join(dest, path.basename(doc)));
-
-  console.log(`\n✅ installed and verified — ${files.length}/${files.length} files match by sha256.`);
-  if (docs.length) console.log(`   plus ${docs.length} repo doc${docs.length > 1 ? "s" : ""} so SKILL.md's references resolve: ${docs.map((p) => path.basename(p)).join(", ")}`);
+  console.log(`\n✅ installed and verified — ${manifest.size}/${manifest.size} files match by sha256.`);
+  if (docs.length) console.log(`   includes ${docs.length} repo doc${docs.length > 1 ? "s" : ""} so SKILL.md's references resolve: ${docs.map((p) => path.basename(p)).join(", ")}`);
   console.log(`\nNext: tell your agent to rebuild a site, e.g.`);
   console.log(`   "复刻 https://example.com" / "1:1 rebuild https://example.com"`);
 }
