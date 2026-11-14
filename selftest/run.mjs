@@ -17,6 +17,7 @@
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, statSync } from "node:fs";
 import { execFileSync, spawnSync } from "node:child_process";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { ROOT, SKILL, scratch, ok, bad, eq, truthy, finish, run, green, red, W, serveOn, importAbs } from "./harness.mjs";
 
 const TMP = scratch(".tmp");
@@ -1482,7 +1483,7 @@ fs.cpSync = (source, dest, options) => {
 };
 syncBuiltinESMExports();
 `);
-  red("installer — corrupted README fails verification", install(["--force"], ["--import", corruptor]), /sha256 differs: README.md/);
+  red("installer — corrupted README fails verification", install(["--force"], ["--import", pathToFileURL(corruptor).href]), /sha256 differs: README.md/);
   for (const f of Object.keys(docs)) rmSync(path.join(D, f));
   green("installer — package without optional docs still verifies", install(["--force"]), /2\/2 files match by sha256/);
   truthy("installer — no stale docs survive the payload-only reinstall", Object.keys(docs).every((f) => !existsSync(path.join(dest, f))));
