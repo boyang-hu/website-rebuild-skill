@@ -1,6 +1,6 @@
 # 更新记录
 
-## 未发布 — 安装时携带站点清单与许可证（社区 PR #3）
+## v0.3.25 — 安装时携带站点清单与许可证（社区 PR #3）
 
 [PR #3](https://github.com/boyang-hu/website-rebuild-skill/pull/3)
 （zhuchongba-01 贡献）修复安装后的 SKILL.md 无法查阅 README「已验证过的网站」的问题：

@@ -283,7 +283,7 @@ README.en.md               # 英文版 README
 
 版本随真实复刻项目递进：每个版本发布的功能与修复，都先在至少一个完整项目上验证过。
 
-完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.24**:第二个社区 PR——**Windows 原生跑通离线道**(lianghua 贡献,Windows 11 / Node 24 实测,修前 ok 2 → 修后 ok 214;POSIX 零行为变化)。两类跨平台缺陷收拢成两个唯一拼写:ESM 绝对路径 import 走 `importAbs`(`pathToFileURL` 是三平台唯一正确写法),钉死版本 npx 调用走 `lib/npx.mjs` 的 `spawnNpx`(Windows 上 npx 是 .cmd 垫片,必须经 cmd.exe)。Windows 原生自此进入支持面,余下失败项欢迎继续按条 PR。
+完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.25**：社区 PR #3（zhuchongba-01 贡献）修复安装后缺少站点清单与许可证的问题。安装器会携带 `README.md`、`README.en.md`、`LICENSE`，全部安装文件统一做 SHA-256 校验；手动安装说明同步补齐。新增安装器回归用例，离线测试 **253 passed / 0 failed**，真实 npm 包安装 **134/134** 文件哈希一致。
 
 ## 贡献
 
