@@ -91,6 +91,8 @@ npx website-rebuild-skill --dir <skills dir>   # other runtimes; `website-rebuil
 
 The installer **only copies files** — it never runs the skill, never opens a browser, never fetches anything, and has no dependencies of its own. Every copied file is verified against the source by sha256 before it reports success; an existing install is reported by version and left alone unless you pass `--force`. Use `--dry-run` to see what it would write.
 
+On top of the skill directory itself, it also drops the repo-level `README.md`, `README.en.md` and `LICENSE` into the target: SKILL.md's "verified sites" table — the key every 【codename】 in SKILL.md resolves against — lives in the README, so an install without it ships a dead reference.
+
 **Option 2 — copy by hand (you already cloned the repo)**
 
 Put the entire `skills/website-rebuild/` directory into your agent's skills directory. For Claude Code:
@@ -98,9 +100,11 @@ Put the entire `skills/website-rebuild/` directory into your agent's skills dire
 ```bash
 # user level (or project level .claude/skills/)
 cp -R skills/website-rebuild ~/.claude/skills/website-rebuild
+# then bring the site list SKILL.md points at (the README's "verified sites")
+cp README.md README.en.md LICENSE ~/.claude/skills/website-rebuild/
 ```
 
-For other runtimes that support the Agent Skills standard, place the same directory according to their conventions.
+For other runtimes that support the Agent Skills standard, place the same directory according to their conventions — and bring those three docs along the same way.
 
 ### Use
 
@@ -128,7 +132,7 @@ You give it a URL; the agent walks the chain on its own:
 
 ⭐ **The last step is sourcification, and it must come last.** The scariest part of refactoring is not knowing whether you broke something; here a pixel-exact referee exists *before* the work starts, so every split and every rename can be proven safe. **Refactoring without a referee is blind editing.**
 
-⭐ **This is also where the skill ends: at "truth a human can read."** Taking the output further — scaffolding, forking, derivative work — is **your project, not its stage**: it won't pick names, write stories, or swap content for you, because only you can make those calls. But it leaves you something nowhere else provides: the deliverable's own byte manifest and reassembly gate, so after you fork you know **precisely how each step diverges from the source site**. See the handover guide: [`beyond-the-rebuild.md`](skills/website-rebuild/references/beyond-the-rebuild.md).
+⭐ **This is also where the skill ends: at "truth a human can read."** Taking the output further — scaffolding, forking, derivative work — is **your project, not its stage**: it won't pick names, write stories, or swap content for you, because only you can make those calls. But it leaves you something nowhere else provides: the deliverable's own byte manifest and reassembly gate, so after you fork you know **precisely how each step diverges from the source site**. See the handover guide: [`beyond-the-rebuild.md`](https://github.com/boyang-hu/website-rebuild-skill/blob/main/skills/website-rebuild/references/beyond-the-rebuild.md).
 
 ### The six disciplines
 

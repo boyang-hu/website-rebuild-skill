@@ -4,9 +4,10 @@
  *
  * Copies the skill directory shipped inside this package into an agent's
  * skills directory, then verifies every copied byte against the source by
- * sha256. It installs FILES: it never runs the skill, never spawns a browser,
- * and never fetches anything. The skill itself stays zero-dependency — this
- * package has no dependencies either.
+ * sha256. The package's own README/LICENSE travel with it, because SKILL.md's
+ * references point at them. It installs FILES: it never runs the skill, never
+ * spawns a browser, and never fetches anything. The skill itself stays
+ * zero-dependency — this package has no dependencies either.
  *
  *   npx website-rebuild-skill                  ->  ~/.claude/skills/website-rebuild
  *   npx website-rebuild-skill --project        ->  ./.claude/skills/website-rebuild
@@ -37,6 +38,13 @@ const EXIT = { OK: 0, FAIL: 1, USAGE: 2 };
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SRC = path.join(HERE, "..", "skills", "website-rebuild");
 const LEAF = "website-rebuild";
+/**
+ * Repo-level docs that SKILL.md itself points at. Its "verified sites" table —
+ * the key every 【codename】 in SKILL.md resolves against — lives in README.md,
+ * so an install without it ships a dead reference. These docs ship at the
+ * package root, next to bin/ and skills/.
+ */
+const DOC_NAMES = ["README.md", "README.en.md", "LICENSE"];
 
 const VALUE_FLAGS = new Set(["dir"]);
 const BOOL_FLAGS = new Set(["project", "force", "dry-run", "help", "version"]);
@@ -117,10 +125,12 @@ function main() {
   const files = walk(SRC);
   const bytes = files.reduce((n, f) => n + statSync(path.join(SRC, f)).size, 0);
   const mb = (bytes / 1024 / 1024).toFixed(1);
+  const docs = DOC_NAMES.map((n) => path.join(HERE, "..", n)).filter((p) => existsSync(p));
 
   console.log(`website-rebuild v${version} — ${files.length} files, ${mb} MB`);
   console.log(`  from  ${SRC}`);
   console.log(`  into  ${dest}`);
+  if (docs.length) console.log(`  docs  ${docs.map((p) => path.basename(p)).join(", ")}`);
 
   if (existsSync(dest)) {
     const had = skillVersion(dest);
@@ -141,15 +151,18 @@ function main() {
 
   mkdirSync(skillsDir, { recursive: true });
   cpSync(SRC, dest, { recursive: true });
+  for (const doc of docs) cpSync(doc, path.join(dest, path.basename(doc)));
+  const manifest = new Map(files.map((f) => [f, path.join(SRC, f)]));
+  for (const doc of docs) manifest.set(path.basename(doc), doc);
 
   // Verify the copy the way the skill verifies a mirror: per-file sha256, both directions.
   const copied = walk(dest);
   const bad = [];
-  if (copied.length !== files.length) bad.push(`file count ${copied.length} != ${files.length}`);
-  for (const f of files) {
+  if (copied.length !== manifest.size) bad.push(`file count ${copied.length} != ${manifest.size}`);
+  for (const [f, source] of manifest) {
     const d = path.join(dest, f);
     if (!existsSync(d)) { bad.push(`missing: ${f}`); continue; }
-    if (sha256(path.join(SRC, f)) !== sha256(d)) bad.push(`sha256 differs: ${f}`);
+    if (sha256(source) !== sha256(d)) bad.push(`sha256 differs: ${f}`);
   }
   if (bad.length) {
     console.error(`\n⛔ copy did not verify (${bad.length} problem${bad.length > 1 ? "s" : ""}):`);
@@ -158,7 +171,8 @@ function main() {
     process.exit(EXIT.FAIL);
   }
 
-  console.log(`\n✅ installed and verified — ${files.length}/${files.length} files match by sha256.`);
+  console.log(`\n✅ installed and verified — ${manifest.size}/${manifest.size} files match by sha256.`);
+  if (docs.length) console.log(`   includes ${docs.length} repo doc${docs.length > 1 ? "s" : ""} so SKILL.md's references resolve: ${docs.map((p) => path.basename(p)).join(", ")}`);
   console.log(`\nNext: tell your agent to rebuild a site, e.g.`);
   console.log(`   "复刻 https://example.com" / "1:1 rebuild https://example.com"`);
 }
