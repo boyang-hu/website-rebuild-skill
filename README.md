@@ -301,6 +301,7 @@ README.en.md               # 英文版 README
 
 ## 友情链接
 
+- [PPFlight](https://www.ppflight.com/?aff=88888) —— 美国洛杉矶三网优化 VPS 商家，LIFT 系列提供电信 CN2 GIA / 联通 9929 / 移动 CMIN2 双向优化线路。我自己用下来，对线路质量很满意，晚高峰也很平稳；如果你看重国内直连美西的体验，这家值得看看。
 - [Termark](https://www.termark.app/?affiliateCode=7ZVEGY3IZA) —— 简洁好用的全平台 SSH / SFTP 客户端。我自己的主力 SSH 工具,用下来已经完全替代了 Termius 和 iShell pro:该有的都有,不该有的都没有,我要用的全都有!内置的 tmux 会话管理和 Docker 容器管理是我日常用得最多的两个功能,顺手到不想回去。
 - [linux.do](https://linux.do/u/80yan9/)
 - [v2ex](https://www.v2ex.com/member/Boyang)
