@@ -283,7 +283,7 @@ README.en.md               # 英文版 README
 
 版本随真实复刻项目递进：每个版本发布的功能与修复，都先在至少一个完整项目上验证过。
 
-完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.25**：社区 PR #3（zhuchongba-01 贡献）修复安装后缺少站点清单与许可证的问题。安装器会携带 `README.md`、`README.en.md`、`LICENSE`，全部安装文件统一做 SHA-256 校验；手动安装说明同步补齐。新增安装器回归用例，离线测试 **253 passed / 0 failed**，真实 npm 包安装 **134/134** 文件哈希一致。
+完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.26**：社区 PR #4（ZT1314888 / Lucky 贡献）修复同目录资产漏抓：`src="config.js"`、`href="style.css"`、`poster="cover.jpg"` 现在按文档 URL 正确解析，爬虫与闭包门同步生效；`data-*` 非 URL 过滤与 JS 路径保护保留。MeshAtlas 源站复核提取引用由 **2 条增至 12 条**，离线测试 **256 passed / 0 failed**。
 
 ## 贡献
 

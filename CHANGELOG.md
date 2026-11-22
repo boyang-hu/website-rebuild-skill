@@ -1,5 +1,17 @@
 # 更新记录
 
+## v0.3.26 — 同目录资产引用不再漏抓（社区 PR #4）
+
+[PR #4](https://github.com/boyang-hu/website-rebuild-skill/pull/4)
+（ZT1314888 / Lucky 贡献）修复文档相对引用提取器误丢同目录裸文件名的问题：
+`src="config.js"`、`href="style.css"`、`poster="cover.jpg"` 现在按文档 URL 正确解析。
+`data-*` 属性仍保留斜杠要求，过滤动画参数、版本号等非 URL 值；JS chunk 中的相对路径仍不猜测。
+爬虫与镜像闭包门共用提取器，因此两侧同时修复。
+
+实测目标为 GitHub Pages 上的手写站点 MeshAtlas。复核当前源站 HTML，提取引用由
+**2 条增至 12 条**；新增 3 条回归断言，本地离线测试 **256 passed / 0 failed**，
+PR 的离线与浏览器 CI 均通过。
+
 ## v0.3.25 — 安装时携带站点清单与许可证（社区 PR #3）
 
 [PR #3](https://github.com/boyang-hu/website-rebuild-skill/pull/3)
