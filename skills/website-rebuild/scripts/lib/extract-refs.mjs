@@ -147,7 +147,7 @@ const EXT_END = new RegExp(`\\.${EXT}$`, "i");
 const EXT_END_OR_QUERY = new RegExp(`\\.${EXT}($|\\?)`, "i");
 const ROOT_ATTR_RE = new RegExp(`(?:src|href|poster|content|data-src|data-poster|data-bg)=["'](\\/(?!\\/)[^"']+?\\.${EXT}(?:\\?[^"']*)?)["']`, "gi");
 const ROOT_LITERAL_RE = new RegExp(`["'](\\/(?!\\/)[A-Za-z0-9_\\-./@]+\\.${EXT})(\\?[^"']*)?["']`, "gi");
-const RELATIVE_ATTR_RE = new RegExp(`(?:src|href|poster|data-[a-z0-9-]+)\\s*=\\s*["']((?:\\.\\/)?[a-zA-Z0-9_][^"'<>\\s]*?\\.${EXT}(?:\\?[^"']*)?)["']`, "gi");
+const RELATIVE_ATTR_RE = new RegExp(`(src|href|poster|data-[a-z0-9-]+)\\s*=\\s*["']((?:\\.\\/)?[a-zA-Z0-9_][^"'<>\\s]*?\\.${EXT}(?:\\?[^"']*)?)["']`, "gi");
 
 /** Extensions whose bytes are text worth rescanning for references. */
 export const TEXT_REF_EXT =
@@ -535,30 +535,38 @@ export function createRefExtractor({ origin, originHost, assetHosts, onOffHost }
       }
     }
     // 6. DOCUMENT-RELATIVE attribute refs: src="./content/x/thumb.png",
-    // href="content/3.project/.../1.jpg", data-retina="…". Old-school sites
-    // (hand-written PHP-era HTML) spell most of their asset space this way,
-    // and shapes 1–5 are all blind to it: absolute, protocol-relative,
-    // ROOT-relative, srcset, CSS url() — none begins without a scheme or a
-    // slash. Measured on a 2018 rescue: every project-gallery thumb and
-    // lightbox image (`./content/…/thumb.png`, `…/1.jpg`) was invisible to
-    // the closure gate, which then reported ∅ over a mirror missing the whole
-    // gallery. The attr= anchor keeps JS operator soup out; addIfAsset's
-    // extension gate keeps page links out; resolution is against the DOCUMENT
-    // URL, exactly as the browser resolves it.
+    // href="content/3.project/.../1.jpg", data-retina="…", src="config.js".
+    // Old-school sites (hand-written PHP-era HTML) spell most of their asset
+    // space this way, and shapes 1–5 are all blind to it: absolute,
+    // protocol-relative, ROOT-relative, srcset, CSS url() — none begins
+    // without a scheme or a slash. Measured on a 2018 rescue: every
+    // project-gallery thumb and lightbox image (`./content/…/thumb.png`,
+    // `…/1.jpg`) was invisible to the closure gate, which then reported ∅
+    // over a mirror missing the whole gallery. The attr= anchor keeps JS
+    // operator soup out; addIfAsset's extension gate keeps page links out;
+    // resolution is against the DOCUMENT URL, exactly as the browser
+    // resolves it.
     // Two guards, both measured on the first retro-audit of this shape:
-    // ① the value must CONTAIN a slash — HTML data-attributes carry
-    //   dot-separated non-URLs (\`data-ease="power2.inOut"\`, version strings
-    //   like \`5.3.11\`) that wear an extension convincingly; a document-
-    //   relative asset reference in practice always crosses a directory.
+    // ① the value must CONTAIN a slash — EXCEPT on src/href/poster, where a
+    //   bare same-directory name ("src=\"config.js\"", "href=\"style.css\"")
+    //   is the classic hand-written-site spelling, and the browser resolves
+    //   it exactly like "dir/name": against the document. The junk that
+    //   motivated this guard — \`data-ease="power2.inOut"\`, version strings
+    //   like \`5.3.11\` — lives in data-* attributes, which KEEP the
+    //   requirement. Measured (meshatlas): with the unqualified slash rule
+    //   the crawler saved 2 of 13 assets and the closure gate stayed green
+    //   throughout — crawler and gate share this extractor, so the gate's
+    //   input was itself short a slice.
     // ② documents only — a relative string inside a JS chunk resolves against
     //   the CHUNK URL, which is a guess, not how any loader resolves it
     //   (import maps and __vite__mapDeps are shape territory elsewhere);
     //   CSS already has shape 5 with correct base semantics.
     if (baseUrl && !/\.(m?js|css)($|\?)/i.test(baseUrl)) {
       for (const m of text.matchAll(RELATIVE_ATTR_RE)) {
-        const v = m[1];
+        const attr = m[1].toLowerCase();
+        const v = m[2];
         if (/^(?:https?:|\/|#|data:|mailto:|tel:|javascript:)/i.test(v)) continue;
-        if (!v.includes("/")) continue;
+        if (!v.includes("/") && attr.startsWith("data-")) continue;
         try {
           addIfAsset(new URL(v, baseUrl).href, urls);
         } catch {}

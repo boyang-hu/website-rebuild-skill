@@ -130,6 +130,23 @@ const TMP = scratch(".tmp");
     !refs(`<div data-ease="power2.inOut" data-speed="0.35">`).some((u) => /inOut|0\.35/.test(u)));
   truthy("extract — js chunk-relative not guessed (v0.2.6 guard 2)",
     !refs(`x.src="img/deep.png"`, "https://x.com/chunk.js").some((u) => u.includes("deep.png")));
+  // v0.3.26 (meshatlas, github.com/lij768423-svg/meshatlas): a BARE
+  // same-directory name in src/href — `src="config.js"`, `href="style.css"` —
+  // is the classic hand-written-site spelling, and the browser resolves it
+  // against the document exactly as it resolves "dir/name". Guard ①'s
+  // unqualified slash rule dropped every such hit: the crawler saved 2 of 13
+  // assets while the closure gate stayed green throughout — crawler and gate
+  // share this extractor, so the gate's input was itself short a slice.
+  const mx = refs(`<link rel="stylesheet" href="style.css"><link rel="icon" href="favicon.svg">` +
+    `<script src="config.js"></script><script src="vendor/d3.min.js"></script>`, "https://x.com/meshatlas/");
+  eq("extract — bare same-directory src/href resolved (v0.3.26)",
+    ["https://x.com/meshatlas/style.css", "https://x.com/meshatlas/favicon.svg",
+     "https://x.com/meshatlas/config.js", "https://x.com/meshatlas/vendor/d3.min.js"]
+    .filter((u) => mx.includes(u)).length, 4);
+  truthy("extract — data-* still requires a directory (v0.3.26 guard ①)",
+    !refs(`<div data-ease="power2.inOut" data-speed="0.35" data-version="5.3.11">`).some((u) => /inOut|0\.35|5\.3\.11/.test(u)));
+  truthy("extract — bare same-directory page link still extracted (page routing stays with the crawler) (v0.3.26)",
+    refs(`<a href="about.html">`, "https://x.com/").includes("https://x.com/about.html"));
   // v0.3.16: ONE extension cap, lib/urlpath.mjs's {1,12}. The extractor carried
   // `{2,5}` in five places, so `.webmanifest` (11) and `.jsonld` (6) were pages
   // to it — never queued — while the mapper called them assets.
